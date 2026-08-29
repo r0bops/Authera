@@ -32,6 +32,7 @@ import {
   Select,
 } from '../components/ui/primitives.js';
 import { formatDateTime, formatMoney, inputToMinor, shortId } from '../lib/format.js';
+import { intentTitle } from '../lib/intent.js';
 
 type LastResult = { label: string; at: string; value: unknown };
 
@@ -253,7 +254,7 @@ export function DemoControlPage() {
                 >
                   {(mandates.data ?? []).map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.policy.intent.origin} → {m.policy.intent.destination} · max{' '}
+                      {intentTitle(m.policy.intent)} · max{' '}
                       {formatMoney({
                         currency: m.policy.limits.currency,
                         minor: m.policy.limits.maxPerPurchaseMinor,

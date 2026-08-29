@@ -7,6 +7,7 @@ import {
   type PolicyInput,
   type PolicyVerdict,
   type ReasonCode,
+  normalizeQuery,
 } from '@authera/contracts';
 import { equalMoney } from '../money/index.js';
 
@@ -152,50 +153,75 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
       return block('CURRENCY_MISMATCH');
     }
 
-    // 7. Intent: route, cabin, passengers are hard constraints; the date window is approvable.
+    // 7. Intent. The offer kind must match the mandate's intent type, then kind-specific
+    //    hard constraints apply; only a flight's date window is approvable.
     const intent = mandate.intent;
-    const routeOk =
-      normalizeCode(offer.origin) === intent.origin &&
-      normalizeCode(offer.destination) === intent.destination;
-    if (
-      !check(
-        'INTENT_ROUTE',
-        routeOk,
-        `${intent.origin}->${intent.destination}`,
-        `${normalizeCode(offer.origin)}->${normalizeCode(offer.destination)}`,
-      )
-    ) {
+    let dateOk = true;
+    if (!check('INTENT_KIND', offer.kind === intent.type, intent.type, offer.kind)) {
       return block('INTENT_MISMATCH');
     }
-    if (
-      !check(
-        'INTENT_CABIN',
-        normalizeCabin(offer.cabin) === intent.cabin,
-        intent.cabin,
-        offer.cabin,
-      )
-    ) {
-      return block('INTENT_MISMATCH');
+    if (intent.type === 'flight') {
+      const origin = normalizeCode(offer.origin ?? '');
+      const destination = normalizeCode(offer.destination ?? '');
+      const routeOk = origin === intent.origin && destination === intent.destination;
+      if (
+        !check(
+          'INTENT_ROUTE',
+          routeOk,
+          `${intent.origin}->${intent.destination}`,
+          `${origin}->${destination}`,
+        )
+      ) {
+        return block('INTENT_MISMATCH');
+      }
+      if (
+        !check(
+          'INTENT_CABIN',
+          normalizeCabin(offer.cabin ?? '') === intent.cabin,
+          intent.cabin,
+          offer.cabin ?? null,
+        )
+      ) {
+        return block('INTENT_MISMATCH');
+      }
+      if (
+        !check(
+          'INTENT_PASSENGERS',
+          offer.passengerCount === intent.passengerCount,
+          intent.passengerCount,
+          offer.passengerCount ?? null,
+        )
+      ) {
+        return block('INTENT_MISMATCH');
+      }
+      const departureDate = (offer.departureAt ?? '').slice(0, 10);
+      dateOk = departureDate >= intent.departureDateFrom && departureDate <= intent.departureDateTo;
+      check(
+        'INTENT_DATES',
+        dateOk,
+        { from: intent.departureDateFrom, to: intent.departureDateTo },
+        departureDate,
+      );
+    } else {
+      // Goods: the offer must have been discovered under this mandate's exact query (the
+      // server records the query at discovery time; the agent cannot relabel an offer).
+      const queryOk =
+        offer.searchQuery !== undefined &&
+        normalizeQuery(offer.searchQuery) === normalizeQuery(intent.query);
+      if (!check('INTENT_QUERY', queryOk, intent.query, offer.searchQuery ?? null)) {
+        return block('INTENT_MISMATCH');
+      }
+      if (
+        !check(
+          'INTENT_QUANTITY',
+          offer.quantity <= intent.maxQuantity,
+          intent.maxQuantity,
+          offer.quantity,
+        )
+      ) {
+        return block('INTENT_MISMATCH');
+      }
     }
-    if (
-      !check(
-        'INTENT_PASSENGERS',
-        offer.passengerCount === intent.passengerCount,
-        intent.passengerCount,
-        offer.passengerCount,
-      )
-    ) {
-      return block('INTENT_MISMATCH');
-    }
-    const departureDate = offer.departureAt.slice(0, 10);
-    const dateOk =
-      departureDate >= intent.departureDateFrom && departureDate <= intent.departureDateTo;
-    check(
-      'INTENT_DATES',
-      dateOk,
-      { from: intent.departureDateFrom, to: intent.departureDateTo },
-      departureDate,
-    );
 
     // 8. Usage count is never approvable: a one-use mandate fulfils once.
     const nextCount = runtime.consumedCount + runtime.reservedCount + 1;

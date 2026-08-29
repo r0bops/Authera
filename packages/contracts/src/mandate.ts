@@ -33,6 +33,34 @@ export const FlightIntentSchema = z
   });
 export type FlightIntent = z.infer<typeof FlightIntentSchema>;
 
+/**
+ * Marketplace purchase: "buy me <query>". The agent may only request an offer that was
+ * discovered under exactly this query, at most `maxQuantity` units, within the money limits.
+ */
+export const GoodsIntentSchema = z.strictObject({
+  type: z.literal('goods'),
+  query: z.string().trim().min(2).max(80),
+  maxQuantity: z.number().int().min(1).max(10),
+});
+export type GoodsIntent = z.infer<typeof GoodsIntentSchema>;
+
+export const IntentSchema = z.discriminatedUnion('type', [FlightIntentSchema, GoodsIntentSchema]);
+export type Intent = z.infer<typeof IntentSchema>;
+export type IntentType = Intent['type'];
+
+/** Short human title for any intent, e.g. "CCS → COR" or "“running socks” × up to 2". */
+export function intentTitle(intent: Intent): string {
+  if (intent.type === 'flight') return `${intent.origin} → ${intent.destination}`;
+  return intent.maxQuantity === 1
+    ? `“${intent.query}”`
+    : `“${intent.query}” × up to ${intent.maxQuantity}`;
+}
+
+/** Normalized form used when comparing a stored offer's search query with a mandate's query. */
+export function normalizeQuery(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 export const MandateLimitsSchema = z
   .strictObject({
     currency: CurrencySchema,
@@ -63,7 +91,7 @@ export const MandatePolicyV1Schema = z
     agentKeyThumbprint: z.string().min(1),
     allowedMerchantIds: z.array(z.uuid()).min(1),
     paymentMethodRef: z.string().min(1),
-    intent: FlightIntentSchema,
+    intent: IntentSchema,
     limits: MandateLimitsSchema,
     validFrom: z.iso.datetime(),
     validUntil: z.iso.datetime(),

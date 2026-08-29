@@ -18,6 +18,12 @@ export const FlightSearchQuerySchema = z.strictObject({
 });
 export type FlightSearchQuery = z.infer<typeof FlightSearchQuerySchema>;
 
+export const ProductSearchQuerySchema = z.strictObject({
+  q: z.string().trim().min(2).max(80),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+export type ProductSearchQuery = z.infer<typeof ProductSearchQuerySchema>;
+
 /** Offer plus a display line; price and currency remain server-owned. */
 export const FlightOfferViewSchema = OfferSchema.extend({ summary: z.string() });
 export type FlightOfferView = z.infer<typeof FlightOfferViewSchema>;

@@ -22,6 +22,8 @@ const OFFER_BOG = '55555555-5555-4555-8555-000000000900';
 function offer(id: string, minor: number, overrides: Partial<Offer> = {}): Offer {
   return {
     id,
+    kind: 'flight',
+    quantity: 1,
     merchantId: FIXTURE_IDS.merchantId,
     merchantName: 'VuelaYa',
     market: 'VE',

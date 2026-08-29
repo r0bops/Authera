@@ -11,6 +11,7 @@ import {
   type FlightSearchResult,
   type RequestPurchaseToolInput,
   type SearchFlightsInput,
+  type SearchProductsInput,
 } from './schemas.js';
 
 export type GatewayCallOptions = { signal?: AbortSignal };
@@ -18,6 +19,10 @@ export type GatewayCallOptions = { signal?: AbortSignal };
 export interface PurchasingAgentGateway {
   searchFlights(
     input: SearchFlightsInput,
+    options?: GatewayCallOptions,
+  ): Promise<FlightSearchResult>;
+  searchProducts(
+    input: SearchProductsInput,
     options?: GatewayCallOptions,
   ): Promise<FlightSearchResult>;
   requestPurchase(
@@ -101,11 +106,29 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
       },
       signal: options.signal,
     });
+    return this.prepareAll(response, options.signal);
+  }
+
+  async searchProducts(
+    input: SearchProductsInput,
+    options: GatewayCallOptions = {},
+  ): Promise<FlightSearchResult> {
+    const response = await this.transport.request({
+      method: 'GET',
+      path: '/api/products',
+      tag: 'authera:browse',
+      query: { q: input.query },
+      signal: options.signal,
+    });
+    return this.prepareAll(response, options.signal);
+  }
+
+  private async prepareAll(response: unknown, signal?: AbortSignal): Promise<FlightSearchResult> {
     const offers = parseGatewayResponse(z.array(FlightOfferViewSchema).max(100), response);
     // A live offer can expire or re-price between search and checkout; that offer is dropped
     // (fail closed per offer) rather than aborting the whole search.
     const settled = await Promise.allSettled(
-      offers.map((offer) => this.prepareCheckout(offer, options.signal)),
+      offers.map((offer) => this.prepareCheckout(offer, signal)),
     );
     const prepared = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
     return FlightSearchResultSchema.parse({ offers: prepared });
@@ -147,12 +170,15 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
     return {
       offerId: offer.id,
       checkoutId: checkout.id,
+      kind: offer.kind,
       merchantId: offer.merchantId,
       merchantName: offer.merchantName,
       market: offer.market,
-      origin: offer.origin,
-      destination: offer.destination,
-      departureAt: offer.departureAt,
+      ...(offer.origin !== undefined ? { origin: offer.origin } : {}),
+      ...(offer.destination !== undefined ? { destination: offer.destination } : {}),
+      ...(offer.departureAt !== undefined ? { departureAt: offer.departureAt } : {}),
+      ...(offer.title !== undefined ? { title: offer.title } : {}),
+      quantity: offer.quantity,
       totalMinor: offer.total.minor,
       currency: offer.total.currency,
       displaySummary: offer.summary,

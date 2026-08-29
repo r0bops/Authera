@@ -30,6 +30,11 @@ import { databaseAgentIdentityStore } from './services/agent-identity.js';
 import { AgentRunner } from './services/agent-runner.js';
 import { DuffelFlightMarketProvider } from './services/flight-market/duffel-provider.js';
 import type { FlightMarketProvider } from './services/flight-market/provider.js';
+import {
+  ShopifyStorefrontProvider,
+  type GoodsMarketProvider,
+} from './services/goods-market/shopify-provider.js';
+import { productRoutes } from './routes/gateway/products.js';
 import { ApprovalService } from './services/approval-service.js';
 import { Ap2EvidenceService } from './services/ap2-evidence.js';
 import { DisputeService } from './services/dispute-service.js';
@@ -131,7 +136,22 @@ export function createApp(deps: AppDependencies): App {
         }),
       );
     }
-    const checkout = new CheckoutService({ db, clock, markets, logger: deps.logger });
+    const goodsMarkets: GoodsMarketProvider[] = [];
+    if (deps.config.markets.shopify) {
+      goodsMarkets.push(
+        new ShopifyStorefrontProvider({
+          storeUrl: deps.config.markets.shopify.storeUrl,
+          merchantId: SEED_IDS.allbirds,
+        }),
+      );
+    }
+    const checkout = new CheckoutService({
+      db,
+      clock,
+      markets,
+      goodsMarkets,
+      logger: deps.logger,
+    });
     const payments = new PaymentService({
       store: databasePaymentStore(db),
       processor: paymentProcessor,
@@ -151,6 +171,8 @@ export function createApp(deps: AppDependencies): App {
     app.route('/api/agent', agentPingRoutes());
     app.use('/api/flights', agentSignature({ store: identity, clock, tag: AGENT_TAGS.browse }));
     app.route('/api/flights', flightRoutes({ checkout }));
+    app.use('/api/products', agentSignature({ store: identity, clock, tag: AGENT_TAGS.browse }));
+    app.route('/api/products', productRoutes({ checkout }));
     app.use('/ucp/*', agentSignature({ store: identity, clock, tag: AGENT_TAGS.browse }));
     app.route('/ucp/v1', checkoutRoutes({ checkout }));
     app.use(

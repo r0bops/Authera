@@ -71,6 +71,8 @@ export function policyInputFixture(overrides: DeepPartial<PolicyInput> = {}): Po
     merchant: { id: FIXTURE_IDS.merchantId },
     offer: {
       id: FIXTURE_IDS.offerId,
+      kind: 'flight',
+      quantity: 1,
       merchantId: FIXTURE_IDS.merchantId,
       origin: 'CCS',
       destination: 'COR',

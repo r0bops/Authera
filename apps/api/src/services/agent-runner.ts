@@ -76,15 +76,27 @@ export class AgentRunner {
     const mandate = await getMandate(this.deps.db, input.mandateId);
     if (!mandate) throw ApiProblem.notFound('mandate');
     const policy = mandate.policy;
-    const task: PurchasingTask = {
-      origin: policy.intent.origin,
-      destination: policy.intent.destination,
-      departureDateFrom: policy.intent.departureDateFrom,
-      departureDateTo: policy.intent.departureDateTo,
+    const limits = {
       mandateId: policy.mandateId,
       maxAmountMinor: policy.limits.maxPerPurchaseMinor,
       currency: policy.limits.currency,
     };
+    const task: PurchasingTask =
+      policy.intent.type === 'goods'
+        ? {
+            kind: 'goods',
+            query: policy.intent.query,
+            maxQuantity: policy.intent.maxQuantity,
+            ...limits,
+          }
+        : {
+            kind: 'flight',
+            origin: policy.intent.origin,
+            destination: policy.intent.destination,
+            departureDateFrom: policy.intent.departureDateFrom,
+            departureDateTo: policy.intent.departureDateTo,
+            ...limits,
+          };
     const mode = input.mode ?? this.deps.config.agent.mode;
     const client = await this.client();
     const gateway = new HttpPurchasingAgentGateway(new AgentHttpClientTransport(client), () =>

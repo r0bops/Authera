@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AuditEventSchema } from './audit.js';
 import {
-  FlightIntentSchema,
+  IntentSchema,
   MandateEscalationSchema,
   MandateLimitsSchema,
   MandatePolicyV1Schema,
@@ -14,7 +14,7 @@ export const CreateMandateRequestSchema = z.strictObject({
   paymentMethodId: z.uuid(),
   /** Defaults to every active merchant on the platform. */
   allowedMerchantIds: z.array(z.uuid()).min(1).optional(),
-  intent: FlightIntentSchema,
+  intent: IntentSchema,
   limits: MandateLimitsSchema,
   validUntil: z.iso.datetime(),
   escalation: MandateEscalationSchema.default('block'),
@@ -23,7 +23,7 @@ export type CreateMandateRequest = z.infer<typeof CreateMandateRequestSchema>;
 
 export const ReviseMandateRequestSchema = z
   .strictObject({
-    intent: FlightIntentSchema.optional(),
+    intent: IntentSchema.optional(),
     limits: MandateLimitsSchema.optional(),
     validUntil: z.iso.datetime().optional(),
     escalation: MandateEscalationSchema.optional(),

@@ -45,6 +45,7 @@ describe('evaluatePolicy — allow paths', () => {
       'CHECKOUT_TOTAL',
       'CHECKOUT_EXPIRY',
       'CURRENCY',
+      'INTENT_KIND',
       'INTENT_ROUTE',
       'INTENT_CABIN',
       'INTENT_PASSENGERS',

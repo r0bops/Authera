@@ -7,6 +7,7 @@ import type { CreateMandateRequest } from '@authera/contracts';
 import { useCreateMandate, useMe } from '../api/hooks.js';
 import {
   Alert,
+  Badge,
   Button,
   Card,
   FieldError,
@@ -22,6 +23,9 @@ import { endOfMonthIso, formatMoney, inputToMinor } from '../lib/format.js';
 
 const FormSchema = z
   .object({
+    category: z.enum(['flight', 'goods']),
+    query: z.string().trim().max(80),
+    maxQuantity: z.coerce.number().int().min(1).max(10),
     origin: z
       .string()
       .trim()
@@ -41,22 +45,30 @@ const FormSchema = z
     maxFulfillments: z.coerce.number().int().min(1).max(10),
     validUntil: z.string().min(1, 'Pick an expiry'),
     paymentMethodId: z.string().uuid('Choose a payment method'),
-    /** Empty means every active merchant (the API default). */
     allowedMerchantIds: z.array(z.string().uuid()),
     escalate: z.boolean(),
   })
-  .refine((v) => v.departureDateFrom <= v.departureDateTo, {
+  .refine((v) => v.category !== 'flight' || v.departureDateFrom <= v.departureDateTo, {
     message: 'The window must end after it starts',
     path: ['departureDateTo'],
   })
-  .refine((v) => v.origin !== v.destination, {
+  .refine((v) => v.category !== 'flight' || v.origin !== v.destination, {
     message: 'Origin and destination must differ',
     path: ['destination'],
+  })
+  .refine((v) => v.category !== 'goods' || v.query.length >= 2, {
+    message: 'Describe what to buy',
+    path: ['query'],
   });
 type FormInput = z.input<typeof FormSchema>;
 type FormValues = z.output<typeof FormSchema>;
 
-const STEPS = ['Trip', 'Conditions', 'Review & authorize'] as const;
+const STEPS = ['What you need', 'Your rules', 'Review'] as const;
+
+const CATEGORIES = [
+  { value: 'flight', title: 'Flight', hint: 'A ticket on a route, within a travel window' },
+  { value: 'goods', title: 'Product', hint: 'An item from a connected store' },
+] as const;
 
 export function NewMandatePage() {
   const me = useMe();
@@ -68,6 +80,9 @@ export function NewMandatePage() {
     resolver: zodResolver(FormSchema),
     mode: 'onBlur',
     defaultValues: {
+      category: 'flight',
+      query: '',
+      maxQuantity: 1,
       origin: 'CCS',
       destination: 'COR',
       departureDateFrom: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1))
@@ -87,7 +102,10 @@ export function NewMandatePage() {
   });
   const values = useWatch({ control: form.control }) as FormInput;
   const paymentMethods = me.data?.paymentMethods ?? [];
-  const merchants = me.data?.merchants ?? [];
+  const allMerchants = me.data?.merchants ?? [];
+  const merchants = allMerchants.filter((m) =>
+    values.category === 'goods' ? m.slug !== 'duffel' : m.slug === 'duffel',
+  );
   const allowedMerchantIds = values.allowedMerchantIds ?? [];
   const allowedMerchants =
     allowedMerchantIds.length === 0
@@ -111,15 +129,25 @@ export function NewMandatePage() {
       form.setValue('paymentMethodId', defaultPaymentMethodId);
     }
   }, [defaultPaymentMethodId, form, values.paymentMethodId]);
+  useEffect(() => {
+    form.setValue('allowedMerchantIds', []);
+  }, [form, values.category]);
   const maxMinor = inputToMinor(values.maxPerPurchase);
-  const preview = Number.isFinite(maxMinor)
-    ? `Buy ${values.passengerCount === 1 ? 'one' : values.passengerCount} economy flight${values.passengerCount === 1 ? '' : 's'} from ${airportLabel(values.origin)} to ${airportLabel(values.destination)}, leaving between ${values.departureDateFrom} and ${values.departureDateTo}, if the total is ${formatMoney({ currency: 'USD', minor: maxMinor })} or less — ${values.maxFulfillments === 1 ? 'a single purchase' : `up to ${values.maxFulfillments} purchases`}, until ${values.validUntil.replace('T', ' ')}. ${values.escalate ? 'Anything outside these limits pauses and asks you first.' : 'Anything outside these limits is blocked.'}`
-    : 'Set a maximum price to see the preview.';
+  const previewTail = Number.isFinite(maxMinor)
+    ? `if the total is ${formatMoney({ currency: 'USD', minor: maxMinor })} or less — ${values.maxFulfillments === 1 ? 'a single purchase' : `up to ${values.maxFulfillments} purchases`}, until ${values.validUntil.replace('T', ' ')}. ${values.escalate ? 'Anything outside these limits pauses and asks you first.' : 'Anything outside these limits is blocked.'}`
+    : null;
+  const preview = !previewTail
+    ? 'Set a maximum price to see the preview.'
+    : values.category === 'goods'
+      ? `Buy “${values.query || '···'}” (${Number(values.maxQuantity) === 1 ? 'one unit' : `up to ${values.maxQuantity} units`}) from a connected store, ${previewTail}`
+      : `Buy ${values.passengerCount === 1 ? 'one' : values.passengerCount} economy flight${values.passengerCount === 1 ? '' : 's'} from ${airportLabel(values.origin)} to ${airportLabel(values.destination)}, leaving between ${values.departureDateFrom} and ${values.departureDateTo}, ${previewTail}`;
 
   const next = async () => {
     const fields: Array<keyof FormValues> =
       step === 0
-        ? ['origin', 'destination', 'departureDateFrom', 'departureDateTo', 'passengerCount']
+        ? values.category === 'goods'
+          ? ['query', 'maxQuantity']
+          : ['origin', 'destination', 'departureDateFrom', 'departureDateTo', 'passengerCount']
         : ['maxPerPurchase', 'maxFulfillments', 'validUntil', 'paymentMethodId'];
     if (step === 1 && allowedMerchants.length === 0) {
       form.setError('allowedMerchantIds', { message: 'Allow at least one merchant' });
@@ -130,20 +158,25 @@ export function NewMandatePage() {
 
   const submit = form.handleSubmit(async (v) => {
     const minor = inputToMinor(v.maxPerPurchase);
+    const intent: CreateMandateRequest['intent'] =
+      v.category === 'goods'
+        ? { type: 'goods', query: v.query, maxQuantity: v.maxQuantity }
+        : {
+            type: 'flight',
+            origin: v.origin,
+            destination: v.destination,
+            cabin: 'economy',
+            departureDateFrom: v.departureDateFrom,
+            departureDateTo: v.departureDateTo,
+            passengerCount: v.passengerCount,
+          };
     const request: CreateMandateRequest = {
       paymentMethodId: v.paymentMethodId,
-      ...(v.allowedMerchantIds.length > 0 && v.allowedMerchantIds.length < merchants.length
-        ? { allowedMerchantIds: v.allowedMerchantIds }
+      // Always explicit: a product mandate must not be able to buy from the flight market.
+      ...(allowedMerchants.length > 0
+        ? { allowedMerchantIds: allowedMerchants.map((m) => m.id) }
         : {}),
-      intent: {
-        type: 'flight',
-        origin: v.origin,
-        destination: v.destination,
-        cabin: 'economy',
-        departureDateFrom: v.departureDateFrom,
-        departureDateTo: v.departureDateTo,
-        passengerCount: v.passengerCount,
-      },
+      intent,
       limits: {
         currency: 'USD',
         maxPerPurchaseMinor: minor,
@@ -160,10 +193,10 @@ export function NewMandatePage() {
   return (
     <>
       <PageHeader
-        title="Create purchase mandate"
-        description="A mandate is a signed, bounded authorization. Your agent can only buy what it describes — never more."
+        title="Plan a purchase"
+        description="Describe what you need once. Aria will search and can only buy inside the rules you approve."
       />
-      <ol className="mb-4 flex items-center gap-2 text-[12.5px]">
+      <ol className="mb-4 grid grid-cols-3 gap-2 text-[12px] sm:flex sm:items-center sm:text-[12.5px]">
         {STEPS.map((label, i) => (
           <li key={label} className="flex items-center gap-2">
             <span
@@ -178,19 +211,75 @@ export function NewMandatePage() {
               {label}
             </span>
             {i < STEPS.length - 1 ? (
-              <span className="mx-1 h-px w-8 bg-line-strong" aria-hidden />
+              <span className="mx-1 hidden h-px w-8 bg-line-strong sm:block" aria-hidden />
             ) : null}
           </li>
         ))}
       </ol>
-      <form onSubmit={submit} className="grid grid-cols-12 gap-4">
-        <div className="col-span-8">
+      <form onSubmit={submit} className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-8">
           {step === 0 ? (
             <Card
-              title="Where and when"
-              description="Describe the trip the way you would to a travel agent."
+              title={values.category === 'goods' ? 'What to buy' : 'Where and when'}
+              description={
+                values.category === 'goods'
+                  ? 'Describe the product the way you would to a personal shopper.'
+                  : 'Describe the trip the way you would to a travel agent.'
+              }
             >
-              <div className="grid grid-cols-2 gap-4">
+              <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                {CATEGORIES.map((c) => (
+                  <label
+                    key={c.value}
+                    className={cn(
+                      'flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2.5 text-[13px]',
+                      values.category === c.value
+                        ? 'border-cobalt bg-cobalt-soft/40'
+                        : 'border-line hover:border-line-strong',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="category"
+                      className="mt-0.5"
+                      checked={values.category === c.value}
+                      onChange={() => form.setValue('category', c.value)}
+                    />
+                    <span>
+                      <span className="block font-medium text-ink">{c.title}</span>
+                      <span className="block text-[12px] text-ink-muted">{c.hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {values.category === 'goods' ? (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="query" hint="as you would type it into a store search">
+                      What should it buy?
+                    </Label>
+                    <Input id="query" placeholder="wool runner" {...form.register('query')} />
+                    <FieldError message={form.formState.errors.query?.message} />
+                  </div>
+                  <div>
+                    <Label htmlFor="qty">Up to how many?</Label>
+                    <Input
+                      id="qty"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      {...form.register('maxQuantity')}
+                    />
+                    <FieldError message={form.formState.errors.maxQuantity?.message} />
+                  </div>
+                </div>
+              ) : null}
+              <div
+                className={cn(
+                  'grid gap-4 sm:grid-cols-2',
+                  values.category !== 'flight' && 'hidden',
+                )}
+              >
                 <div>
                   <Label htmlFor="origin">Flying from</Label>
                   <Select id="origin" {...form.register('origin')}>
@@ -227,9 +316,9 @@ export function NewMandatePage() {
                   <Label htmlFor="pax">Travellers</Label>
                   <Input
                     id="pax"
-                    type="number"
-                    min={1}
-                    max={9}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     {...form.register('passengerCount')}
                   />
                   <FieldError message={form.formState.errors.passengerCount?.message} />
@@ -244,11 +333,11 @@ export function NewMandatePage() {
           {step === 1 ? (
             <Card
               title="How much, how often, until when"
-              description="These are hard limits. The agent cannot exceed any of them, and the gateway checks every purchase against them."
+              description="Authera checks every one of these rules before any payment. Anything outside them is stopped."
             >
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="max" hint="USD, total per ticket">
+                  <Label htmlFor="max" hint="USD, total per purchase">
                     Spend up to
                   </Label>
                   <Input
@@ -265,9 +354,9 @@ export function NewMandatePage() {
                   </Label>
                   <Input
                     id="uses"
-                    type="number"
-                    min={1}
-                    max={10}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     {...form.register('maxFulfillments')}
                   />
                   <FieldError message={form.formState.errors.maxFulfillments?.message} />
@@ -288,7 +377,7 @@ export function NewMandatePage() {
                   </Select>
                   <FieldError message={form.formState.errors.paymentMethodId?.message} />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <Label>Where it may buy</Label>
                   {merchants.length <= 1 ? (
                     <p className="text-[13px] text-ink">
@@ -300,8 +389,7 @@ export function NewMandatePage() {
                   ) : (
                     <>
                       <p className="mb-1.5 text-[12px] text-ink-faint">
-                        The agent searches all of them; untick one and the gateway blocks any
-                        purchase from it.
+                        Aria searches all of them. Deselect a provider to prevent purchases from it.
                       </p>
                       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                         {merchants.map((m) => {
@@ -322,11 +410,12 @@ export function NewMandatePage() {
                   )}
                   <FieldError message={form.formState.errors.allowedMerchantIds?.message} />
                 </div>
-                <fieldset className="col-span-2">
+                <fieldset className="sm:col-span-2">
                   <legend className="mb-1.5 text-[12.5px] font-medium text-ink">
-                    If the agent finds a flight outside these limits
+                    If the agent finds {values.category === 'goods' ? 'a product' : 'a flight'}{' '}
+                    outside these limits
                   </legend>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {(
                       [
                         {
@@ -370,30 +459,41 @@ export function NewMandatePage() {
           ) : null}
           {step === 2 ? (
             <Card
-              title="Authorization summary"
-              description="This is what you are signing. The agent can do exactly this, and nothing else."
+              title="Review your plan"
+              description="Read this once before Aria starts. It can do exactly this and nothing more."
             >
               <KeyValue
                 items={[
                   {
                     label: 'Agent',
                     value: (
-                      <span>
-                        {me.data?.agents[0]?.displayName ?? 'Purchasing agent'}{' '}
-                        <span className="font-mono text-[11.5px] text-ink-faint">
-                          {me.data?.agents[0]?.keyThumbprint?.slice(0, 16) ?? ''}…
-                        </span>
+                      <span className="inline-flex items-center gap-2">
+                        {me.data?.agents[0]?.displayName ?? 'Purchasing agent'}
+                        <Badge tone="verified">Verified</Badge>
                       </span>
                     ),
                   },
-                  {
-                    label: 'Trip',
-                    value: `${airportLabel(values.origin)} → ${airportLabel(values.destination)}, ${values.passengerCount} traveller${values.passengerCount === 1 ? '' : 's'}, economy`,
-                  },
-                  {
-                    label: 'Leaving between',
-                    value: `${values.departureDateFrom} → ${values.departureDateTo}`,
-                  },
+                  ...(values.category === 'goods'
+                    ? [
+                        { label: 'Product', value: `“${values.query}”` },
+                        {
+                          label: 'Quantity',
+                          value:
+                            Number(values.maxQuantity) === 1
+                              ? 'one unit'
+                              : `up to ${values.maxQuantity} units`,
+                        },
+                      ]
+                    : [
+                        {
+                          label: 'Trip',
+                          value: `${airportLabel(values.origin)} → ${airportLabel(values.destination)}, ${values.passengerCount} traveller${values.passengerCount === 1 ? '' : 's'}, economy`,
+                        },
+                        {
+                          label: 'Leaving between',
+                          value: `${values.departureDateFrom} → ${values.departureDateTo}`,
+                        },
+                      ]),
                   {
                     label: 'Spend up to',
                     value: (
@@ -428,22 +528,22 @@ export function NewMandatePage() {
               <details className="mt-3 rounded-md border border-line px-3 py-2 text-[13px]">
                 <summary className="font-medium">What your agent can do</summary>
                 <p className="mt-1 text-ink-muted">
-                  Search every connected market for flights on this route, prepare a checkout for an
-                  eligible offer, and request the purchase through the gateway using your tokenized
-                  payment method.
+                  {values.category === 'goods'
+                    ? 'Search connected stores for this product, compare eligible offers, and request one using your saved payment method.'
+                    : 'Search connected flight providers for this route, compare eligible offers, and request one using your saved payment method.'}
                 </p>
               </details>
               <details className="mt-2 rounded-md border border-line px-3 py-2 text-[13px]">
                 <summary className="font-medium">What it cannot do</summary>
                 <p className="mt-1 text-ink-muted">
-                  Spend above the limit, buy a different route or cabin, buy after expiry, buy more
-                  than the permitted count, change the cart after authorization, or reach the
-                  payment processor on its own.
+                  {values.category === 'goods'
+                    ? 'Spend above your limit, buy a different product, exceed the quantity, buy after expiry, or change the checkout after you approve it.'
+                    : 'Spend above your limit, buy a different route or cabin, buy after expiry, or change the checkout after you approve it.'}
                 </p>
               </details>
               {create.isError ? (
                 <div className="mt-3">
-                  <Alert tone="destructive" title="Could not create the mandate">
+                  <Alert tone="destructive" title="Could not start this plan">
                     {create.error.message}
                   </Alert>
                 </div>
@@ -471,18 +571,24 @@ export function NewMandatePage() {
               </Button>
             ) : (
               <Button type="submit" loading={create.isPending}>
-                Authorize mandate
+                Authorize and start
               </Button>
             )}
           </div>
         </div>
-        <aside className="col-span-4">
-          <Card title="Mandate preview" className="sticky top-5">
+        <aside className="lg:col-span-4">
+          <Card title="Your plan" className="lg:sticky lg:top-5">
             <p className="text-[13.5px] leading-relaxed text-ink">{preview}</p>
-            <p className="mt-3 text-[12px] text-ink-faint">
-              Signed by the trusted surface with an Ed25519 key and bound to your agent’s key.
-              Revocable at any time.
+            <p className="mt-3 text-[12px] text-ink-muted">
+              Nothing is charged when you create this plan. You can change or stop it at any time.
             </p>
+            <details className="mt-3 border-t border-line pt-3 text-[12px]">
+              <summary className="min-h-10 font-medium text-cobalt">Proof & details</summary>
+              <p className="mt-1 text-ink-muted">
+                Authera signs this authorization and binds it to Aria’s verified key. Every later
+                purchase is checked against the signed rules and current revocation state.
+              </p>
+            </details>
           </Card>
         </aside>
       </form>

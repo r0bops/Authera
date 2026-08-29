@@ -36,6 +36,7 @@ import {
   shortHash,
   shortId,
 } from '../lib/format.js';
+import { intentLabel, intentTitle, offerInScope } from '../lib/intent.js';
 
 export function MandateDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -70,28 +71,28 @@ export function MandateDetailPage() {
   return (
     <>
       <PageHeader
-        title={`${m.policy.intent.origin} → ${m.policy.intent.destination}`}
+        title={intentLabel(m.policy.intent)}
         meta={<MandateStatusBadge status={m.status} />}
         description={m.summary}
         actions={
           <>
             <Button variant="secondary" onClick={openRevise} disabled={m.status !== 'ACTIVE'}>
-              Revise
+              Change plan
             </Button>
             <Button
               variant="destructive"
               onClick={() => setRevokeOpen(true)}
               disabled={m.status !== 'ACTIVE'}
             >
-              Revoke
+              Stop Aria
             </Button>
           </>
         }
       />
       {m.status === 'REVOKED' ? (
         <div className="mb-4">
-          <Alert tone="destructive" title="Revoked">
-            No further purchases are authorized. Revoked {formatDateTime(m.revokedAt)}
+          <Alert tone="destructive" title="Plan stopped">
+            Aria cannot start another purchase with this plan. Stopped {formatDateTime(m.revokedAt)}
             {m.revokeReason ? ` — ${m.revokeReason}` : ''}. Remaining allowance (
             {formatMoney({ currency: limits.currency, minor: m.usage.remainingMinor })}) is no
             longer available.
@@ -100,29 +101,29 @@ export function MandateDetailPage() {
       ) : null}
       {m.status === 'EXPIRED' ? (
         <div className="mb-4">
-          <Alert tone="attention" title="Expired">
-            This mandate expired {formatDateTime(m.policy.validUntil)}. Create a new one to keep
+          <Alert tone="attention" title="Plan expired">
+            This plan ended {formatDateTime(m.policy.validUntil)}. Create a new one to keep
             watching prices.
           </Alert>
         </div>
       ) : null}
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-8 flex flex-col gap-4">
-          <Card title="Limits and usage">
-            <div className="grid grid-cols-4 gap-3">
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="flex flex-col gap-4 lg:col-span-8">
+          <Card title="Your rules">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Stat
-                label="Max per purchase"
+                label="Price limit"
                 value={formatMoney({
                   currency: limits.currency,
                   minor: limits.maxPerPurchaseMinor,
                 })}
               />
               <Stat
-                label="Total cap"
+                label="Total allowed"
                 value={formatMoney({ currency: limits.currency, minor: limits.maxTotalMinor })}
               />
               <Stat
-                label="Purchases"
+                label="Bought"
                 value={`${m.usage.consumedCount} of ${limits.maxFulfillments}`}
                 hint={
                   m.usage.reservedCount > 0 ? `${m.usage.reservedCount} in progress` : undefined
@@ -142,14 +143,21 @@ export function MandateDetailPage() {
               className="mt-4"
               dense
               items={[
-                {
-                  label: 'Travel window',
-                  value: `${m.policy.intent.departureDateFrom} → ${m.policy.intent.departureDateTo}`,
-                },
-                {
-                  label: 'Cabin / passengers',
-                  value: `${m.policy.intent.cabin} · ${m.policy.intent.passengerCount}`,
-                },
+                ...(m.policy.intent.type === 'flight'
+                  ? [
+                      {
+                        label: 'Travel window',
+                        value: `${m.policy.intent.departureDateFrom} → ${m.policy.intent.departureDateTo}`,
+                      },
+                      {
+                        label: 'Cabin / passengers',
+                        value: `${m.policy.intent.cabin} · ${m.policy.intent.passengerCount}`,
+                      },
+                    ]
+                  : [
+                      { label: 'Product', value: `“${m.policy.intent.query}”` },
+                      { label: 'Quantity', value: `up to ${m.policy.intent.maxQuantity}` },
+                    ]),
                 { label: 'Merchants', value: m.merchants.map((x) => x.displayName).join(', ') },
                 {
                   label: 'Valid',
@@ -163,10 +171,7 @@ export function MandateDetailPage() {
               ]}
             />
           </Card>
-          <Card
-            title="Price watch"
-            description="Catalog offers on this route against your threshold"
-          >
+          <Card title="Price watch" description="Real provider offers compared with your limit.">
             {offers.isPending ? (
               <Skeleton className="h-[180px]" />
             ) : (
@@ -174,27 +179,23 @@ export function MandateDetailPage() {
             )}
           </Card>
           <Card
-            title="Offers evaluated"
-            description="Server-owned catalog; eligibility is computed the same way the gateway does"
+            title="Offers compared"
+            description="Every offer is checked against the rules you approved."
           >
             {offers.isPending ? (
               <Skeleton className="h-24" />
             ) : (
               <OffersTable
-                offers={(offers.data ?? []).filter(
-                  (o) =>
-                    o.origin === m.policy.intent.origin &&
-                    o.destination === m.policy.intent.destination,
-                )}
+                offers={(offers.data ?? []).filter((o) => offerInScope(o, m.policy.intent))}
                 mandate={m}
               />
             )}
           </Card>
-          <Card title="Purchase attempts">
+          <Card title="Purchase checks">
             {executions.isPending ? <Skeleton className="h-16" /> : null}
             {executions.data && executions.data.length === 0 ? (
               <p className="text-[13px] text-ink-muted">
-                The agent has not requested a purchase under this mandate yet.
+                Aria has not requested a purchase with this plan yet.
               </p>
             ) : null}
             {executions.data && executions.data.length > 0 ? (
@@ -219,6 +220,7 @@ export function MandateDetailPage() {
                           decision={e.decision}
                           state={e.state}
                           reasonCode={e.reasonCode}
+                          showReasonCode={false}
                         />
                       </Td>
                       <Td>
@@ -229,7 +231,7 @@ export function MandateDetailPage() {
                             e.state === 'FAILED' ||
                             e.state === 'PAYMENT_PENDING'
                               ? `/dashboard/purchases/${e.id}`
-                              : `/audit?executionId=${e.id}`
+                              : '/dashboard/activity'
                           }
                         >
                           Details
@@ -241,29 +243,32 @@ export function MandateDetailPage() {
               </Table>
             ) : null}
           </Card>
-          <Card title="Timeline">
+          <Card title="What Aria has done">
             {events.isPending ? (
               <Skeleton className="h-24" />
             ) : (
-              <Timeline events={events.data ?? []} />
+              <Timeline events={events.data ?? []} showLinks={false} plainLanguage />
             )}
           </Card>
         </div>
-        <aside className="col-span-4 flex flex-col gap-4">
-          <Card title="Agent">
+        <aside className="flex flex-col gap-4 lg:col-span-4">
+          <Card title="Who can use this plan">
             <KeyValue
               dense
               items={[
-                { label: 'Name', value: m.agent.displayName },
-                { label: 'Key', value: shortId(m.agent.keyThumbprint, 20), mono: true },
+                { label: 'Agent', value: m.agent.displayName },
                 {
-                  label: 'Binding',
-                  value: 'Only requests signed with this key can use the mandate',
+                  label: 'Protection',
+                  value: 'Requests from any other agent are blocked',
                 },
               ]}
             />
+            <details className="mt-2 text-[12px]">
+              <summary className="min-h-10 font-medium text-cobalt">Show verified key</summary>
+              <Mono className="mt-1 block break-all">{m.agent.keyThumbprint}</Mono>
+            </details>
           </Card>
-          <Card title="Payment">
+          <Card title="Payment method">
             <KeyValue
               dense
               items={[
@@ -273,14 +278,17 @@ export function MandateDetailPage() {
                     ? `${m.paymentMethod.brand} •••• ${m.paymentMethod.last4}`
                     : '—',
                 },
-                { label: 'Reference', value: shortId(m.policy.paymentMethodRef, 18), mono: true },
               ]}
             />
             <p className="mt-2 text-[12px] text-ink-faint">
-              The raw card never leaves the vault; the mandate holds an opaque reference.
+              Your card details are never shared with Aria.
             </p>
+            <details className="mt-2 text-[12px]">
+              <summary className="min-h-10 font-medium text-cobalt">Show payment reference</summary>
+              <Mono className="mt-1 block break-all">{m.policy.paymentMethodRef}</Mono>
+            </details>
           </Card>
-          <Card title="Versions">
+          <Card title="Plan history">
             <ul className="divide-y divide-line text-[13px]">
               {m.versions.map((v) => (
                 <li key={v.version} className="flex items-center justify-between py-1.5">
@@ -292,22 +300,32 @@ export function MandateDetailPage() {
               ))}
             </ul>
           </Card>
-          <Card title="Evidence">
-            <KeyValue
-              dense
-              items={[
-                { label: 'Mandate id', value: shortId(m.id, 18), mono: true },
-                { label: 'Policy hash', value: shortHash(m.policyHash), mono: true },
-                { label: 'Signing key', value: m.signingKid, mono: true },
-              ]}
-            />
-            <details className="mt-2">
-              <summary className="text-[12.5px] font-medium text-cobalt">
-                Show signed mandate (JWS)
+          <Card
+            title="Proof & details"
+            description="Technical evidence is available for an audit or dispute."
+          >
+            <details>
+              <summary className="min-h-10 text-[12.5px] font-medium text-cobalt">
+                Show technical evidence
               </summary>
-              <Mono className="mt-1 block max-h-40 overflow-auto break-all whitespace-pre-wrap">
-                {m.jws}
-              </Mono>
+              <div className="mt-2">
+                <KeyValue
+                  dense
+                  items={[
+                    { label: 'Mandate id', value: shortId(m.id, 18), mono: true },
+                    { label: 'Policy hash', value: shortHash(m.policyHash), mono: true },
+                    { label: 'Signing key', value: m.signingKid, mono: true },
+                  ]}
+                />
+                <details className="mt-2">
+                  <summary className="min-h-10 text-[12.5px] font-medium text-cobalt">
+                    Show signed authorization (JWS)
+                  </summary>
+                  <Mono className="mt-1 block max-h-40 overflow-auto break-all whitespace-pre-wrap">
+                    {m.jws}
+                  </Mono>
+                </details>
+              </div>
             </details>
           </Card>
         </aside>
@@ -316,7 +334,7 @@ export function MandateDetailPage() {
       <Dialog
         open={revokeOpen}
         onClose={() => setRevokeOpen(false)}
-        title="Revoke this mandate?"
+        title="Stop this purchase plan?"
         footer={
           <>
             <Button variant="secondary" onClick={() => setRevokeOpen(false)}>
@@ -331,22 +349,22 @@ export function MandateDetailPage() {
                   .then(() => setRevokeOpen(false));
               }}
             >
-              Revoke now
+              Stop Aria now
             </Button>
           </>
         }
       >
         <p className="text-[13.5px]">
-          Your agent will stop monitoring and every new purchase attempt using this mandate will
-          fail immediately with <Mono>MANDATE_REVOKED</Mono>.
+          Aria will stop monitoring this plan. Every new purchase attempt using it will be blocked
+          immediately.
         </p>
         <KeyValue
           className="mt-3"
           dense
           items={[
             {
-              label: 'Mandate',
-              value: `${m.policy.intent.origin} → ${m.policy.intent.destination}, max ${formatMoney({ currency: limits.currency, minor: limits.maxPerPurchaseMinor })}`,
+              label: 'Plan',
+              value: `${intentTitle(m.policy.intent)}, max ${formatMoney({ currency: limits.currency, minor: limits.maxPerPurchaseMinor })}`,
             },
             { label: 'Agent', value: m.agent.displayName },
             {
@@ -379,7 +397,7 @@ export function MandateDetailPage() {
       <Dialog
         open={reviseOpen}
         onClose={() => setReviseOpen(false)}
-        title="Revise mandate (creates a new signed version)"
+        title="Change this plan"
         footer={
           <>
             <Button variant="secondary" onClick={() => setReviseOpen(false)}>
@@ -403,12 +421,12 @@ export function MandateDetailPage() {
                   .then(() => setReviseOpen(false));
               }}
             >
-              Sign new version
+              Save new plan
             </Button>
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="newMax">Maximum price (USD)</Label>
             <Input
@@ -427,7 +445,7 @@ export function MandateDetailPage() {
               onChange={(e) => setNewUntil(e.target.value)}
             />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <Switch
               id="newEscalate"
               checked={newEscalate}
@@ -437,7 +455,7 @@ export function MandateDetailPage() {
           </div>
         </div>
         <p className="mt-3 text-[12.5px] text-ink-muted">
-          The current version is superseded and stays in the evidence trail unchanged.
+          Your previous rules stay in the evidence record. Aria will use only the new plan.
         </p>
         {revise.isError ? (
           <div className="mt-3">

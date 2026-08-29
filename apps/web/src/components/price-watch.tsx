@@ -1,5 +1,6 @@
 import type { FlightOfferView, MandateView } from '@authera/contracts';
 import { formatMoney } from '../lib/format.js';
+import { offerHeadline, offerInScope, offerWhen } from '../lib/intent.js';
 import { Badge, Table, Td, Th } from './ui/primitives.js';
 
 export function offerMatches(
@@ -9,14 +10,21 @@ export function offerMatches(
   if (!mandate) return { eligible: false, why: 'no active mandate' };
   const intent = mandate.policy.intent;
   const limits = mandate.policy.limits;
-  const day = offer.departureAt.slice(0, 10);
-  if (offer.origin !== intent.origin || offer.destination !== intent.destination)
-    return { eligible: false, why: 'different route' };
-  if (offer.cabin !== intent.cabin) return { eligible: false, why: `${offer.cabin} cabin` };
-  if (offer.passengerCount !== intent.passengerCount)
-    return { eligible: false, why: 'passenger count' };
-  if (day < intent.departureDateFrom || day > intent.departureDateTo)
-    return { eligible: false, why: 'outside travel dates' };
+  if (offer.kind !== intent.type)
+    return { eligible: false, why: intent.type === 'flight' ? 'not a flight' : 'not a product' };
+  if (intent.type === 'flight') {
+    const day = (offer.departureAt ?? '').slice(0, 10);
+    if (offer.origin !== intent.origin || offer.destination !== intent.destination)
+      return { eligible: false, why: 'different route' };
+    if (offer.cabin !== intent.cabin) return { eligible: false, why: `${offer.cabin} cabin` };
+    if (offer.passengerCount !== intent.passengerCount)
+      return { eligible: false, why: 'passenger count' };
+    if (day < intent.departureDateFrom || day > intent.departureDateTo)
+      return { eligible: false, why: 'outside travel dates' };
+  } else {
+    if (!offerInScope(offer, intent)) return { eligible: false, why: 'different search' };
+    if (offer.quantity > intent.maxQuantity) return { eligible: false, why: 'quantity' };
+  }
   if (offer.total.currency !== limits.currency) return { eligible: false, why: 'currency' };
   if (offer.total.minor > limits.maxPerPurchaseMinor)
     return {
@@ -36,14 +44,9 @@ export function PriceWatchChart({
   mandate: MandateView | undefined;
 }) {
   const route = mandate
-    ? offers.filter(
-        (o) =>
-          o.origin === mandate.policy.intent.origin &&
-          o.destination === mandate.policy.intent.destination &&
-          o.cabin === 'economy',
-      )
-    : offers.filter((o) => o.cabin === 'economy');
-  const points = [...route].sort((a, b) => a.departureAt.localeCompare(b.departureAt));
+    ? offers.filter((o) => offerInScope(o, mandate.policy.intent))
+    : offers.filter((o) => o.kind !== 'flight' || o.cabin === 'economy');
+  const points = [...route].sort((a, b) => offerWhen(a).localeCompare(offerWhen(b)));
   const threshold = mandate?.policy.limits.maxPerPurchaseMinor ?? null;
   const width = 640;
   const height = 180;
@@ -123,7 +126,7 @@ export function PriceWatchChart({
           <g key={p.id}>
             <circle cx={x(i)} cy={y(p.total.minor)} r={4} fill={eligible ? '#14805c' : '#2448d6'} />
             <text x={x(i)} y={height - 10} textAnchor="middle" fontSize={10} fill="#5b6577">
-              {p.departureAt.slice(5, 10)}
+              {offerWhen(p).slice(5, 10)}
             </text>
           </g>
         );
@@ -150,10 +153,10 @@ export function OffersTable({
       <thead>
         <tr>
           <Th>Merchant</Th>
-          <Th>Flight</Th>
+          <Th>Item</Th>
           <Th>Route</Th>
           <Th>Departure</Th>
-          <Th>Cabin</Th>
+          <Th>Cabin / qty</Th>
           <Th className="text-right">Price</Th>
           <Th>Eligibility</Th>
           {onSelect ? <Th /> : null}
@@ -169,9 +172,7 @@ export function OffersTable({
                 <span className="font-mono text-[11px] text-ink-faint">{offer.market}</span>
               </Td>
               <Td>
-                <span className="font-medium">
-                  {offer.airline} {offer.flightNumber}
-                </span>
+                <span className="font-medium">{offerHeadline(offer)}</span>
                 {offer.source === 'demo' ? (
                   <Badge tone="info" className="ml-1.5">
                     injected
@@ -183,11 +184,9 @@ export function OffersTable({
                   </Badge>
                 ) : null}
               </Td>
-              <Td mono>
-                {offer.origin}→{offer.destination}
-              </Td>
-              <Td>{offer.departureAt.slice(0, 16).replace('T', ' ')}</Td>
-              <Td>{offer.cabin}</Td>
+              <Td mono>{offer.kind === 'flight' ? `${offer.origin}→${offer.destination}` : '—'}</Td>
+              <Td>{offer.departureAt ? offer.departureAt.slice(0, 16).replace('T', ' ') : '—'}</Td>
+              <Td>{offer.kind === 'flight' ? offer.cabin : `×${offer.quantity}`}</Td>
               <Td className="tabular text-right font-medium">{formatMoney(offer.total)}</Td>
               <Td>
                 <Badge tone={match.eligible ? 'verified' : 'neutral'}>

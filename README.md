@@ -19,6 +19,7 @@ Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Cór
 | Guarantee | How |
 |---|---|
 | The LLM never authorizes anything | The purchasing agent has two tools (`search_flights`, `request_purchase`) and submits ids only; `evaluatePolicy` is a pure function and PostgreSQL holds live state |
+| More than flights | A mandate's `intent` is a discriminated union: `flight` (route, cabin, dates, passengers) or `goods` (“what to buy”, max quantity). Goods are discovered on a real public Shopify storefront (`SHOPIFY_STOREFRONT_URL`, Allbirds in the demo) and the gateway checks `INTENT_KIND`, `INTENT_QUERY` (the offer must have been found under the mandate's exact query) and `INTENT_QUANTITY` before the money limits. Transport is a roadmap intent: no keyless, real, bookable source exists yet |
 | Live market, same guarantees | With `DUFFEL_ACCESS_TOKEN` set, discovery also queries the Duffel Flights API (test mode) as a fourth merchant; its offers are stored server-side first, the winner is re-priced with Duffel right before the checkout binds its cart, and a changed or vanished price fails closed (`OFFER_NOT_AVAILABLE`) |
 | The agent chooses, the gateway decides | `search_flights` fans out over every merchant/market (each offer carries `merchantName` + `market`); the agent ranks them and records a plain-language `selectionReason`; the gateway re-checks the chosen merchant against the mandate's `allowedMerchantIds` and blocks with `MERCHANT_NOT_ALLOWED` |
 | Agent identity ≠ human authority | RFC 9421 (Ed25519) signed requests prove *who*; the trusted-surface JWS mandate proves *what was allowed*; both are checked separately |
@@ -66,7 +67,7 @@ The route separation is a local product boundary, not a replacement for role-spe
 |---|---|
 | Health | `GET /health/live`, `GET /health/ready` |
 | Discovery | `GET /.well-known/ucp`, `GET /.well-known/http-message-signatures-directory`, `GET /agents/:id/profile` |
-| Signed agent (browse) | `GET /api/flights` (cross-merchant, cross-market catalog), `POST /ucp/v1/checkout-sessions`, `GET /ucp/v1/checkout-sessions/:id` |
+| Signed agent (browse) | `GET /api/flights` (cross-merchant, cross-market catalog), `GET /api/products?q=` (live storefront search), `POST /ucp/v1/checkout-sessions`, `GET /ucp/v1/checkout-sessions/:id` |
 | Signed agent (payment) | `POST /api/purchase-attempts` — body is `{ executionId, mandateId, offerId, checkoutId }` and nothing else |
 | Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]`, `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
 | Demo (DEMO_MODE) | `/api/demo/*` |
@@ -94,7 +95,7 @@ docs/               architecture, threat model, demo runbook
 
 ## Configuration
 
-See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
+See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `SHOPIFY_STOREFRONT_URL` (optional; a public Shopify storefront as the live goods market), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
 
 ## Deployment
 

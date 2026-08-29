@@ -13,6 +13,7 @@ import {
   Skeleton,
 } from '../components/ui/primitives.js';
 import { formatDateTime, formatMoney, shortId } from '../lib/format.js';
+import { offerHeadline } from '../lib/intent.js';
 
 export function PurchaseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -78,7 +79,7 @@ export function PurchaseDetailPage() {
                 </span>
                 <div>
                   <p className="text-[15px] font-semibold">
-                    {offer ? `${offer.airline} ${offer.flightNumber}` : 'Flight'}
+                    {offer ? offerHeadline(offer) : 'Purchase'}
                   </p>
                   <p className="text-[12.5px] text-ink-muted">
                     Merchant: {offer?.merchantName ?? '—'} · Passenger: Marta Ledezma
@@ -100,7 +101,7 @@ export function PurchaseDetailPage() {
               <Segment label="To" value={offer?.destination ?? '—'} />
               <Segment
                 label="Departs"
-                value={offer ? offer.departureAt.slice(0, 16).replace('T', ' ') : '—'}
+                value={offer?.departureAt ? offer.departureAt.slice(0, 16).replace('T', ' ') : '—'}
               />
               <Segment label="Cabin" value={offer?.cabin ?? '—'} />
             </div>

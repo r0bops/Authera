@@ -15,7 +15,7 @@ import {
   type AgentOffer,
   type FlightSearchResult,
   type PurchasingAgentGateway,
-  type PurchasingTask,
+  type FlightPurchasingTask,
   type RequestPurchaseToolInput,
   type SearchFlightsInput,
   type SignedGatewayRequest,
@@ -33,7 +33,8 @@ const ID = {
   execution: '00000000-0000-4000-8000-000000000008',
 } as const;
 
-const task: PurchasingTask = {
+const task: FlightPurchasingTask = {
+  kind: 'flight',
   mandateId: ID.mandate,
   origin: 'CCS',
   destination: 'COR',
@@ -66,6 +67,7 @@ const allowedPurchase: PurchaseAttemptResponse = {
 
 class RecordingGateway implements PurchasingAgentGateway {
   readonly searches: SearchFlightsInput[] = [];
+  readonly productSearches: string[] = [];
   readonly purchases: RequestPurchaseToolInput[] = [];
 
   constructor(
@@ -75,6 +77,11 @@ class RecordingGateway implements PurchasingAgentGateway {
 
   async searchFlights(input: SearchFlightsInput): Promise<FlightSearchResult> {
     this.searches.push(structuredClone(input));
+    return structuredClone(this.result);
+  }
+
+  async searchProducts(input: { query: string }): Promise<FlightSearchResult> {
+    this.productSearches.push(input.query);
     return structuredClone(this.result);
   }
 
@@ -512,12 +519,14 @@ function offer(
   return {
     offerId,
     checkoutId,
+    kind: 'flight',
     merchantId: '00000000-0000-4000-8000-000000000010',
     merchantName: 'VuelaYa',
     market: 'VE',
     origin: 'CCS',
     destination: 'COR',
     departureAt,
+    quantity: 1,
     totalMinor,
     currency: 'USD',
     displaySummary: `VuelaYa ${totalMinor}`,
@@ -527,6 +536,7 @@ function offer(
 function flightOfferView(offerId: string, totalMinor: number) {
   return {
     id: offerId,
+    kind: 'flight',
     merchantId: '00000000-0000-4000-8000-000000000010',
     merchantName: 'VuelaYa',
     market: 'VE',

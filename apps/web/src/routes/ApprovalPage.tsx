@@ -8,11 +8,13 @@ import {
   Card,
   ErrorState,
   KeyValue,
+  Label,
   PageHeader,
   Skeleton,
   Textarea,
 } from '../components/ui/primitives.js';
 import { formatDateTime, formatMoney, shortHash } from '../lib/format.js';
+import { offerHeadline } from '../lib/intent.js';
 
 export function ApprovalPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,29 +36,42 @@ export function ApprovalPage() {
   return (
     <>
       <PageHeader
-        title="Approval requested"
+        title="Aria needs your decision"
         meta={<Badge tone={tone}>{a.state}</Badge>}
-        description="Your agent found an offer outside your mandate and stopped. Nothing has been charged. Approving applies to this exact checkout only and does not raise your standing limit."
+        description="This offer is outside your plan, so Aria stopped before paying. Approving applies only to this exact offer and does not raise your standing limit."
       />
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-8 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Card title="Requested flight" className="border-amber/40">
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="flex flex-col gap-4 lg:col-span-8">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card title="Offer Aria found" className="border-amber/40">
               <KeyValue
                 items={[
                   {
-                    label: 'Flight',
-                    value: a.offer ? `${a.offer.airline} ${a.offer.flightNumber}` : '—',
+                    label: 'Offer',
+                    value: a.offer ? offerHeadline(a.offer) : '—',
                   },
                   {
-                    label: 'Route',
-                    value: a.offer ? `${a.offer.origin} → ${a.offer.destination}` : '—',
+                    label: a.offer?.kind === 'goods' ? 'Product' : 'Route',
+                    value: a.offer
+                      ? a.offer.kind === 'goods'
+                        ? offerHeadline(a.offer)
+                        : `${a.offer.origin} → ${a.offer.destination}`
+                      : '—',
                   },
                   {
                     label: 'Departs',
-                    value: a.offer ? a.offer.departureAt.slice(0, 16).replace('T', ' ') : '—',
+                    value: a.offer?.departureAt
+                      ? a.offer.departureAt.slice(0, 16).replace('T', ' ')
+                      : '—',
                   },
-                  { label: 'Cabin', value: a.offer?.cabin ?? '—' },
+                  {
+                    label: a.offer?.kind === 'goods' ? 'Quantity' : 'Cabin',
+                    value: a.offer
+                      ? a.offer.kind === 'goods'
+                        ? String(a.offer.quantity)
+                        : (a.offer.cabin ?? '—')
+                      : '—',
+                  },
                   {
                     label: 'Price',
                     value: (
@@ -68,11 +83,11 @@ export function ApprovalPage() {
                 ]}
               />
             </Card>
-            <Card title="Your mandate">
+            <Card title="Your plan">
               <KeyValue
                 items={[
                   {
-                    label: 'Limit',
+                    label: 'Your limit',
                     value: (
                       <span className="text-[18px] font-semibold">{formatMoney(a.limit)}</span>
                     ),
@@ -83,15 +98,15 @@ export function ApprovalPage() {
                       <span className="font-semibold text-amber">+{formatMoney(a.difference)}</span>
                     ),
                   },
-                  { label: 'Why it stopped', value: a.explanation },
+                  { label: 'Why Aria paused', value: a.explanation },
                   {
-                    label: 'Mandate',
+                    label: 'Plan',
                     value: (
                       <Link
                         className="text-cobalt hover:underline"
                         to={`/dashboard/mandates/${a.mandateId}`}
                       >
-                        v{a.mandateVersion} · open
+                        View plan
                       </Link>
                     ),
                   },
@@ -99,37 +114,47 @@ export function ApprovalPage() {
               />
             </Card>
           </div>
-          <Card title="Mandate summary">
+          <Card title="Plan you approved">
             <p className="text-[13.5px]">{a.mandateSummary}</p>
           </Card>
           <Card title="What approving means">
             <ul className="list-disc space-y-1 pl-5 text-[13px]">
               <li>
-                The agent may complete <strong>this checkout</strong> (hash{' '}
-                <code className="font-mono text-[12px]">{shortHash(a.checkoutHash)}</code>) once.
+                Aria may complete <strong>this exact offer</strong> once.
               </li>
               <li>
                 If the cart changes in any way, the approval no longer applies and the purchase is
                 blocked.
               </li>
               <li>
-                Your standing limit of {formatMoney(a.limit)} stays unchanged for every other
-                purchase.
+                Your standing limit of {formatMoney(a.limit)} stays unchanged.
               </li>
               <li>
                 The offer is expected to remain available until {formatDateTime(a.expiresAt)}.
               </li>
             </ul>
+            <details className="mt-3 border-t border-line pt-3 text-[12px]">
+              <summary className="min-h-10 font-medium text-cobalt">Proof & details</summary>
+              <p className="mt-1 text-ink-muted">
+                This one-time approval is bound to checkout hash{' '}
+                <code className="font-mono">{shortHash(a.checkoutHash)}</code>. If the checkout
+                changes, Authera blocks it.
+              </p>
+            </details>
           </Card>
         </div>
-        <aside className="col-span-4">
-          <Card title="Decision" className="sticky top-5">
+        <aside className="lg:col-span-4">
+          <Card title="Your decision" className="lg:sticky lg:top-5">
             {pending ? (
               <>
+                <Label htmlFor="approval-note" hint="optional">
+                  Note for your record
+                </Label>
                 <Textarea
+                  id="approval-note"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Optional note for the record"
+                  placeholder="Why you chose this option"
                 />
                 <div className="mt-3 flex flex-col gap-2">
                   <Button
@@ -141,7 +166,7 @@ export function ApprovalPage() {
                       })
                     }
                   >
-                    Approve this purchase only
+                    Approve this offer only
                   </Button>
                   <Button
                     variant="secondary"
@@ -159,7 +184,7 @@ export function ApprovalPage() {
                     to="/dashboard/mandates/new"
                     className="text-center text-[12.5px] text-cobalt hover:underline"
                   >
-                    Create a new mandate instead
+                    Make a different plan
                   </Link>
                 </div>
                 {decide.isError ? (
@@ -195,10 +220,12 @@ export function ApprovalPage() {
                 </Alert>
               </>
             )}
-            <p className="mt-3 text-[11.5px] text-ink-faint">
-              Approval evidence is signed into the audit trail with the checkout hash, amount, and
-              your decision time.
-            </p>
+            <details className="mt-3 border-t border-line pt-3 text-[11.5px]">
+              <summary className="min-h-10 font-medium text-cobalt">How this is recorded</summary>
+              <p className="mt-1 text-ink-muted">
+                Authera records the exact checkout, amount, and decision time in the evidence trail.
+              </p>
+            </details>
           </Card>
         </aside>
       </div>

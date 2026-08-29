@@ -9,6 +9,7 @@ export const SEED_IDS = {
   marta: '11111111-1111-4111-8111-111111111111',
   agent: '22222222-2222-4222-8222-222222222222',
   duffel: '33333333-3333-4333-8333-333333333336',
+  allbirds: '33333333-3333-4333-8333-333333333337',
   agentKey: '22222222-2222-4222-8222-aaaaaaaaaaaa',
   trustedSurfaceKey: '99999999-9999-4999-8999-000000000001',
   merchantKey: '99999999-9999-4999-8999-000000000002',
@@ -32,6 +33,8 @@ export interface SeedMerchant {
 /** Live market only. Demo controls may inject clearly labelled offers under this merchant. */
 export const SEED_MERCHANTS: SeedMerchant[] = [
   { id: SEED_IDS.duffel, slug: 'duffel', displayName: 'Duffel Marketplace', market: 'GB' },
+  /** Live goods market: Allbirds' public Shopify storefront (real catalog and prices). */
+  { id: SEED_IDS.allbirds, slug: 'allbirds', displayName: 'Allbirds (Shopify)', market: 'US' },
 ];
 
 /** Default merchant for demo controls that do not name one. */

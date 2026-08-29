@@ -43,6 +43,8 @@ const envSchema = z
     STRIPE_WEBHOOK_SECRET: optionalSecret,
     /** Optional: enables the live Duffel flight market (test-mode token is fine). */
     DUFFEL_ACCESS_TOKEN: optionalSecret,
+    /** Optional: public Shopify storefront used as the live goods market (no credentials). */
+    SHOPIFY_STOREFRONT_URL: z.url().optional(),
     TRUSTED_SURFACE_PRIVATE_JWK: optionalSecret,
     MERCHANT_PRIVATE_JWK: optionalSecret,
     AGENT_PRIVATE_JWK: optionalSecret,
@@ -107,7 +109,10 @@ export interface AppConfig {
   payment: PaymentConfig;
   agent: AgentConfig;
   /** External flight markets; each is optional and fails open (search continues without it). */
-  markets: { duffel: { accessToken: string } | undefined };
+  markets: {
+    duffel: { accessToken: string } | undefined;
+    shopify: { storeUrl: string } | undefined;
+  };
   keys: {
     trustedSurfacePrivateJwk: string | undefined;
     merchantPrivateJwk: string | undefined;
@@ -194,6 +199,7 @@ function toAppConfig(env: ParsedEnv): AppConfig {
     agent,
     markets: {
       duffel: env.DUFFEL_ACCESS_TOKEN ? { accessToken: env.DUFFEL_ACCESS_TOKEN } : undefined,
+      shopify: env.SHOPIFY_STOREFRONT_URL ? { storeUrl: env.SHOPIFY_STOREFRONT_URL } : undefined,
     },
     keys: {
       trustedSurfacePrivateJwk: env.TRUSTED_SURFACE_PRIVATE_JWK,

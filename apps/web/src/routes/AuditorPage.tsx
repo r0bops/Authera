@@ -20,6 +20,7 @@ import {
   Th,
 } from '../components/ui/primitives.js';
 import { formatDateTime, shortHash, shortId } from '../lib/format.js';
+import { intentTitle } from '../lib/intent.js';
 
 export function AuditorPage() {
   const [params, setParams] = useSearchParams();
@@ -88,8 +89,7 @@ export function AuditorPage() {
               <option value="">All mandates</option>
               {(mandates.data ?? []).map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.policy.intent.origin} → {m.policy.intent.destination} · v{m.version} ·{' '}
-                  {shortId(m.id)}
+                  {intentTitle(m.policy.intent)} · v{m.version} · {shortId(m.id)}
                 </option>
               ))}
             </Select>

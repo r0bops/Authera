@@ -7,7 +7,9 @@ import {
   PurchasingTaskSchema,
   RequestPurchaseToolCallSchema,
   SearchFlightsInputSchema,
+  SearchProductsInputSchema,
   type AgentRunResult,
+  type FlightPurchasingTask,
   type PurchasingTask,
 } from './schemas.js';
 import { boundedToolResult, RedactedTrace, type AgentTraceEvent } from './trace.js';
@@ -64,6 +66,37 @@ export async function runOpenAiPurchasingAgent(
 
   trace.add('RUN_STARTED', { requestedMode: 'openai', model: options.model });
 
+  const recordSearch = (result: Awaited<ReturnType<typeof gateway.searchFlights>>) => {
+    consideredOfferIds = result.offers.map((offer) => offer.offerId);
+    marketsSearched = marketsOf(result.offers);
+    authoritativeCheckouts.clear();
+    for (const offer of result.offers) authoritativeCheckouts.set(offer.offerId, offer.checkoutId);
+    trace.add('SEARCH_COMPLETED', {
+      offerCount: result.offers.length,
+      offerIds: consideredOfferIds,
+      markets: marketsSearched,
+      merchants: [...new Set(result.offers.map((offer) => offer.merchantName))],
+    });
+  };
+
+  const searchProducts = tool({
+    name: 'search_products',
+    description:
+      'Search authoritative product offers from every connected store for the exact product description in the task. Each offer names its store, title, quantity and total.',
+    parameters: SearchProductsInputSchema,
+    strict: true,
+    execute: async (input) => {
+      if (task.kind !== 'goods' || input.query !== task.query) {
+        throw new Error('Search input does not match the assigned purchasing task');
+      }
+      const result = await gateway.searchProducts(input, {
+        signal: combinedSignal(options.signal, timeoutMs),
+      });
+      recordSearch(result);
+      return boundedToolResult(result, maxToolResultBytes);
+    },
+  });
+
   const searchFlights = tool({
     name: 'search_flights',
     description:
@@ -71,23 +104,13 @@ export async function runOpenAiPurchasingAgent(
     parameters: SearchFlightsInputSchema,
     strict: true,
     execute: async (input) => {
-      if (!searchMatchesTask(input, task)) {
+      if (task.kind !== 'flight' || !searchMatchesTask(input, task)) {
         throw new Error('Search input does not match the assigned purchasing task');
       }
       const result = await gateway.searchFlights(input, {
         signal: combinedSignal(options.signal, timeoutMs),
       });
-      consideredOfferIds = result.offers.map((offer) => offer.offerId);
-      marketsSearched = marketsOf(result.offers);
-      authoritativeCheckouts.clear();
-      for (const offer of result.offers)
-        authoritativeCheckouts.set(offer.offerId, offer.checkoutId);
-      trace.add('SEARCH_COMPLETED', {
-        offerCount: result.offers.length,
-        offerIds: consideredOfferIds,
-        markets: marketsSearched,
-        merchants: [...new Set(result.offers.map((offer) => offer.merchantName))],
-      });
+      recordSearch(result);
       return boundedToolResult(result, maxToolResultBytes);
     },
   });
@@ -125,15 +148,19 @@ export async function runOpenAiPurchasingAgent(
   const agent = new Agent({
     name: 'Authera purchasing agent',
     instructions: [
-      'You discover flights and may request one purchase, but you never authorize payments.',
-      'Call search_flights first using the exact route and date range in the task; it returns offers from several merchants in different markets.',
-      'Compare every returned offer across merchants and markets. Prefer the lowest total that is at or below the task maximum amount in the task currency; break ties by the earliest departure.',
-      'Choose only an authoritative returned offer. Then call request_purchase with mandateId, offerId, checkoutId, and a one-sentence reason that names the chosen merchant and market and the best alternative you rejected.',
+      'You discover offers and may request one purchase, but you never authorize payments.',
+      task.kind === 'goods'
+        ? 'Call search_products first with the exact product description in the task; it returns offers from connected stores with title, quantity and total.'
+        : 'Call search_flights first using the exact route and date range in the task; it returns offers from several merchants in different markets.',
+      task.kind === 'goods'
+        ? 'Compare every returned offer. Prefer the lowest total at or below the task maximum amount in the task currency whose quantity does not exceed the task maximum quantity; break ties by the closest match to the description.'
+        : 'Compare every returned offer across merchants and markets. Prefer the lowest total that is at or below the task maximum amount in the task currency; break ties by the earliest departure.',
+      'Choose only an authoritative returned offer. Then call request_purchase with mandateId, offerId, checkoutId, and a one-sentence reason that names what you chose (store/merchant, market, product or flight) and the best alternative you rejected.',
       'Never invent prices, checkout IDs, payment data, policy verdicts, or authorization state.',
-      'If no qualifying offer exists, finish without calling request_purchase and reply with one sentence explaining why (cheapest offer, merchant, market, and the limit).',
+      'If no qualifying offer exists, finish without calling request_purchase and reply with one sentence explaining why (cheapest offer, where it was, and the limit).',
     ].join(' '),
     model: options.modelOverride ?? options.model,
-    tools: [searchFlights, requestPurchase],
+    tools: [task.kind === 'goods' ? searchProducts : searchFlights, requestPurchase],
     toolUseBehavior: { stopAtToolNames: ['request_purchase'] },
   });
 
@@ -181,6 +208,14 @@ export async function runOpenAiPurchasingAgent(
 }
 
 function promptFor(task: PurchasingTask): string {
+  if (task.kind === 'goods') {
+    return JSON.stringify({
+      mandateId: task.mandateId,
+      product: task.query,
+      maximumQuantity: task.maxQuantity,
+      maximum: { amountMinor: task.maxAmountMinor, currency: task.currency },
+    });
+  }
   return JSON.stringify({
     mandateId: task.mandateId,
     route: { origin: task.origin, destination: task.destination },
@@ -194,7 +229,7 @@ function promptFor(task: PurchasingTask): string {
 
 function searchMatchesTask(
   input: z.infer<typeof SearchFlightsInputSchema>,
-  task: PurchasingTask,
+  task: FlightPurchasingTask,
 ): boolean {
   return (
     input.origin === task.origin &&

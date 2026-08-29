@@ -13,6 +13,7 @@ import {
   Th,
 } from '../components/ui/primitives.js';
 import { formatDateTime, formatMoney, shortId } from '../lib/format.js';
+import { intentTitle } from '../lib/intent.js';
 
 export function AgentPage() {
   const me = useMe();
@@ -59,7 +60,7 @@ export function AgentPage() {
                       className="text-cobalt hover:underline"
                       to={`/dashboard/mandates/${active.id}`}
                     >
-                      {active.policy.intent.origin} → {active.policy.intent.destination}
+                      {intentTitle(active.policy.intent)}
                     </Link>
                   ) : (
                     'none'

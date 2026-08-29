@@ -17,19 +17,25 @@ export type CheckoutRow = typeof checkouts.$inferSelect;
 export type OfferWithMerchantRow = { offer: OfferRow; merchantName: string; market: string };
 
 export function toOffer({ offer: row, merchantName, market }: OfferWithMerchantRow): Offer {
+  const opt = <T>(value: T | null): T | undefined => (value === null ? undefined : value);
   return {
     id: row.id,
+    kind: row.kind as Offer['kind'],
     merchantId: row.merchantId,
     merchantName,
     market,
-    airline: row.airline,
-    flightNumber: row.flightNumber,
-    origin: row.origin,
-    destination: row.destination,
-    cabin: row.cabin as Cabin,
-    departureAt: row.departureAt.toISOString(),
-    arrivalAt: row.arrivalAt.toISOString(),
-    passengerCount: row.passengerCount,
+    airline: opt(row.airline),
+    flightNumber: opt(row.flightNumber),
+    origin: opt(row.origin),
+    destination: opt(row.destination),
+    cabin: opt(row.cabin as Cabin | null),
+    departureAt: row.departureAt?.toISOString(),
+    arrivalAt: row.arrivalAt?.toISOString(),
+    passengerCount: opt(row.passengerCount),
+    title: opt(row.title),
+    quantity: row.quantity,
+    imageUrl: opt(row.imageUrl),
+    searchQuery: opt(row.searchQuery),
     total: { currency: row.currency as Currency, minor: row.amountMinor },
     status: row.status as OfferStatus,
     expiresAt: row.expiresAt.toISOString(),
@@ -55,6 +61,8 @@ export function toCheckout(row: CheckoutRow): Checkout {
 }
 
 export interface OfferFilter {
+  kind?: Offer['kind'];
+  searchQuery?: string;
   merchantId?: string;
   origin?: string;
   destination?: string;
@@ -65,6 +73,8 @@ export interface OfferFilter {
 
 export async function listOffers(db: DbExecutor, filter: OfferFilter = {}): Promise<Offer[]> {
   const conditions = [];
+  if (filter.kind) conditions.push(eq(offers.kind, filter.kind));
+  if (filter.searchQuery) conditions.push(eq(offers.searchQuery, filter.searchQuery));
   if (filter.merchantId) conditions.push(eq(offers.merchantId, filter.merchantId));
   if (filter.origin) conditions.push(eq(offers.origin, filter.origin.toUpperCase()));
   if (filter.destination) conditions.push(eq(offers.destination, filter.destination.toUpperCase()));
@@ -96,19 +106,24 @@ async function loadOffer(db: DbExecutor, id: string): Promise<Offer> {
 
 export interface InsertOfferInput {
   id: string;
+  kind?: Offer['kind'];
   merchantId: string;
-  airline: string;
-  flightNumber: string;
-  origin: string;
-  destination: string;
-  cabin: Cabin;
-  departureAt: Date;
-  arrivalAt: Date;
-  passengerCount: number;
+  airline?: string;
+  flightNumber?: string;
+  origin?: string;
+  destination?: string;
+  cabin?: Cabin;
+  departureAt?: Date;
+  arrivalAt?: Date;
+  passengerCount?: number;
+  title?: string;
+  quantity?: number;
+  imageUrl?: string;
+  searchQuery?: string;
   amountMinor: number;
   currency: Currency;
   expiresAt: Date;
-  source: 'seed' | 'demo' | 'duffel';
+  source: 'seed' | 'demo' | 'duffel' | 'shopify';
   providerOfferId?: string;
   status?: OfferStatus;
 }
@@ -118,8 +133,9 @@ export async function insertOffer(db: DbExecutor, input: InsertOfferInput): Prom
     .insert(offers)
     .values({
       ...input,
-      origin: input.origin.toUpperCase(),
-      destination: input.destination.toUpperCase(),
+      kind: input.kind ?? 'flight',
+      origin: input.origin?.toUpperCase(),
+      destination: input.destination?.toUpperCase(),
       status: input.status ?? 'AVAILABLE',
     })
     .returning();
@@ -131,24 +147,31 @@ export async function insertOffer(db: DbExecutor, input: InsertOfferInput): Prom
  * Store a fresh batch of live offers for one merchant/route: upsert by provider id and expire
  * every AVAILABLE live offer on that route that the provider no longer returns.
  */
+export type ProviderScope =
+  { kind: 'flight'; origin: string; destination: string } | { kind: 'goods'; searchQuery: string };
+
 export async function syncProviderOffers(
   db: DbExecutor,
   input: {
-    source: 'duffel';
+    source: 'duffel' | 'shopify';
     merchantId: string;
-    origin: string;
-    destination: string;
-    offers: Omit<InsertOfferInput, 'source' | 'merchantId'>[];
+    scope: ProviderScope;
+    offers: Omit<InsertOfferInput, 'source' | 'merchantId' | 'kind'>[];
   },
 ): Promise<void> {
-  const origin = input.origin.toUpperCase();
-  const destination = input.destination.toUpperCase();
   const keep = input.offers.map((o) => o.providerOfferId).filter((id): id is string => !!id);
+  const scopeMatch =
+    input.scope.kind === 'flight'
+      ? and(
+          eq(offers.origin, input.scope.origin.toUpperCase()),
+          eq(offers.destination, input.scope.destination.toUpperCase()),
+        )
+      : eq(offers.searchQuery, input.scope.searchQuery);
   const stale = and(
     eq(offers.merchantId, input.merchantId),
     eq(offers.source, input.source),
-    eq(offers.origin, origin),
-    eq(offers.destination, destination),
+    eq(offers.kind, input.scope.kind),
+    scopeMatch,
     eq(offers.status, 'AVAILABLE'),
     keep.length > 0 ? notInArray(offers.providerOfferId, keep) : sql`true`,
   );
@@ -159,8 +182,10 @@ export async function syncProviderOffers(
     .values(
       input.offers.map((o) => ({
         ...o,
-        origin: o.origin.toUpperCase(),
-        destination: o.destination.toUpperCase(),
+        kind: input.scope.kind,
+        origin: o.origin?.toUpperCase(),
+        destination: o.destination?.toUpperCase(),
+        ...(input.scope.kind === 'goods' ? { searchQuery: input.scope.searchQuery } : {}),
         merchantId: input.merchantId,
         source: input.source,
         status: 'AVAILABLE',

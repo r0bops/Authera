@@ -100,14 +100,17 @@ export interface MandateSummaryContext {
 /** Plain-language rendering of a signed policy for the human, merchant, and auditor views. */
 export function describeMandatePolicy(
   policy: {
-    intent: {
-      origin: string;
-      destination: string;
-      cabin: string;
-      passengerCount: number;
-      departureDateFrom: string;
-      departureDateTo: string;
-    };
+    intent:
+      | {
+          type: 'flight';
+          origin: string;
+          destination: string;
+          cabin: string;
+          passengerCount: number;
+          departureDateFrom: string;
+          departureDateTo: string;
+        }
+      | { type: 'goods'; query: string; maxQuantity: number };
     limits: {
       currency: Money['currency'];
       maxPerPurchaseMinor: number;
@@ -120,8 +123,6 @@ export function describeMandatePolicy(
   ctx: MandateSummaryContext = {},
 ): string {
   const { intent, limits } = policy;
-  const passengers =
-    intent.passengerCount === 1 ? 'one passenger' : `${intent.passengerCount} passengers`;
   const merchants =
     ctx.merchantNames && ctx.merchantNames.length > 0
       ? ctx.merchantNames.join(' or ')
@@ -137,8 +138,15 @@ export function describeMandatePolicy(
     policy.escalation === 'require_human'
       ? 'Anything outside these limits pauses for your approval.'
       : 'Anything outside these limits is blocked.';
+  const tail = `at most ${perPurchase} per purchase and ${total} in total, ${uses}, until ${policy.validUntil}. ${outside}`;
+  if (intent.type === 'goods') {
+    const qty = intent.maxQuantity === 1 ? 'one unit' : `up to ${intent.maxQuantity} units`;
+    return `Buy “${intent.query}” (${qty}) from ${merchants}${payment}: ${tail}`;
+  }
+  const passengers =
+    intent.passengerCount === 1 ? 'one passenger' : `${intent.passengerCount} passengers`;
   return (
     `Buy ${intent.cabin} flights from ${intent.origin} to ${intent.destination} for ${passengers}, departing between ${intent.departureDateFrom} and ${intent.departureDateTo}, from ${merchants}${payment}: ` +
-    `at most ${perPurchase} per purchase and ${total} in total, ${uses}, until ${policy.validUntil}. ${outside}`
+    tail
   );
 }
