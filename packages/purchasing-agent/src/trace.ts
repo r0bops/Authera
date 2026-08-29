@@ -6,6 +6,7 @@ export type AgentTraceEvent = Readonly<{
   event:
     | 'RUN_STARTED'
     | 'SEARCH_COMPLETED'
+    | 'OFFER_SELECTED'
     | 'PURCHASE_REQUESTED'
     | 'NO_MATCH'
     | 'OPENAI_FALLBACK'

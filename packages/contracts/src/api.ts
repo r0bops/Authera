@@ -61,7 +61,9 @@ export const MeResponseSchema = z.object({
   paymentMethods: z.array(
     z.object({ id: z.uuid(), provider: z.string(), brand: z.string(), last4: z.string() }),
   ),
-  merchants: z.array(z.object({ id: z.uuid(), slug: z.string(), displayName: z.string() })),
+  merchants: z.array(
+    z.object({ id: z.uuid(), slug: z.string(), displayName: z.string(), market: z.string() }),
+  ),
   demoMode: z.boolean(),
   session: z.object({ expiresAt: z.iso.datetime() }),
 });

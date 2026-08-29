@@ -149,6 +149,7 @@ export function OffersTable({
     <Table>
       <thead>
         <tr>
+          <Th>Merchant</Th>
           <Th>Flight</Th>
           <Th>Route</Th>
           <Th>Departure</Th>
@@ -163,6 +164,10 @@ export function OffersTable({
           const match = offerMatches(offer, mandate);
           return (
             <tr key={offer.id} className={selectedId === offer.id ? 'bg-cobalt-soft/50' : ''}>
+              <Td>
+                <span className="font-medium">{offer.merchantName}</span>{' '}
+                <span className="font-mono text-[11px] text-ink-faint">{offer.market}</span>
+              </Td>
               <Td>
                 <span className="font-medium">
                   {offer.airline} {offer.flightNumber}

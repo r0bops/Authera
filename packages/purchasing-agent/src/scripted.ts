@@ -1,6 +1,7 @@
 import type { PurchasingAgentGateway } from './gateway.js';
 import {
   AgentRunResultSchema,
+  marketsOf,
   PurchasingTaskSchema,
   type AgentOffer,
   type AgentRunResult,
@@ -31,16 +32,25 @@ export async function runScriptedPurchasingAgent(
 
   const search = await gateway.searchFlights(searchInput(task), { signal: options.signal });
   const offers = [...search.offers].sort(compareOffers);
+  const marketsSearched = marketsOf(offers);
   trace.add('SEARCH_COMPLETED', {
     offerCount: offers.length,
     offerIds: offers.map((offer) => offer.offerId),
+    markets: marketsSearched,
+    merchants: [...new Set(offers.map((offer) => offer.merchantName))],
   });
 
-  const selected = offers.find(
+  const qualifying = offers.filter(
     (offer) => offer.currency === task.currency && offer.totalMinor <= task.maxAmountMinor,
   );
+  const selected = qualifying[0];
   if (!selected) {
-    trace.add('NO_MATCH', { maxAmountMinor: task.maxAmountMinor, currency: task.currency });
+    const selectionReason = noMatchReason(offers, task);
+    trace.add('NO_MATCH', {
+      maxAmountMinor: task.maxAmountMinor,
+      currency: task.currency,
+      reason: selectionReason,
+    });
     return {
       result: AgentRunResultSchema.parse({
         requestedMode: options.requestedMode ?? 'scripted',
@@ -48,10 +58,19 @@ export async function runScriptedPurchasingAgent(
         fallbackUsed: options.fallbackUsed ?? false,
         outcome: 'NO_MATCH',
         consideredOfferIds: offers.map((offer) => offer.offerId),
+        marketsSearched,
+        selectionReason,
       }),
       trace: trace.snapshot(),
     };
   }
+  const selectionReason = selectedReason(selected, qualifying, offers, marketsSearched);
+  trace.add('OFFER_SELECTED', {
+    offerId: selected.offerId,
+    merchant: selected.merchantName,
+    market: selected.market,
+    reason: selectionReason,
+  });
 
   const purchase = await gateway.requestPurchase(
     { mandateId: task.mandateId, offerId: selected.offerId, checkoutId: selected.checkoutId },
@@ -71,7 +90,9 @@ export async function runScriptedPurchasingAgent(
       fallbackUsed: options.fallbackUsed ?? false,
       outcome: 'PURCHASE_REQUESTED',
       consideredOfferIds: offers.map((offer) => offer.offerId),
+      marketsSearched,
       selectedOfferId: selected.offerId,
+      selectionReason,
       purchase,
     }),
     trace: trace.snapshot(),
@@ -81,6 +102,33 @@ export async function runScriptedPurchasingAgent(
 function searchInput(task: PurchasingTask) {
   const { origin, destination, departureDateFrom, departureDateTo } = task;
   return { origin, destination, departureDateFrom, departureDateTo };
+}
+
+function money(minor: number, currency: string): string {
+  return `${currency} ${(minor / 100).toFixed(2)}`;
+}
+
+function selectedReason(
+  selected: AgentOffer,
+  qualifying: readonly AgentOffer[],
+  all: readonly AgentOffer[],
+  markets: readonly string[],
+): string {
+  const runnerUp = qualifying[1];
+  const scope = `Searched ${all.length} offer${all.length === 1 ? '' : 's'} across ${markets.length} market${markets.length === 1 ? '' : 's'} (${markets.join(', ')}); ${qualifying.length} within the limit.`;
+  const pick = `Chose ${selected.merchantName} (${selected.market}) at ${money(selected.totalMinor, selected.currency)}, the lowest qualifying total`;
+  const versus = runnerUp
+    ? `, ${money(runnerUp.totalMinor - selected.totalMinor, selected.currency)} less than the next option from ${runnerUp.merchantName} (${runnerUp.market}).`
+    : '.';
+  return `${scope} ${pick}${versus}`;
+}
+
+function noMatchReason(all: readonly AgentOffer[], task: PurchasingTask): string {
+  const markets = marketsOf(all);
+  if (all.length === 0)
+    return 'No merchant in any market returned an offer for this route and window.';
+  const cheapest = all[0]!;
+  return `Searched ${all.length} offer${all.length === 1 ? '' : 's'} across ${markets.length} market${markets.length === 1 ? '' : 's'} (${markets.join(', ')}); the cheapest was ${cheapest.merchantName} (${cheapest.market}) at ${money(cheapest.totalMinor, cheapest.currency)}, above the ${money(task.maxAmountMinor, task.currency)} limit. Did not request a purchase.`;
 }
 
 function compareOffers(left: AgentOffer, right: AgentOffer): number {

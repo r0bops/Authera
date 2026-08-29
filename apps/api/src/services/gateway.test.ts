@@ -23,6 +23,8 @@ function offer(id: string, minor: number, overrides: Partial<Offer> = {}): Offer
   return {
     id,
     merchantId: FIXTURE_IDS.merchantId,
+    merchantName: 'VuelaYa',
+    market: 'VE',
     airline: 'VuelaYa',
     flightNumber: 'VY201',
     origin: 'CCS',

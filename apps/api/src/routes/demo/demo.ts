@@ -13,8 +13,10 @@ import {
 import {
   getCheckout,
   insertOffer,
+  listMerchants,
   resetDemo,
   SEED_IDS,
+  SEED_MERCHANT,
   tamperCheckoutCart,
   type Database,
   type SeedInput,
@@ -102,11 +104,21 @@ export function demoRoutes(deps: DemoDependencies) {
     const departureAt = input.departureAt
       ? new Date(input.departureAt)
       : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const merchant = input.merchantId
+      ? (await listMerchants(deps.db)).find((m) => m.id === input.merchantId)
+      : SEED_MERCHANT;
+    if (!merchant) throw ApiProblem.notFound('merchant');
+    const airline = input.airline ?? merchant.displayName;
+    const prefix =
+      airline
+        .replace(/[^A-Za-z]/g, '')
+        .slice(0, 2)
+        .toUpperCase() || 'XX';
     const offer = await insertOffer(deps.db, {
       id: randomUUID(),
-      merchantId: SEED_IDS.vuelaya,
-      airline: input.airline,
-      flightNumber: input.flightNumber ?? `VY${Math.floor(100 + Math.random() * 900)}`,
+      merchantId: merchant.id,
+      airline,
+      flightNumber: input.flightNumber ?? `${prefix}${Math.floor(100 + Math.random() * 900)}`,
       origin: input.origin,
       destination: input.destination,
       cabin: input.cabin,

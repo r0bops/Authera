@@ -66,7 +66,7 @@ export const MandateViewSchema = z.object({
   createdAt: z.iso.datetime(),
   agent: z.object({ id: z.uuid(), displayName: z.string(), keyThumbprint: z.string() }),
   paymentMethod: z.object({ id: z.uuid(), brand: z.string(), last4: z.string() }).nullable(),
-  merchants: z.array(z.object({ id: z.uuid(), displayName: z.string() })),
+  merchants: z.array(z.object({ id: z.uuid(), displayName: z.string(), market: z.string() })),
   versions: z.array(MandateVersionSummarySchema),
   timeline: z.array(AuditEventSchema),
 });

@@ -9,6 +9,8 @@ import { PurchaseAttemptResponseSchema } from './execution.js';
  */
 
 export const DemoInjectOfferRequestSchema = z.strictObject({
+  /** Merchant (market) that publishes the offer. Defaults to the first seeded merchant. */
+  merchantId: z.uuid().optional(),
   origin: IataCodeSchema.default('CCS'),
   destination: IataCodeSchema.default('COR'),
   cabin: CabinSchema.default('economy'),
@@ -16,7 +18,8 @@ export const DemoInjectOfferRequestSchema = z.strictObject({
   currency: CurrencySchema.default('USD'),
   departureAt: z.iso.datetime().optional(),
   passengerCount: z.number().int().min(1).max(9).default(1),
-  airline: z.string().min(1).max(40).default('VuelaYa'),
+  /** Defaults to the merchant's display name. */
+  airline: z.string().min(1).max(40).optional(),
   flightNumber: z.string().min(1).max(10).optional(),
   /** Minutes until the offer expires (default 24 h). */
   expiresInMinutes: z
@@ -90,7 +93,11 @@ export const DemoAttemptResultSchema = z.object({
   fallbackUsed: z.boolean(),
   outcome: z.enum(['PURCHASE_REQUESTED', 'NO_MATCH']),
   consideredOfferIds: z.array(z.uuid()),
+  /** Distinct markets (ISO 3166-1 alpha-2) whose merchants returned offers. */
+  marketsSearched: z.array(z.string()),
   selectedOfferId: z.uuid().optional(),
+  /** Plain-language reason the agent gave for its choice (or for not choosing). */
+  selectionReason: z.string().optional(),
   purchase: PurchaseAttemptResponseSchema.optional(),
   trace: z.array(AgentTraceEventSchema),
 });

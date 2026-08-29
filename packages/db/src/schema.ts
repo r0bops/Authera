@@ -61,6 +61,8 @@ export const merchants = pgTable('merchants', {
   id: uuid('id').primaryKey(),
   slug: text('slug').notNull().unique(),
   displayName: text('display_name').notNull(),
+  /** Market the merchant sells from (ISO 3166-1 alpha-2), used for cross-market discovery. */
+  market: text('market').notNull().default('VE'),
   status: text('status').notNull().default('ACTIVE'),
   ...timestamps,
 });

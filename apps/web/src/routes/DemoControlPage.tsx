@@ -56,6 +56,7 @@ export function DemoControlPage() {
   const [destination, setDestination] = useState('COR');
   const [cabin, setCabin] = useState<'economy' | 'business'>('economy');
   const [departure, setDeparture] = useState('');
+  const [merchantId, setMerchantId] = useState('');
   const [mandateId, setMandateId] = useState('');
   const [offerId, setOfferId] = useState('');
   const [mode, setMode] = useState<'scripted' | 'openai'>('scripted');
@@ -143,9 +144,23 @@ export function DemoControlPage() {
         <div className="col-span-8 flex flex-col gap-4">
           <Card
             title="1 · Inject an offer"
-            description="Any price, route, cabin, or date — the judge's combination"
+            description="Any merchant, price, route, cabin, or date — the judge's combination"
           >
-            <div className="grid grid-cols-6 gap-3">
+            <div className="grid grid-cols-7 gap-3">
+              <div>
+                <Label htmlFor="merchant">Merchant</Label>
+                <Select
+                  id="merchant"
+                  value={merchantId || (me.data?.merchants[0]?.id ?? '')}
+                  onChange={(e) => setMerchantId(e.target.value)}
+                >
+                  {(me.data?.merchants ?? []).map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.displayName} ({m.market})
+                    </option>
+                  ))}
+                </Select>
+              </div>
               <div>
                 <Label htmlFor="price">Price (USD)</Label>
                 <Input
@@ -206,7 +221,9 @@ export function DemoControlPage() {
                         cabin,
                         currency: 'USD',
                         passengerCount: 1,
-                        airline: 'VuelaYa',
+                        ...(merchantId || me.data?.merchants[0]?.id
+                          ? { merchantId: merchantId || me.data!.merchants[0]!.id }
+                          : {}),
                         expiresInMinutes: 1440,
                         ...(departure ? { departureAt: `${departure}T08:00:00.000Z` } : {}),
                       })
@@ -224,7 +241,7 @@ export function DemoControlPage() {
 
           <Card
             title="2 · Agent attempt"
-            description="The agent searches, prepares a checkout, and asks the gateway. Or force one offer for a direct signed attempt."
+            description="The agent searches every merchant and market, prepares a checkout per offer, compares them, and asks the gateway for its choice. Or force one offer for a direct signed attempt."
           >
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-5">
@@ -548,16 +565,37 @@ function ResultSummary({ value }: { value: unknown }) {
         </p>
       ) : null}
       {v.outcome ? (
-        <p>
-          Agent outcome:{' '}
-          <Badge tone={v.outcome === 'PURCHASE_REQUESTED' ? 'info' : 'neutral'}>{v.outcome}</Badge>{' '}
-          {v.mode ? (
-            <span className="text-ink-faint">
-              ({v.mode}
-              {v.fallbackUsed ? ', fallback' : ''})
-            </span>
+        <>
+          <p>
+            Agent outcome:{' '}
+            <Badge tone={v.outcome === 'PURCHASE_REQUESTED' ? 'info' : 'neutral'}>
+              {v.outcome}
+            </Badge>{' '}
+            {v.mode ? (
+              <span className="text-ink-faint">
+                ({v.mode}
+                {v.fallbackUsed ? ', fallback' : ''})
+              </span>
+            ) : null}
+          </p>
+          {v.consideredOfferIds ? (
+            <p className="text-ink-faint">
+              Considered {v.consideredOfferIds.length} offer
+              {v.consideredOfferIds.length === 1 ? '' : 's'} across {v.marketsSearched?.length ?? 0}{' '}
+              market
+              {(v.marketsSearched?.length ?? 0) === 1 ? '' : 's'}
+              {v.marketsSearched && v.marketsSearched.length > 0
+                ? ` (${v.marketsSearched.join(', ')})`
+                : ''}
+              .
+            </p>
           ) : null}
-        </p>
+          {v.selectionReason ? (
+            <p className="rounded-md border border-line bg-ground px-2.5 py-1.5 text-ink">
+              <span className="font-medium">Agent's reasoning:</span> {v.selectionReason}
+            </p>
+          ) : null}
+        </>
       ) : null}
       {purchase ? (
         <p className="flex flex-wrap items-center gap-1.5">

@@ -13,7 +13,7 @@ import {
 import {
   SEED_AGENT,
   SEED_IDS,
-  SEED_MERCHANT,
+  SEED_MERCHANTS,
   SEED_OFFERS,
   SEED_OFFER_EXPIRY,
   SEED_PAYMENT_METHOD,
@@ -34,7 +34,17 @@ export interface SeedInput {
 /** Idempotent demo seed: safe to run on every start and after every reset. */
 export async function seedDemo(db: DbExecutor, input: SeedInput): Promise<void> {
   await db.insert(users).values(SEED_USER).onConflictDoNothing();
-  await db.insert(merchants).values(SEED_MERCHANT).onConflictDoNothing();
+  await db
+    .insert(merchants)
+    .values(SEED_MERCHANTS)
+    .onConflictDoUpdate({
+      target: merchants.id,
+      set: {
+        displayName: sql`excluded.display_name`,
+        market: sql`excluded.market`,
+        status: 'ACTIVE',
+      },
+    });
   await db
     .insert(agents)
     .values({
@@ -97,7 +107,6 @@ export async function seedDemo(db: DbExecutor, input: SeedInput): Promise<void> 
     .values(
       SEED_OFFERS.map((offer) => ({
         ...offer,
-        merchantId: SEED_MERCHANT.id,
         departureAt: new Date(offer.departureAt),
         arrivalAt: new Date(offer.arrivalAt),
         expiresAt: new Date(SEED_OFFER_EXPIRY),

@@ -146,6 +146,9 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
     return {
       offerId: offer.id,
       checkoutId: checkout.id,
+      merchantId: offer.merchantId,
+      merchantName: offer.merchantName,
+      market: offer.market,
       origin: offer.origin,
       destination: offer.destination,
       departureAt: offer.departureAt,

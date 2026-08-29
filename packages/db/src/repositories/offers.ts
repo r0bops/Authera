@@ -9,15 +9,19 @@ import type {
   OfferStatus,
 } from '@authera/contracts';
 import type { DbExecutor } from '../client.js';
-import { checkouts, offers } from '../schema.js';
+import { checkouts, merchants, offers } from '../schema.js';
 
 export type OfferRow = typeof offers.$inferSelect;
 export type CheckoutRow = typeof checkouts.$inferSelect;
+/** Offer row joined with the merchant it belongs to. */
+export type OfferWithMerchantRow = { offer: OfferRow; merchantName: string; market: string };
 
-export function toOffer(row: OfferRow): Offer {
+export function toOffer({ offer: row, merchantName, market }: OfferWithMerchantRow): Offer {
   return {
     id: row.id,
     merchantId: row.merchantId,
+    merchantName,
+    market,
     airline: row.airline,
     flightNumber: row.flightNumber,
     origin: row.origin,
@@ -66,14 +70,27 @@ export async function listOffers(db: DbExecutor, filter: OfferFilter = {}): Prom
   if (filter.departureFrom) conditions.push(gte(offers.departureAt, filter.departureFrom));
   if (filter.departureTo) conditions.push(lte(offers.departureAt, filter.departureTo));
   if (filter.status) conditions.push(eq(offers.status, filter.status));
-  const query = db.select().from(offers).orderBy(asc(offers.amountMinor), asc(offers.departureAt));
+  const query = selectWithMerchant(db).orderBy(asc(offers.amountMinor), asc(offers.departureAt));
   const rows = conditions.length > 0 ? await query.where(and(...conditions)) : await query;
   return rows.map(toOffer);
 }
 
 export async function getOffer(db: DbExecutor, id: string): Promise<Offer | undefined> {
-  const [row] = await db.select().from(offers).where(eq(offers.id, id));
+  const [row] = await selectWithMerchant(db).where(eq(offers.id, id));
   return row ? toOffer(row) : undefined;
+}
+
+function selectWithMerchant(db: DbExecutor) {
+  return db
+    .select({ offer: offers, merchantName: merchants.displayName, market: merchants.market })
+    .from(offers)
+    .innerJoin(merchants, eq(merchants.id, offers.merchantId));
+}
+
+async function loadOffer(db: DbExecutor, id: string): Promise<Offer> {
+  const offer = await getOffer(db, id);
+  if (!offer) throw new Error(`offer ${id} not found after write`);
+  return offer;
 }
 
 export interface InsertOfferInput {
@@ -105,7 +122,7 @@ export async function insertOffer(db: DbExecutor, input: InsertOfferInput): Prom
     })
     .returning();
   if (!row) throw new Error('offer insert returned no row');
-  return toOffer(row);
+  return loadOffer(db, row.id);
 }
 
 export async function updateOfferStatus(

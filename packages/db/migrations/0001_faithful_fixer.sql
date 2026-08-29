@@ -1,0 +1,1 @@
+ALTER TABLE "merchants" ADD COLUMN "market" text DEFAULT 'VE' NOT NULL;

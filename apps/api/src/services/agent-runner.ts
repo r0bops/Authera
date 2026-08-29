@@ -116,8 +116,12 @@ export class AgentRunner {
       fallbackUsed: execution.result.fallbackUsed,
       outcome: execution.result.outcome,
       consideredOfferIds: execution.result.consideredOfferIds,
+      marketsSearched: execution.result.marketsSearched,
       ...(execution.result.selectedOfferId
         ? { selectedOfferId: execution.result.selectedOfferId }
+        : {}),
+      ...(execution.result.selectionReason
+        ? { selectionReason: execution.result.selectionReason }
         : {}),
       ...(execution.result.purchase ? { purchase: execution.result.purchase } : {}),
       trace: execution.trace.map((e) => ({ at: e.at, event: e.event, data: { ...e.data } })),

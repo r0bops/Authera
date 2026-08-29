@@ -12,13 +12,14 @@ Built for **NextWave Hackathon 2026 — Challenge 1: Agentic Purchase Mandates**
 
 ## The scenario
 
-Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Córdoba on VuelaYa for at most USD 150** before the end of the month, using a tokenized card. Aria watches prices. When a USD 130 offer appears, Aria requests the purchase; Authera verifies Aria's signature, Marta's signed mandate, and the exact checkout, reserves the single allowed use, pays, and hands everyone a receipt. A USD 300 offer is blocked (or paused for Marta), a forged key is rejected, a replayed request is rejected, two racing attempts yield one purchase, and a live revocation stops the next attempt cold.
+Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Córdoba for at most USD 150** before the end of the month, using a tokenized card, from any of the merchants she ticks (VuelaYa in Venezuela, AeroSur in Argentina, AndesGo Travel in Colombia). Aria searches all three markets, compares every authoritative offer, and explains its pick in one sentence. When a USD 130 offer appears in any market, Aria requests the purchase; Authera verifies Aria's signature, Marta's signed mandate, and the exact checkout, reserves the single allowed use, pays, and hands everyone a receipt. A USD 300 offer is blocked (or paused for Marta), a forged key is rejected, a replayed request is rejected, two racing attempts yield one purchase, and a live revocation stops the next attempt cold.
 
 ## What the gateway guarantees
 
 | Guarantee | How |
 |---|---|
 | The LLM never authorizes anything | The purchasing agent has two tools (`search_flights`, `request_purchase`) and submits ids only; `evaluatePolicy` is a pure function and PostgreSQL holds live state |
+| The agent chooses, the gateway decides | `search_flights` fans out over every merchant/market (each offer carries `merchantName` + `market`); the agent ranks them and records a plain-language `selectionReason`; the gateway re-checks the chosen merchant against the mandate's `allowedMerchantIds` and blocks with `MERCHANT_NOT_ALLOWED` |
 | Agent identity ≠ human authority | RFC 9421 (Ed25519) signed requests prove *who*; the trusted-surface JWS mandate proves *what was allowed*; both are checked separately |
 | No spend outside the mandate | Route, cabin, passengers, dates, merchant, currency, per-purchase and total caps, usage count, validity window — evaluated on server data, then enforced again by one conditional `UPDATE` on `mandate_runtime` |
 | Live revocation | Revocation and reservation update the same row; whichever commits first wins, and every attempt after revocation fails |
@@ -61,7 +62,7 @@ One desktop console, four roles, one event stream:
 |---|---|
 | Health | `GET /health/live`, `GET /health/ready` |
 | Discovery | `GET /.well-known/ucp`, `GET /.well-known/http-message-signatures-directory`, `GET /agents/:id/profile` |
-| Signed agent (browse) | `GET /api/flights`, `POST /ucp/v1/checkout-sessions`, `GET /ucp/v1/checkout-sessions/:id` |
+| Signed agent (browse) | `GET /api/flights` (cross-merchant, cross-market catalog), `POST /ucp/v1/checkout-sessions`, `GET /ucp/v1/checkout-sessions/:id` |
 | Signed agent (payment) | `POST /api/purchase-attempts` — body is `{ executionId, mandateId, offerId, checkoutId }` and nothing else |
 | Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]`, `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
 | Demo (DEMO_MODE) | `/api/demo/*` |

@@ -17,7 +17,7 @@ const CHECKOUT_TTL_MS = 2 * 60 * 60 * 1000;
 
 export function offerSummary(offer: Offer): string {
   const departure = offer.departureAt.slice(0, 16).replace('T', ' ');
-  return `${offer.airline} ${offer.flightNumber} · ${offer.origin}→${offer.destination} · ${departure} · ${offer.cabin} · ${formatMoney(offer.total)}`;
+  return `${offer.merchantName} (${offer.market}) · ${offer.airline} ${offer.flightNumber} · ${offer.origin}→${offer.destination} · ${departure} · ${offer.cabin} · ${formatMoney(offer.total)}`;
 }
 
 export function toOfferView(offer: Offer): FlightOfferView {

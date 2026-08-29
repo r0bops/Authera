@@ -41,6 +41,8 @@ const FormSchema = z
     maxFulfillments: z.coerce.number().int().min(1).max(10),
     validUntil: z.string().min(1, 'Pick an expiry'),
     paymentMethodId: z.string().uuid('Choose a payment method'),
+    /** Empty means every active merchant (the API default). */
+    allowedMerchantIds: z.array(z.string().uuid()),
     escalate: z.boolean(),
   })
   .refine((v) => v.departureDateFrom <= v.departureDateTo, {
@@ -79,11 +81,30 @@ export function NewMandatePage() {
       maxFulfillments: 1,
       validUntil: endOfMonthIso(today).slice(0, 16),
       paymentMethodId: '',
+      allowedMerchantIds: [],
       escalate: false,
     },
   });
   const values = useWatch({ control: form.control }) as FormInput;
   const paymentMethods = me.data?.paymentMethods ?? [];
+  const merchants = me.data?.merchants ?? [];
+  const allowedMerchantIds = values.allowedMerchantIds ?? [];
+  const allowedMerchants =
+    allowedMerchantIds.length === 0
+      ? merchants
+      : merchants.filter((m) => allowedMerchantIds.includes(m.id));
+  const toggleMerchant = (id: string, on: boolean) => {
+    const current =
+      allowedMerchantIds.length === 0 ? merchants.map((m) => m.id) : allowedMerchantIds;
+    const next = on ? [...new Set([...current, id])] : current.filter((x) => x !== id);
+    form.setValue('allowedMerchantIds', next, { shouldValidate: true });
+  };
+  const merchantLabel = (list: { displayName: string; market: string }[]) =>
+    list.length === 0
+      ? 'none'
+      : list.length === merchants.length
+        ? `any of ${list.map((m) => m.displayName).join(', ')}`
+        : list.map((m) => `${m.displayName} (${m.market})`).join(', ');
   const defaultPaymentMethodId = paymentMethods[0]?.id;
   useEffect(() => {
     if (defaultPaymentMethodId && values.paymentMethodId === '') {
@@ -100,6 +121,10 @@ export function NewMandatePage() {
       step === 0
         ? ['origin', 'destination', 'departureDateFrom', 'departureDateTo', 'passengerCount']
         : ['maxPerPurchase', 'maxFulfillments', 'validUntil', 'paymentMethodId'];
+    if (step === 1 && allowedMerchants.length === 0) {
+      form.setError('allowedMerchantIds', { message: 'Allow at least one merchant' });
+      return;
+    }
     if (await form.trigger(fields)) setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
 
@@ -107,6 +132,9 @@ export function NewMandatePage() {
     const minor = inputToMinor(v.maxPerPurchase);
     const request: CreateMandateRequest = {
       paymentMethodId: v.paymentMethodId,
+      ...(v.allowedMerchantIds.length > 0 && v.allowedMerchantIds.length < merchants.length
+        ? { allowedMerchantIds: v.allowedMerchantIds }
+        : {}),
       intent: {
         type: 'flight',
         origin: v.origin,
@@ -249,10 +277,28 @@ export function NewMandatePage() {
                   <FieldError message={form.formState.errors.paymentMethodId?.message} />
                 </div>
                 <div className="col-span-2">
-                  <Label>Allowed merchant</Label>
-                  <p className="text-[13px] text-ink">
-                    {me.data?.merchants.map((m) => m.displayName).join(', ') ?? 'VuelaYa'} only
+                  <Label>Allowed merchants</Label>
+                  <p className="mb-1.5 text-[12px] text-ink-faint">
+                    The agent searches every market below; the gateway blocks any purchase from a
+                    merchant you untick.
                   </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                    {merchants.map((m) => {
+                      const on = allowedMerchants.some((a) => a.id === m.id);
+                      return (
+                        <label key={m.id} className="flex items-center gap-1.5 text-[13px]">
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={(e) => toggleMerchant(m.id, e.target.checked)}
+                          />
+                          {m.displayName}{' '}
+                          <span className="font-mono text-[11px] text-ink-faint">{m.market}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <FieldError message={form.formState.errors.allowedMerchantIds?.message} />
                 </div>
                 <div className="col-span-2">
                   <Switch
@@ -302,10 +348,7 @@ export function NewMandatePage() {
                     ),
                   },
                   { label: 'Purchases permitted', value: String(values.maxFulfillments) },
-                  {
-                    label: 'Merchant',
-                    value: me.data?.merchants.map((m) => m.displayName).join(', ') ?? 'VuelaYa',
-                  },
+                  { label: 'Merchants', value: merchantLabel(allowedMerchants) },
                   { label: 'Expires', value: values.validUntil.replace('T', ' ') },
                   {
                     label: 'Payment',

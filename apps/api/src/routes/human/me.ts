@@ -31,6 +31,7 @@ export function meRoutes(deps: SessionDependencies) {
       id: m.id,
       slug: m.slug,
       displayName: m.displayName,
+      market: m.market,
     }));
     const body: MeResponse = {
       user: { id: user.id, email: user.email, displayName: user.displayName },

@@ -7,6 +7,10 @@ import { OfferStatusSchema } from './policy.js';
 export const OfferSchema = z.strictObject({
   id: z.uuid(),
   merchantId: z.uuid(),
+  /** Denormalized from the merchant row so every view can show where the offer came from. */
+  merchantName: z.string().min(1),
+  /** ISO 3166-1 alpha-2 market of the selling merchant. */
+  market: z.string().length(2),
   airline: z.string().min(1),
   flightNumber: z.string().min(1),
   origin: IataCodeSchema,

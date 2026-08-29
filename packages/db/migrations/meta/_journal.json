@@ -8,6 +8,13 @@
       "when": 1788027515157,
       "tag": "0000_aromatic_spencer_smythe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788035025055,
+      "tag": "0001_faithful_fixer",
+      "breakpoints": true
     }
   ]
 }

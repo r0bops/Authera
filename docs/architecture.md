@@ -21,6 +21,10 @@ flowchart LR
 
 Authority lives in exactly two places: the **pure policy engine** (deterministic, clock injected, fails closed) and the **PostgreSQL reservation predicate** (one conditional `UPDATE` on `mandate_runtime` that revocation contends with). Nothing else — not the agent, not the browser, not the LLM — can produce `ALLOW`.
 
+## Discovery across markets
+
+`GET /api/flights` is one signed call, but the catalog behind it belongs to several merchants in several markets (seeded: VuelaYa/VE, AeroSur/AR, AndesGo Travel/CO; demo control can inject offers for any of them). Every offer is returned with `merchantId`, `merchantName`, and `market`. The purchasing agent prepares one UCP checkout per offer, compares all of them, and records `marketsSearched` and a one-sentence `selectionReason` in its run result and trace. The choice is the agent's; the authority is not — the gateway reloads the offer and merchant and enforces the mandate's `allowedMerchantIds` (`MERCHANT_NOT_ALLOWED`) regardless of what the agent argued.
+
 ## Purchase sequence
 
 ```mermaid

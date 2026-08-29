@@ -73,6 +73,12 @@ export function AgentPage() {
                 },
                 { label: 'Eligible offers', value: eligible.length },
                 {
+                  label: 'Markets searched',
+                  value: offers.data
+                    ? [...new Set(offers.data.map((o) => o.market))].join(', ') || '—'
+                    : '—',
+                },
+                {
                   label: 'Last decision',
                   value: latest ? (
                     <DecisionBadge

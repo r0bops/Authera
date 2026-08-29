@@ -222,7 +222,7 @@ export class MandateService {
             last4: paymentMethod.displayLast4,
           }
         : null,
-      merchants: merchants.map((m) => ({ id: m.id, displayName: m.displayName })),
+      merchants: merchants.map((m) => ({ id: m.id, displayName: m.displayName, market: m.market })),
       versions: aggregate.versions.map((v) => ({
         version: v.version,
         status: v.version === mandate.currentVersion ? effectiveStatus : 'SUPERSEDED',

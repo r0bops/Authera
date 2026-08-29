@@ -3,8 +3,9 @@ import type { z } from 'zod';
 import type { PurchasingAgentGateway } from './gateway.js';
 import {
   AgentRunResultSchema,
+  marketsOf,
   PurchasingTaskSchema,
-  RequestPurchaseToolInputSchema,
+  RequestPurchaseToolCallSchema,
   SearchFlightsInputSchema,
   type AgentRunResult,
   type PurchasingTask,
@@ -50,6 +51,8 @@ export async function runOpenAiPurchasingAgent(
   const maxToolResultBytes = options.maxToolResultBytes ?? 12_000;
   let purchaseInvoked = false;
   let consideredOfferIds: string[] = [];
+  let marketsSearched: string[] = [];
+  let selectionReason: string | undefined;
   const authoritativeCheckouts = new Map<string, string>();
   let selectedOfferId: string | undefined;
   let purchase: AgentRunResult['purchase'];
@@ -63,7 +66,8 @@ export async function runOpenAiPurchasingAgent(
 
   const searchFlights = tool({
     name: 'search_flights',
-    description: 'Search authoritative merchant flight offers for one route and date range.',
+    description:
+      'Search authoritative flight offers from every connected merchant and market for one route and date range. Each offer names its merchant and market.',
     parameters: SearchFlightsInputSchema,
     strict: true,
     execute: async (input) => {
@@ -74,12 +78,15 @@ export async function runOpenAiPurchasingAgent(
         signal: combinedSignal(options.signal, timeoutMs),
       });
       consideredOfferIds = result.offers.map((offer) => offer.offerId);
+      marketsSearched = marketsOf(result.offers);
       authoritativeCheckouts.clear();
       for (const offer of result.offers)
         authoritativeCheckouts.set(offer.offerId, offer.checkoutId);
       trace.add('SEARCH_COMPLETED', {
         offerCount: result.offers.length,
         offerIds: consideredOfferIds,
+        markets: marketsSearched,
+        merchants: [...new Set(result.offers.map((offer) => offer.merchantName))],
       });
       return boundedToolResult(result, maxToolResultBytes);
     },
@@ -88,10 +95,10 @@ export async function runOpenAiPurchasingAgent(
   const requestPurchase = tool({
     name: 'request_purchase',
     description:
-      'Request a purchase through the deterministic mandate gateway. Accepts identifiers only.',
-    parameters: RequestPurchaseToolInputSchema,
+      'Request a purchase through the deterministic mandate gateway. Accepts identifiers plus a one-sentence reason comparing the chosen offer with the alternatives; the reason is recorded for the human and never changes the decision.',
+    parameters: RequestPurchaseToolCallSchema,
     strict: true,
-    execute: async (input) => {
+    execute: async ({ reason, ...input }) => {
       if (
         input.mandateId !== task.mandateId ||
         authoritativeCheckouts.get(input.offerId) !== input.checkoutId
@@ -100,6 +107,8 @@ export async function runOpenAiPurchasingAgent(
       }
       purchaseInvoked = true;
       selectedOfferId = input.offerId;
+      selectionReason = reason;
+      trace.add('OFFER_SELECTED', { offerId: input.offerId, reason });
       purchase = await gateway.requestPurchase(input, {
         signal: combinedSignal(options.signal, timeoutMs),
       });
@@ -117,11 +126,11 @@ export async function runOpenAiPurchasingAgent(
     name: 'Authera purchasing agent',
     instructions: [
       'You discover flights and may request one purchase, but you never authorize payments.',
-      'Call search_flights first using the exact route and date range in the task.',
-      'Choose only an authoritative returned offer at or below the task maximum amount.',
-      'Then call request_purchase with only mandateId, offerId, and checkoutId.',
+      'Call search_flights first using the exact route and date range in the task; it returns offers from several merchants in different markets.',
+      'Compare every returned offer across merchants and markets. Prefer the lowest total that is at or below the task maximum amount in the task currency; break ties by the earliest departure.',
+      'Choose only an authoritative returned offer. Then call request_purchase with mandateId, offerId, checkoutId, and a one-sentence reason that names the chosen merchant and market and the best alternative you rejected.',
       'Never invent prices, checkout IDs, payment data, policy verdicts, or authorization state.',
-      'If no qualifying offer exists, finish without calling request_purchase.',
+      'If no qualifying offer exists, finish without calling request_purchase and reply with one sentence explaining why (cheapest offer, merchant, market, and the limit).',
     ].join(' '),
     model: options.modelOverride ?? options.model,
     tools: [searchFlights, requestPurchase],
@@ -134,14 +143,16 @@ export async function runOpenAiPurchasingAgent(
     workflowName: 'Authera purchasing agent',
   });
 
+  let finalOutput: unknown;
   try {
-    await runner.run(agent, promptFor(task), {
+    const run = await runner.run(agent, promptFor(task), {
       maxTurns,
       signal: combinedSignal(options.signal, timeoutMs),
       toolExecution: { maxFunctionToolConcurrency: 1 },
       toolNameCollisionPolicy: 'error',
       toolNotFoundBehavior: 'raise_error',
     });
+    finalOutput = run.finalOutput;
   } catch (error) {
     trace.add('RUN_FAILED', { errorName: error instanceof Error ? error.name : 'UnknownError' });
     throw new OpenAiPurchasingAgentError('OpenAI purchasing agent failed', purchaseInvoked, {
@@ -156,7 +167,13 @@ export async function runOpenAiPurchasingAgent(
       fallbackUsed: false,
       outcome: purchase ? 'PURCHASE_REQUESTED' : 'NO_MATCH',
       consideredOfferIds,
+      marketsSearched,
       selectedOfferId,
+      selectionReason:
+        selectionReason ??
+        (typeof finalOutput === 'string' && finalOutput.trim().length > 0
+          ? finalOutput.trim().slice(0, 280)
+          : undefined),
       purchase,
     }),
     trace: trace.snapshot(),
