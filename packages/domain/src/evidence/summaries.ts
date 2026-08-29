@@ -91,3 +91,54 @@ export function describeAuditEvent(type: AuditEventType, detail?: string): strin
   const base = EVENT_TEMPLATES[type];
   return detail ? `${base}: ${detail}` : base;
 }
+
+export interface MandateSummaryContext {
+  merchantNames?: string[];
+  paymentMethodLabel?: string;
+}
+
+/** Plain-language rendering of a signed policy for the human, merchant, and auditor views. */
+export function describeMandatePolicy(
+  policy: {
+    intent: {
+      origin: string;
+      destination: string;
+      cabin: string;
+      passengerCount: number;
+      departureDateFrom: string;
+      departureDateTo: string;
+    };
+    limits: {
+      currency: Money['currency'];
+      maxPerPurchaseMinor: number;
+      maxTotalMinor: number;
+      maxFulfillments: number;
+    };
+    validUntil: string;
+    escalation: 'block' | 'require_human';
+  },
+  ctx: MandateSummaryContext = {},
+): string {
+  const { intent, limits } = policy;
+  const passengers =
+    intent.passengerCount === 1 ? 'one passenger' : `${intent.passengerCount} passengers`;
+  const merchants =
+    ctx.merchantNames && ctx.merchantNames.length > 0
+      ? ctx.merchantNames.join(' or ')
+      : 'the allowed merchant';
+  const perPurchase = formatMoney({ currency: limits.currency, minor: limits.maxPerPurchaseMinor });
+  const total = formatMoney({ currency: limits.currency, minor: limits.maxTotalMinor });
+  const uses =
+    limits.maxFulfillments === 1
+      ? 'a single purchase'
+      : `up to ${limits.maxFulfillments} purchases`;
+  const payment = ctx.paymentMethodLabel ? ` using ${ctx.paymentMethodLabel}` : '';
+  const outside =
+    policy.escalation === 'require_human'
+      ? 'Anything outside these limits pauses for your approval.'
+      : 'Anything outside these limits is blocked.';
+  return (
+    `Buy ${intent.cabin} flights from ${intent.origin} to ${intent.destination} for ${passengers}, departing between ${intent.departureDateFrom} and ${intent.departureDateTo}, from ${merchants}${payment}: ` +
+    `at most ${perPurchase} per purchase and ${total} in total, ${uses}, until ${policy.validUntil}. ${outside}`
+  );
+}

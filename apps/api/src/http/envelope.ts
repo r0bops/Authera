@@ -2,10 +2,13 @@ import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { RequestIdVariables } from 'hono/request-id';
 import type { ApiResult } from '@agentcerta/contracts';
+import type { SessionRow, UserRow } from '@agentcerta/db';
 import type { Logger } from '../logger.js';
 
 export interface AppVariables extends RequestIdVariables {
   logger: Logger;
+  user?: UserRow;
+  session?: SessionRow;
 }
 
 export type AppEnv = { Variables: AppVariables };

@@ -31,6 +31,10 @@ export async function getMerchantById(
   return row;
 }
 
+export async function listMerchants(db: DbExecutor): Promise<MerchantRow[]> {
+  return db.select().from(merchants).where(eq(merchants.status, 'ACTIVE'));
+}
+
 export async function getMerchantBySlug(
   db: DbExecutor,
   slug: string,

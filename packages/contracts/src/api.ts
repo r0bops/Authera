@@ -22,6 +22,7 @@ export type HealthLiveData = z.infer<typeof HealthLiveDataSchema>;
 
 export const HealthChecksSchema = z.object({
   database: ReadinessCheckSchema,
+  migrations: ReadinessCheckSchema.optional(),
 });
 export type HealthChecks = z.infer<typeof HealthChecksSchema>;
 
@@ -38,3 +39,30 @@ export type HealthReadyResponse = z.infer<typeof HealthReadyResponseSchema>;
 
 /** Error code carried by a 503 from /health/ready. */
 export const NOT_READY_ERROR_CODE = 'NOT_READY';
+
+// ---------------------------------------------------------------------------
+// Human API (CLAUDE_IMPLEMENTATION_SPEC.md §12)
+// ---------------------------------------------------------------------------
+
+export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key';
+export const CSRF_HEADER = 'X-Requested-With';
+export const CSRF_HEADER_VALUE = 'AgentCerta';
+
+export const MeResponseSchema = z.object({
+  user: z.object({ id: z.uuid(), email: z.string(), displayName: z.string() }),
+  agents: z.array(
+    z.object({
+      id: z.uuid(),
+      displayName: z.string(),
+      status: z.enum(['ACTIVE', 'REVOKED']),
+      keyThumbprint: z.string().nullable(),
+    }),
+  ),
+  paymentMethods: z.array(
+    z.object({ id: z.uuid(), provider: z.string(), brand: z.string(), last4: z.string() }),
+  ),
+  merchants: z.array(z.object({ id: z.uuid(), slug: z.string(), displayName: z.string() })),
+  demoMode: z.boolean(),
+  session: z.object({ expiresAt: z.iso.datetime() }),
+});
+export type MeResponse = z.infer<typeof MeResponseSchema>;
