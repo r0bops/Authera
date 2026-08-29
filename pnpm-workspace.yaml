@@ -10,3 +10,7 @@ allowBuilds:
   cpu-features: false
   protobufjs: false
   ssh2: false
+
+# Explicit exceptions to the minimum-release-age policy (fresh releases reviewed manually).
+minimumReleaseAgeExclude:
+  - lucide-react@1.37.0

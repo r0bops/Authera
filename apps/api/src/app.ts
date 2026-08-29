@@ -19,6 +19,7 @@ import { checkoutRoutes } from './routes/gateway/checkout.js';
 import { flightRoutes } from './routes/gateway/flights.js';
 import { purchaseAttemptRoutes } from './routes/gateway/purchase-attempts.js';
 import { healthRoutes } from './routes/health.js';
+import { ugliesRoutes } from './routes/human/approvals.js';
 import { consoleReadRoutes } from './routes/human/executions.js';
 import { discoveryRoutes } from './routes/public/discovery.js';
 import { mockWebhookRoutes, providerWebhookRoutes } from './routes/webhooks/webhooks.js';
@@ -26,6 +27,9 @@ import { humanMandateRoutes } from './routes/human/mandates.js';
 import { meRoutes } from './routes/human/me.js';
 import { databaseAgentIdentityStore } from './services/agent-identity.js';
 import { AgentRunner } from './services/agent-runner.js';
+import { ApprovalService } from './services/approval-service.js';
+import { DisputeService } from './services/dispute-service.js';
+import { EvidenceService } from './services/evidence-service.js';
 import { CheckoutService } from './services/checkout-service.js';
 import { ExecutionViews } from './services/execution-views.js';
 import { MandateGateway } from './services/gateway.js';
@@ -150,6 +154,10 @@ export function createApp(deps: AppDependencies): App {
     app.route('/api/me', meRoutes(sessionDeps));
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
     app.route('/api', consoleReadRoutes({ db, clock, views, checkout }));
+    const evidence = new EvidenceService({ db, clock });
+    const approvals = new ApprovalService({ db, clock, logger: deps.logger });
+    const disputes = new DisputeService({ db, clock, logger: deps.logger, evidence });
+    app.route('/api', ugliesRoutes({ db, approvals, disputes, evidence }));
 
     // Demo controls (DEMO_MODE only). The runner talks to this very app over signed HTTP.
     if (deps.config.demo.enabled) {

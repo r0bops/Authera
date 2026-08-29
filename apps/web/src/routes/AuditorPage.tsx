@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { AuditEvent } from '@agentcerta/contracts';
-import { useAuditEvents, useMandates } from '../api/hooks.js';
+import { useAuditEvents, useChainVerification, useMandates } from '../api/hooks.js';
 import { eventTone } from '../components/status.js';
 import {
   Badge,
@@ -33,6 +33,7 @@ export function AuditorPage() {
     ...(executionId ? { executionId } : {}),
     limit: 500,
   });
+  const chain = useChainVerification();
   const rows = (events.data ?? []).filter((e) => !typeFilter || e.eventType === typeFilter);
   const types = [...new Set((events.data ?? []).map((e) => e.eventType))].sort();
 
@@ -51,13 +52,28 @@ export function AuditorPage() {
         title="Auditor view"
         description="The append-only, hash-chained event ledger. Every decision links to its mandate version, execution, checkout, and payment; hashes make tampering detectable."
         actions={
-          <Button
-            variant="secondary"
-            disabled
-            title="Evidence export arrives with the dispute tooling"
-          >
-            Export evidence
-          </Button>
+          <>
+            {chain.data ? (
+              <Badge tone={chain.data.valid ? 'verified' : 'destructive'}>
+                {chain.data.valid
+                  ? `chain verified · ${chain.data.events} events`
+                  : `CHAIN INVALID · ${chain.data.reason ?? ''}`}
+              </Badge>
+            ) : null}
+            {executionId ? (
+              <a href={`/api/evidence/${executionId}/export`} download>
+                <Button variant="secondary">Export evidence bundle</Button>
+              </a>
+            ) : (
+              <Button
+                variant="secondary"
+                disabled
+                title="Filter by an execution id to export its bundle"
+              >
+                Export evidence bundle
+              </Button>
+            )}
+          </>
         }
       />
       <Card className="mb-4">

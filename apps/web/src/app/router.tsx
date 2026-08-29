@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell } from './shell/AppShell.js';
 import { ActivityPage } from '../routes/ActivityPage.js';
 import { AgentPage } from '../routes/AgentPage.js';
+import { ApprovalPage } from '../routes/ApprovalPage.js';
+import { DisputePage, DisputesListPage, NewDisputePage } from '../routes/DisputePages.js';
 import { AuditorPage } from '../routes/AuditorPage.js';
 import { DemoControlPage } from '../routes/DemoControlPage.js';
 import { MandateDetailPage } from '../routes/MandateDetailPage.js';
@@ -28,6 +30,10 @@ export const router = createBrowserRouter([
       { path: 'purchases', element: <PurchasesPage /> },
       { path: 'purchases/:id', element: <PurchaseDetailPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'approvals/:id', element: <ApprovalPage /> },
+      { path: 'disputes', element: <DisputesListPage /> },
+      { path: 'disputes/new', element: <NewDisputePage /> },
+      { path: 'disputes/:id', element: <DisputePage /> },
       { path: 'agent', element: <AgentPage /> },
       { path: 'merchant', element: <MerchantPage /> },
       { path: 'auditor', element: <AuditorPage /> },

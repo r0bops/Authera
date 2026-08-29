@@ -1,9 +1,10 @@
 import { ArrowRight, Plus } from 'lucide-react';
 import { Link } from 'react-router';
-import { useAuditEvents, useMandates, useMe, useOffers } from '../api/hooks.js';
+import { useApprovals, useAuditEvents, useMandates, useMe, useOffers } from '../api/hooks.js';
 import { offerMatches, PriceWatchChart } from '../components/price-watch.js';
 import { MandateStatusBadge, Timeline } from '../components/status.js';
 import {
+  Alert,
   Button,
   Card,
   EmptyState,
@@ -37,6 +38,8 @@ export function OverviewPage() {
           .sort((a, b) => a.total.minor - b.total.minor)
       : [];
   const best = eligible[0] ?? routeOffers[0];
+  const approvals = useApprovals();
+  const pendingApprovals = approvals.data?.filter((a) => a.state === 'PENDING') ?? [];
 
   return (
     <>
@@ -51,6 +54,19 @@ export function OverviewPage() {
           </Link>
         }
       />
+      {pendingApprovals.map((a) => (
+        <div key={a.id} className="mb-4">
+          <Alert
+            tone="attention"
+            title={`Approval requested: ${formatMoney(a.requested)} for ${a.offer ? `${a.offer.airline} ${a.offer.flightNumber}` : 'a flight'} (limit ${formatMoney(a.limit)})`}
+          >
+            The agent stopped because this offer is outside your mandate.{' '}
+            <Link className="font-medium text-cobalt hover:underline" to={`/approvals/${a.id}`}>
+              Review and decide
+            </Link>
+          </Alert>
+        </div>
+      ))}
       {mandates.isError ? (
         <ErrorState error={mandates.error} retry={() => void mandates.refetch()} />
       ) : null}

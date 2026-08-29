@@ -11,3 +11,4 @@ export * from './crypto/canonical.js';
 export * from './crypto/keys.js';
 export * from './crypto/http-signatures.js';
 export * from './evidence/summaries.js';
+export * from './evidence/dispute.js';

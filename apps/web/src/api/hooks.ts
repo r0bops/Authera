@@ -242,3 +242,94 @@ export function useMockWebhook() {
     retry: false,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Approvals, disputes, evidence (Phase 9)
+// ---------------------------------------------------------------------------
+
+import type {
+  ApprovalDecisionRequest,
+  ApprovalView,
+  CreateDisputeRequest,
+  DisputeView,
+  EvidenceBundle,
+} from '@agentcerta/contracts';
+
+export function useApprovals() {
+  const interval = usePollInterval();
+  return useQuery({
+    queryKey: ['approvals'],
+    queryFn: () => api<ApprovalView[]>('/api/approvals'),
+    refetchInterval: interval,
+  });
+}
+
+export function useApproval(id: string | undefined) {
+  const interval = usePollInterval();
+  return useQuery({
+    queryKey: ['approval', id ?? ''],
+    queryFn: () => api<ApprovalView>(`/api/approvals/${id}`),
+    enabled: Boolean(id),
+    refetchInterval: interval,
+  });
+}
+
+export function useDecideApproval(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ApprovalDecisionRequest) =>
+      api<ApprovalView>(`/api/approvals/${id}/decision`, { method: 'POST', body: input }),
+    onSuccess: () => client.invalidateQueries(),
+    retry: false,
+  });
+}
+
+export function useDisputes() {
+  const interval = usePollInterval();
+  return useQuery({
+    queryKey: ['disputes'],
+    queryFn: () => api<DisputeView[]>('/api/disputes'),
+    refetchInterval: interval,
+  });
+}
+
+export function useDispute(id: string | undefined) {
+  return useQuery({
+    queryKey: ['dispute', id ?? ''],
+    queryFn: () => api<DisputeView>(`/api/disputes/${id}`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useOpenDispute() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateDisputeRequest) =>
+      api<DisputeView>('/api/disputes', { method: 'POST', body: input }),
+    onSuccess: () => client.invalidateQueries(),
+    retry: false,
+  });
+}
+
+export function useEvidence(
+  executionId: string | undefined,
+  role: 'human' | 'merchant' | 'auditor' = 'auditor',
+) {
+  return useQuery({
+    queryKey: ['evidence', executionId ?? '', role],
+    queryFn: () => api<EvidenceBundle>(`/api/evidence/${executionId}?role=${role}`),
+    enabled: Boolean(executionId),
+  });
+}
+
+export function useChainVerification() {
+  const interval = usePollInterval();
+  return useQuery({
+    queryKey: ['audit-verify'],
+    queryFn: () =>
+      api<{ valid: boolean; events: number; reason?: string; brokenAtSequence?: number }>(
+        '/api/audit/verify',
+      ),
+    refetchInterval: interval * 5,
+  });
+}
