@@ -118,3 +118,57 @@ export const VerificationViewSchema = z.object({
   payment: PaymentViewSchema.nullable(),
 });
 export type VerificationView = z.infer<typeof VerificationViewSchema>;
+
+/** Compact execution row for lists (agent activity, purchases, merchant picker). */
+export const ExecutionSummarySchema = z.object({
+  id: z.uuid(),
+  state: ExecutionStateSchema,
+  decision: DecisionSchema.nullable(),
+  reasonCode: ReasonCodeSchema.nullable(),
+  explanation: z.string().nullable(),
+  mandateId: z.uuid().nullable(),
+  mandateVersion: z.number().int().nullable(),
+  offerId: z.uuid().nullable(),
+  offerSummary: z.string().nullable(),
+  checkoutId: z.uuid().nullable(),
+  amount: MoneySchema.nullable(),
+  paymentState: PaymentStateSchema.nullable(),
+  approvalRequestId: z.uuid().nullable(),
+  evidenceId: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type ExecutionSummary = z.infer<typeof ExecutionSummarySchema>;
+
+export const ExecutionListQuerySchema = z.strictObject({
+  mandateId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
+
+export const AuditQuerySchema = z.strictObject({
+  mandateId: z.uuid().optional(),
+  executionId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
+});
+
+/** Marta's receipt: the execution plus the offer, the mandate it used, and a verification checklist. */
+export const PurchaseReceiptSchema = z.object({
+  execution: ExecutionViewSchema,
+  offer: FlightOfferViewSchema.nullable(),
+  mandate: z
+    .object({
+      id: z.uuid(),
+      version: z.number().int(),
+      status: MandateStateSchema,
+      summary: z.string(),
+      maxPerPurchase: MoneySchema,
+      validUntil: z.iso.datetime(),
+      agentDisplayName: z.string(),
+      paymentMethodLabel: z.string().nullable(),
+    })
+    .nullable(),
+  verification: z.array(
+    z.object({ label: z.string(), ok: z.boolean(), detail: z.string().nullable() }),
+  ),
+});
+export type PurchaseReceipt = z.infer<typeof PurchaseReceiptSchema>;

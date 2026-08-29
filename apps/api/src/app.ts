@@ -149,7 +149,7 @@ export function createApp(deps: AppDependencies): App {
     }
     app.route('/api/me', meRoutes(sessionDeps));
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
-    app.route('/api', consoleReadRoutes({ views, checkout }));
+    app.route('/api', consoleReadRoutes({ db, clock, views, checkout }));
 
     // Demo controls (DEMO_MODE only). The runner talks to this very app over signed HTTP.
     if (deps.config.demo.enabled) {

@@ -175,3 +175,144 @@ export class ExecutionViews {
       : undefined;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Lists and receipts (console read models)
+// ---------------------------------------------------------------------------
+
+import type { ExecutionSummary, PurchaseReceipt } from '@agentcerta/contracts';
+import {
+  getMandate,
+  getOffer,
+  getPaymentMethodById,
+  listExecutions,
+  listMerchants,
+} from '@agentcerta/db';
+import { describeMandatePolicy } from '@agentcerta/domain';
+import { offerSummary } from './checkout-service.js';
+
+export async function listExecutionSummaries(
+  deps: { db: Database },
+  filter: { mandateId?: string; limit?: number } = {},
+): Promise<ExecutionSummary[]> {
+  const rows = await listExecutions(deps.db, filter);
+  const summaries: ExecutionSummary[] = [];
+  for (const row of rows) {
+    const offer = row.offerId ? await getOffer(deps.db, row.offerId) : undefined;
+    const payment = await getPaymentByExecution(deps.db, row.id);
+    const amount: Money | null =
+      row.amountMinor !== null && row.currency
+        ? { currency: row.currency as Money['currency'], minor: row.amountMinor }
+        : null;
+    const reasonCode = (row.reasonCode as ReasonCode | null) ?? null;
+    summaries.push({
+      id: row.id,
+      state: row.state as ExecutionState,
+      decision: (row.decision as Decision | null) ?? null,
+      reasonCode,
+      explanation: reasonCode ? describeReason(reasonCode, amount ? { amount } : {}) : null,
+      mandateId: row.mandateId,
+      mandateVersion: row.mandateVersion,
+      offerId: row.offerId,
+      offerSummary: offer ? offerSummary(offer) : null,
+      checkoutId: row.checkoutId,
+      amount,
+      paymentState: (payment?.state as ExecutionSummary['paymentState']) ?? null,
+      approvalRequestId: row.approvalRequestId,
+      evidenceId: row.evidenceId,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    });
+  }
+  return summaries;
+}
+
+export async function purchaseReceipt(
+  deps: { db: Database; clock: Clock; views: ExecutionViews },
+  executionId: string,
+): Promise<PurchaseReceipt> {
+  const execution = await deps.views.execution(executionId);
+  const offer = execution.offerId ? await getOffer(deps.db, execution.offerId) : undefined;
+  const aggregate = execution.mandateId
+    ? await getMandate(deps.db, execution.mandateId)
+    : undefined;
+  let mandate: PurchaseReceipt['mandate'] = null;
+  if (aggregate) {
+    const { getAgentById } = await import('@agentcerta/db');
+    const agent = await getAgentById(deps.db, aggregate.mandate.agentId);
+    const paymentMethod = await getPaymentMethodById(deps.db, aggregate.policy.paymentMethodRef);
+    const merchants = (await listMerchants(deps.db)).filter((m) =>
+      aggregate.policy.allowedMerchantIds.includes(m.id),
+    );
+    mandate = {
+      id: aggregate.mandate.id,
+      version: aggregate.version.version,
+      status: effectiveRuntimeStatus(
+        aggregate.runtime.status as PurchaseReceipt['mandate'] extends infer M
+          ? M extends { status: infer S }
+            ? S
+            : never
+          : never,
+        aggregate.runtime.validUntil,
+        deps.clock.now(),
+      ),
+      summary: describeMandatePolicy(aggregate.policy, {
+        merchantNames: merchants.map((m) => m.displayName),
+        paymentMethodLabel: paymentMethod
+          ? `${paymentMethod.displayBrand} ending in ${paymentMethod.displayLast4}`
+          : undefined,
+      }),
+      maxPerPurchase: {
+        currency: aggregate.policy.limits.currency,
+        minor: aggregate.policy.limits.maxPerPurchaseMinor,
+      },
+      validUntil: aggregate.policy.validUntil,
+      agentDisplayName: agent?.displayName ?? 'Purchasing agent',
+      paymentMethodLabel: paymentMethod
+        ? `${paymentMethod.displayBrand} •••• ${paymentMethod.displayLast4}`
+        : null,
+    };
+  }
+  const checks = execution.checklist;
+  const passed = (code: string) => checks.some((c) => c.code === code && c.passed);
+  const verification: PurchaseReceipt['verification'] = [
+    {
+      label: 'Agent identity verified',
+      ok: passed('AGENT_BOUND'),
+      detail: 'Signed request matched the mandate’s agent key',
+    },
+    {
+      label: 'Mandate signature valid',
+      ok: passed('MANDATE_SIGNATURE'),
+      detail: 'Trusted-surface signature and policy hash verified',
+    },
+    {
+      label: 'Mandate active at purchase time',
+      ok: passed('RUNTIME_ACTIVE') && passed('VALID_UNTIL'),
+      detail: null,
+    },
+    {
+      label: 'Amount within authorized limit',
+      ok: passed('AMOUNT_PER_PURCHASE') || execution.reasonCode === 'ALLOW_CHECKOUT_APPROVAL',
+      detail:
+        execution.reasonCode === 'ALLOW_CHECKOUT_APPROVAL'
+          ? 'Approved by you for this exact checkout'
+          : null,
+    },
+    {
+      label: 'Cart matched the authorized checkout',
+      ok: passed('CHECKOUT_INTEGRITY'),
+      detail: null,
+    },
+    {
+      label: 'Payment confirmed',
+      ok: execution.payment?.state === 'SUCCEEDED',
+      detail: execution.payment?.providerPaymentId ?? null,
+    },
+  ];
+  return { execution, offer: offer ? toOfferViewLocal(offer) : null, mandate, verification };
+}
+
+function toOfferViewLocal(offer: NonNullable<Awaited<ReturnType<typeof getOffer>>>) {
+  return { ...offer, summary: offerSummary(offer) };
+}

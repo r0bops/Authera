@@ -1,172 +1,60 @@
-/* Art direction (END_USER_UX_IMAGE_PROMPTS.md): near-white ground, charcoal text,
-   cobalt actions, emerald verified, amber attention, coral destructive, 8px radius. */
-:root {
-  --bg: #f8f9fb;
-  --surface: #ffffff;
-  --border: #e3e6ec;
-  --text: #1f2430;
-  --muted: #5d667a;
-  --cobalt: #2448d6;
-  --emerald: #14805c;
-  --emerald-bg: #e6f5ee;
-  --amber: #9a5b00;
-  --amber-bg: #fff3dc;
-  --coral: #c8382d;
-  --coral-bg: #fde9e7;
-  --neutral-bg: #eef0f4;
-  --radius: 8px;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+@import 'tailwindcss';
+
+/* Art direction (END_USER_UX_IMAGE_PROMPTS.md): near-white ground, charcoal text, cobalt
+   actions, emerald verified, amber attention, coral destructive; 8px radius; dense desktop UI. */
+@theme {
+  --color-ground: #f7f8fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f3f7;
+  --color-line: #e2e6ee;
+  --color-line-strong: #c9d0dc;
+  --color-ink: #1d2230;
+  --color-ink-muted: #5b6577;
+  --color-ink-faint: #8b95a7;
+  --color-cobalt: #2448d6;
+  --color-cobalt-strong: #1b39b3;
+  --color-cobalt-soft: #e8ecfb;
+  --color-emerald: #14805c;
+  --color-emerald-soft: #e3f4ec;
+  --color-amber: #9a5b00;
+  --color-amber-soft: #fff3dc;
+  --color-coral: #c8382d;
+  --color-coral-soft: #fde8e6;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-* {
-  box-sizing: border-box;
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.5;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
-.shell {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+dialog::backdrop {
+  background: rgba(29, 34, 48, 0.45);
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
 }
 
-.brand {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.brand__mark {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--cobalt);
-  align-self: center;
-}
-
-.brand__name {
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.01em;
-}
-
-.brand__tagline {
-  color: var(--muted);
-}
-
-.content {
-  width: min(1100px, 100%);
-  margin: 0 auto;
-  padding: 32px 24px;
-  display: grid;
-  gap: 20px;
-}
-
-.panel h1 {
-  margin: 0 0 6px;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.muted {
-  color: var(--muted);
-  margin: 0;
-  max-width: 68ch;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-}
-
-.card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.card h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.card__detail {
-  margin: 10px 0 4px;
-  min-height: 1.5em;
-  overflow-wrap: anywhere;
-}
-
-.card__meta {
-  margin: 0;
-  color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.pill--verified {
-  color: var(--emerald);
-  background: var(--emerald-bg);
-}
-
-.pill--attention {
-  color: var(--amber);
-  background: var(--amber-bg);
-}
-
-.pill--destructive {
-  color: var(--coral);
-  background: var(--coral-bg);
-}
-
-.pill--neutral {
-  color: var(--muted);
-  background: var(--neutral-bg);
-}
-
-@media (max-width: 720px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
