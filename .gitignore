@@ -17,3 +17,6 @@ test-results/
 !/README.md
 .superstack/
 .commandcode/
+
+# Local research notes (not part of the public deliverable).
+/docs/research/
