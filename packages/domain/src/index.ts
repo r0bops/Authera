@@ -1,7 +1,7 @@
 /**
  * @authera/domain — pure, deterministic logic only.
  *
- * Boundary (CLAUDE_IMPLEMENTATION_SPEC.md §6): no React, Hono, OpenAI, Yuno, or database
+ * Boundary (CLAUDE_IMPLEMENTATION_SPEC.md §6): no React, Hono, OpenAI, payment provider, or database
  * imports; enforced by ESLint `no-restricted-imports` in the root config.
  */
 export * from './money/index.js';

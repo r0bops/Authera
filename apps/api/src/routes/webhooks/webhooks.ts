@@ -20,15 +20,15 @@ const MockWebhookRequestSchema = z.strictObject({
 });
 
 /**
- * `POST /webhooks/yuno` and `POST /webhooks/stripe` — raw-body signature verification happens
- * inside the active adapter before JSON parsing; the route for any other provider is 404.
+ * `POST /webhooks/stripe` — raw-body signature verification happens inside the active adapter
+ * before JSON parsing; the route is 404 unless that provider is the configured processor.
  */
 export function providerWebhookRoutes(deps: {
   processor: PaymentProcessor;
   payments: PaymentService;
 }) {
   const routes = new Hono<AppEnv>();
-  routes.post('/:provider{yuno|stripe}', async (c) => {
+  routes.post('/:provider{stripe}', async (c) => {
     const provider = c.req.param('provider');
     if (deps.processor.provider !== provider)
       throw ApiProblem.notFound(`${provider} webhook (PAYMENT_MODE is not ${provider})`);

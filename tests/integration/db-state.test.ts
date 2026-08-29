@@ -359,10 +359,10 @@ describe('PostgreSQL state and concurrency', () => {
       providerEventId,
       payload: { provider: 'mock' },
     });
-    const yuno = await recordWebhookEvent(pg.db, {
-      provider: 'yuno',
+    const stripe = await recordWebhookEvent(pg.db, {
+      provider: 'stripe',
       providerEventId,
-      payload: { provider: 'yuno' },
+      payload: { provider: 'stripe' },
     });
     const duplicateMock = await recordWebhookEvent(pg.db, {
       provider: 'mock',
@@ -371,7 +371,7 @@ describe('PostgreSQL state and concurrency', () => {
     });
 
     expect(mock.duplicate).toBe(false);
-    expect(yuno.duplicate).toBe(false);
+    expect(stripe.duplicate).toBe(false);
     expect(duplicateMock).toMatchObject({ duplicate: true, event: { id: mock.event.id } });
   });
 

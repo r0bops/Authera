@@ -68,7 +68,7 @@ One desktop console, four roles, one event stream:
 | Signed agent (payment) | `POST /api/purchase-attempts` — body is `{ executionId, mandateId, offerId, checkoutId }` and nothing else |
 | Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]`, `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
 | Demo (DEMO_MODE) | `/api/demo/*` |
-| Webhooks | `POST /webhooks/stripe`, `POST /webhooks/yuno` (raw-body signature checks), `POST /webhooks/mock/:executionId` (demo) |
+| Webhooks | `POST /webhooks/stripe` (raw-body `Stripe-Signature` check), `POST /webhooks/mock/:executionId` (demo) |
 
 All JSON responses use `{ ok: true, data, requestId } | { ok: false, error: { code, message, details? }, requestId }`.
 
@@ -92,7 +92,7 @@ docs/               architecture, threat model, demo runbook
 
 ## Configuration
 
-See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe|yuno` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`, Yuno keys only for `yuno`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
+See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
 
 ## Deployment
 
@@ -100,7 +100,7 @@ One Docker service plus PostgreSQL. `railway.json` builds from the `Dockerfile` 
 
 ## Limitations (honest)
 
-- Yuno adapter unverified against a live sandbox; the demo runs on the mock processor.
+- Payments run on Stripe **test mode** (or the mock); no production PSP is wired. The `PaymentProcessor` port is three methods, so adding one is an adapter, not a redesign.
 - Passkey action-hash verification is implemented and tested, but credential registration and UI wiring remain P1; human demo actions use the seeded session.
 - Rate limiting not implemented.
 - The audit ledger is tamper-evident, not immutable (no external anchoring).

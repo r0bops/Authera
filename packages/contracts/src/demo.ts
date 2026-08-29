@@ -119,7 +119,7 @@ export type DemoDirectAttemptResult = z.infer<typeof DemoDirectAttemptResultSche
 
 export const DemoStateSchema = z.object({
   demoMode: z.boolean(),
-  paymentMode: z.enum(['mock', 'yuno', 'stripe']),
+  paymentMode: z.enum(['mock', 'stripe']),
   agentMode: z.enum(['scripted', 'openai']),
   clockOffsetMinutes: z.number(),
   clockEnabled: z.boolean(),

@@ -31,7 +31,7 @@ describe('loadConfig', () => {
 
   it('treats empty strings as unset', () => {
     const config = loadConfig(
-      testEnv({ OPENAI_API_KEY: '', YUNO_ACCOUNT_ID: '', WEB_DIST_DIR: '' }),
+      testEnv({ OPENAI_API_KEY: '', STRIPE_SECRET_KEY: '', WEB_DIST_DIR: '' }),
     );
     expect(config.webDistDir).toBeUndefined();
     expect(config.payment.mode).toBe('mock');
@@ -55,30 +55,26 @@ describe('loadConfig', () => {
     expect(expectConfigError(testEnv({ DEMO_MODE: 'yes' })).issues[0]?.variable).toBe('DEMO_MODE');
   });
 
-  it('requires every Yuno secret only when PAYMENT_MODE=yuno', () => {
-    const error = expectConfigError(testEnv({ PAYMENT_MODE: 'yuno' }));
-    expect(error.issues.map((issue) => issue.variable).sort()).toEqual([
-      'YUNO_ACCOUNT_ID',
-      'YUNO_PRIVATE_SECRET_KEY',
-      'YUNO_PUBLIC_API_KEY',
-      'YUNO_WEBHOOK_SECRET',
-    ]);
+  it('requires a Stripe test key only when PAYMENT_MODE=stripe', () => {
+    const missing = expectConfigError(testEnv({ PAYMENT_MODE: 'stripe' }));
+    expect(missing.issues.map((issue) => issue.variable)).toEqual(['STRIPE_SECRET_KEY']);
+
+    const live = expectConfigError(
+      testEnv({ PAYMENT_MODE: 'stripe', STRIPE_SECRET_KEY: 'sk_live_abc' }),
+    );
+    expect(live.issues.map((issue) => issue.variable)).toEqual(['STRIPE_SECRET_KEY']);
 
     const config = loadConfig(
       testEnv({
-        PAYMENT_MODE: 'yuno',
-        YUNO_PUBLIC_API_KEY: 'pub',
-        YUNO_PRIVATE_SECRET_KEY: 'priv',
-        YUNO_ACCOUNT_ID: 'acct',
-        YUNO_WEBHOOK_SECRET: 'whsec',
+        PAYMENT_MODE: 'stripe',
+        STRIPE_SECRET_KEY: 'sk_test_abc',
+        STRIPE_WEBHOOK_SECRET: 'whsec_abc',
       }),
     );
     expect(config.payment).toEqual({
-      mode: 'yuno',
-      publicApiKey: 'pub',
-      privateSecretKey: 'priv',
-      accountId: 'acct',
-      webhookSecret: 'whsec',
+      mode: 'stripe',
+      secretKey: 'sk_test_abc',
+      webhookSecret: 'whsec_abc',
     });
   });
 

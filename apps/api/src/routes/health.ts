@@ -19,7 +19,7 @@ export interface HealthDependencies {
  * GET /health/live  — the process is running (no dependencies consulted).
  * GET /health/ready — the database answers (and, when configured, migrations are applied);
  *                     503 with the failing checks otherwise.
- * Readiness deliberately ignores OpenAI and Yuno (CLAUDE_IMPLEMENTATION_SPEC.md §17).
+ * Readiness deliberately ignores OpenAI, Stripe, and Duffel (CLAUDE_IMPLEMENTATION_SPEC.md §17).
  */
 export function healthRoutes(deps: HealthDependencies) {
   const routes = new Hono<AppEnv>();

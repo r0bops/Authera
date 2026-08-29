@@ -13,9 +13,9 @@ flowchart LR
   MG --> DB[(PostgreSQL 18<br/>mandate_runtime · nonces · executions<br/>reservations · payments · audit chain)]
   MG --> PAY[Payment service]
   PAY --> PP{PaymentProcessor}
-  PP --> MOCK[Mock processor]
-  PP --> YUNO[Yuno sandbox]
-  YUNO -->|raw-body HMAC webhook| API
+  PP --> MOCK[Mock processor<br/>demo controls]
+  PP --> STRIPE[Stripe<br/>test-mode PaymentIntents]
+  STRIPE -->|Stripe-Signature webhook| API
   API --> EV[Evidence builder<br/>bundles · disputes · chain verify]
 ```
 
@@ -93,8 +93,8 @@ sequenceDiagram
 | Mandate Gateway | `apps/api/src/services/gateway.ts` (+ `gateway-store.ts`) | Orchestration from signed request to committed reservation |
 | Policy engine | `packages/domain/src/policy/evaluate.ts` | Pure evaluator, ordered checklist, reason codes |
 | Reservation / settlement | `packages/db/src/repositories/reservations.ts` | Atomic `UPDATE` predicate; idempotent consume/release |
-| Payments | `apps/api/src/services/payments/*` | `PaymentProcessor` boundary, mock + Yuno adapters, webhook handling |
-| Payment processors | `apps/api/src/services/payments/{mock,stripe,yuno}-processor.ts` | One `PaymentProcessor` port; mock (demo controls), Stripe test mode (real PaymentIntents), Yuno (unverified) |
+| Payments | `apps/api/src/services/payments/*` | `PaymentProcessor` boundary, mock + Stripe adapters, webhook handling |
+| Payment processors | `apps/api/src/services/payments/{mock,stripe}-processor.ts` | One `PaymentProcessor` port; mock (demo controls), Stripe test mode (real PaymentIntents). Any PSP that can charge a vaulted method with an idempotency key fits the same three-method port |
 | Purchasing agent | `packages/purchasing-agent` | Scripted watcher + OpenAI agent with `search_flights` / `request_purchase` |
 | Agent runner + demo | `apps/api/src/services/agent-runner.ts`, `routes/demo` | Runs the agent over signed HTTP; direct/forged/replayed/concurrent attempts |
 | Approvals / disputes / evidence | `apps/api/src/services/{approval,dispute,evidence}-service.ts` | Checkout-scoped approvals, deterministic resolver, role-filtered bundles |
@@ -117,7 +117,7 @@ flowchart TB
   ts[packages/test-support] -.dev only.-> api
 ```
 
-- `packages/domain` imports no Hono, React, OpenAI, Yuno, `pg`, or Drizzle (lint-enforced).
+- `packages/domain` imports no Hono, React, OpenAI, Stripe, `pg`, or Drizzle (lint-enforced).
 - `apps/web` never imports `packages/db` or secrets; it talks only to `/api`, same origin.
 - Provider-specific data never enters domain policy types.
 

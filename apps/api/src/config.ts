@@ -33,14 +33,10 @@ const envSchema = z
     DEMO_MODE: booleanString.optional(),
     DEMO_RESET_SECRET: z.string().min(16, { message: 'must be at least 16 characters' }).optional(),
     DEMO_CLOCK_ENABLED: booleanString.default('false'),
-    PAYMENT_MODE: z.enum(['mock', 'yuno', 'stripe']).default('mock'),
+    PAYMENT_MODE: z.enum(['mock', 'stripe']).default('mock'),
     OPENAI_MODE: z.enum(['scripted', 'openai']).default('scripted'),
     OPENAI_API_KEY: optionalSecret,
     OPENAI_MODEL: z.string().min(1).default('gpt-5-mini'),
-    YUNO_PUBLIC_API_KEY: optionalSecret,
-    YUNO_PRIVATE_SECRET_KEY: optionalSecret,
-    YUNO_ACCOUNT_ID: optionalSecret,
-    YUNO_WEBHOOK_SECRET: optionalSecret,
     /** Stripe test-mode secret (sk_test_…); required when PAYMENT_MODE=stripe. */
     STRIPE_SECRET_KEY: optionalSecret,
     /** Stripe webhook signing secret (whsec_…); without it /webhooks/stripe rejects everything. */
@@ -71,12 +67,6 @@ const envSchema = z
         });
       }
     }
-    if (env.PAYMENT_MODE === 'yuno') {
-      require('YUNO_PUBLIC_API_KEY', 'when PAYMENT_MODE=yuno');
-      require('YUNO_PRIVATE_SECRET_KEY', 'when PAYMENT_MODE=yuno');
-      require('YUNO_ACCOUNT_ID', 'when PAYMENT_MODE=yuno');
-      require('YUNO_WEBHOOK_SECRET', 'when PAYMENT_MODE=yuno');
-    }
     if (env.OPENAI_MODE === 'openai') {
       require('OPENAI_API_KEY', 'when OPENAI_MODE=openai');
     }
@@ -101,15 +91,7 @@ export type NodeEnv = ParsedEnv['NODE_ENV'];
 export type LogLevel = ParsedEnv['LOG_LEVEL'];
 
 export type PaymentConfig =
-  | { mode: 'mock' }
-  | {
-      mode: 'yuno';
-      publicApiKey: string;
-      privateSecretKey: string;
-      accountId: string;
-      webhookSecret: string;
-    }
-  | { mode: 'stripe'; secretKey: string; webhookSecret: string | undefined };
+  { mode: 'mock' } | { mode: 'stripe'; secretKey: string; webhookSecret: string | undefined };
 
 export type AgentConfig =
   { mode: 'scripted'; model: string } | { mode: 'openai'; model: string; apiKey: string };
@@ -182,22 +164,14 @@ function resolveDemoMode(value: 'true' | 'false' | undefined, nodeEnv: NodeEnv):
 
 function toAppConfig(env: ParsedEnv): AppConfig {
   const payment: PaymentConfig =
-    env.PAYMENT_MODE === 'yuno'
+    env.PAYMENT_MODE === 'stripe'
       ? {
-          mode: 'yuno',
-          // superRefine guarantees presence; the assertions keep the types honest.
-          publicApiKey: mustHave(env.YUNO_PUBLIC_API_KEY),
-          privateSecretKey: mustHave(env.YUNO_PRIVATE_SECRET_KEY),
-          accountId: mustHave(env.YUNO_ACCOUNT_ID),
-          webhookSecret: mustHave(env.YUNO_WEBHOOK_SECRET),
+          mode: 'stripe',
+          // superRefine guarantees presence; the assertion keeps the types honest.
+          secretKey: mustHave(env.STRIPE_SECRET_KEY),
+          webhookSecret: env.STRIPE_WEBHOOK_SECRET,
         }
-      : env.PAYMENT_MODE === 'stripe'
-        ? {
-            mode: 'stripe',
-            secretKey: mustHave(env.STRIPE_SECRET_KEY),
-            webhookSecret: env.STRIPE_WEBHOOK_SECRET,
-          }
-        : { mode: 'mock' };
+      : { mode: 'mock' };
 
   const agent: AgentConfig =
     env.OPENAI_MODE === 'openai'
