@@ -56,7 +56,7 @@ Rules enforced at every boundary:
 | **Information disclosure** | Leaking tokens/keys in logs or views | Pino redaction paths; role-filtered evidence (human: no digests/nonces/JWS; merchant: no personal identity); private keys only in env; token references, never tokens, in policies | Field-level encryption of token references (P2) |
 | **Denial of service** | Flooding signed endpoints, huge bodies | 64 KB agent body limit, 256 KB webhook limit, short signature lifetime, nonce TTL | Rate limits on auth/discovery/purchase/demo (spec §17) not yet implemented (P1) |
 | **Elevation of privilege** | Over-limit purchase; reuse of a one-use mandate; race two attempts; spend after revocation; replay a signed request | Pure evaluator with amount/date/route/cabin/passenger/currency/usage checks; single conditional `UPDATE` on `mandate_runtime` (revocation and reservation contend on the same row; count and amount caps enforced in SQL); unique `(agent_key, nonce)`; execution id as idempotency key; approvals lift amount caps only for the exact checkout hash and only once | — |
-| **Payment integrity** | Double charge, duplicate webhook, provider outage | Execution id as provider idempotency key; provider call outside transactions; idempotent settlement (consume/release once); webhook dedupe by provider event id; terminal payments never move backward; outage → recoverable `PAYMENT_PENDING` | Yuno adapter unverified against a live sandbox |
+| **Payment integrity** | Double charge, duplicate webhook, provider outage | Execution id as provider idempotency key; provider call outside transactions; idempotent settlement (consume/release once); webhook dedupe by provider event id; terminal payments never move backward; outage → recoverable `PAYMENT_PENDING`; documented Yuno V2 raw-body HMAC verification | Yuno adapter unverified against a live sandbox |
 
 ## Demo-specific controls
 
@@ -67,7 +67,7 @@ Rules enforced at every boundary:
 ## Known gaps (honest list)
 
 - No rate limiting yet.
-- Passkeys (WebAuthn) not wired; human actions rely on the seeded session.
+- Passkey action-hash binding is implemented and rejects modification, replay, and cross-user use; credential registration/persistence and UI wiring are not implemented.
 - `web-bot-auth` interoperability not exercised; RFC 9421 implemented in-house (documented deviation).
-- Yuno REST/webhook field names follow public docs but are unverified without sandbox credentials.
+- Yuno REST/webhook behavior follows the public Webhook V2 docs and is contract-tested, but remains unverified with sandbox credentials.
 - Single global audit stream (serialized) — fine at demo scale, sharded per merchant in production.

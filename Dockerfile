@@ -45,6 +45,7 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/packages/db/migrations ./apps/api/migrations
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 USER node
 EXPOSE 3000

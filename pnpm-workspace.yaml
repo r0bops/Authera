@@ -14,3 +14,8 @@ allowBuilds:
 # Explicit exceptions to the minimum-release-age policy (fresh releases reviewed manually).
 minimumReleaseAgeExclude:
   - lucide-react@1.37.0
+
+# Keep build-only transitive copies on patched releases (GHSA-67mh-4wv8-2f99,
+# GHSA-g7r4-m6w7-qqqr). All consumers use esbuild's stable JS API.
+overrides:
+  esbuild: 0.28.2

@@ -28,6 +28,7 @@ import { meRoutes } from './routes/human/me.js';
 import { databaseAgentIdentityStore } from './services/agent-identity.js';
 import { AgentRunner } from './services/agent-runner.js';
 import { ApprovalService } from './services/approval-service.js';
+import { Ap2EvidenceService } from './services/ap2-evidence.js';
 import { DisputeService } from './services/dispute-service.js';
 import { EvidenceService } from './services/evidence-service.js';
 import { CheckoutService } from './services/checkout-service.js';
@@ -144,9 +145,20 @@ export function createApp(deps: AppDependencies): App {
       '/api/me',
       '/api/mandates',
       '/api/mandates/*',
+      '/api/executions',
       '/api/executions/*',
+      '/api/purchases',
+      '/api/purchases/*',
       '/api/verification/*',
       '/api/offers',
+      '/api/approvals',
+      '/api/approvals/*',
+      '/api/disputes',
+      '/api/disputes/*',
+      '/api/evidence/*',
+      '/api/audit/*',
+      '/api/demo',
+      '/api/demo/*',
     ]) {
       app.use(path, sessionMiddleware(sessionDeps));
       app.use(path, csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
@@ -155,9 +167,10 @@ export function createApp(deps: AppDependencies): App {
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
     app.route('/api', consoleReadRoutes({ db, clock, views, checkout }));
     const evidence = new EvidenceService({ db, clock });
+    const ap2Evidence = new Ap2EvidenceService({ evidence, merchantKey: keys.merchant, clock });
     const approvals = new ApprovalService({ db, clock, logger: deps.logger });
     const disputes = new DisputeService({ db, clock, logger: deps.logger, evidence });
-    app.route('/api', ugliesRoutes({ db, approvals, disputes, evidence }));
+    app.route('/api', ugliesRoutes({ db, approvals, disputes, evidence, ap2Evidence }));
 
     // Demo controls (DEMO_MODE only). The runner talks to this very app over signed HTTP.
     if (deps.config.demo.enabled) {

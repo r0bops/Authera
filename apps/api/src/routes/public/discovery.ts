@@ -1,12 +1,45 @@
 import { Hono } from 'hono';
+import { UCP_PINNED_VERSION } from '@agentcerta/contracts';
 import { SEED_IDS, type Database } from '@agentcerta/db';
 import { signRequest, type KeyMaterial } from '@agentcerta/domain';
 import type { Clock } from '../../clock.js';
 import type { AppConfig } from '../../config.js';
 import { fail, type AppEnv } from '../../http/envelope.js';
+import { CapabilityDiscoverySchema, ServiceResponseSchema } from '../../integrations/ucp-sdk.js';
 import { agentDirectory } from '../../services/agent-identity.js';
 
-export const UCP_VERSION = '2026-04-08';
+export const UCP_VERSION = UCP_PINNED_VERSION;
+
+const UCP_SPEC_ROOT = `https://ucp.dev/${UCP_VERSION}`;
+
+export function buildUcpDiscoveryProfile(deps: {
+  publicBaseUrl: string;
+  merchantKey: KeyMaterial['merchant'];
+}) {
+  const service = ServiceResponseSchema.parse({
+    version: UCP_VERSION,
+    spec: `${UCP_SPEC_ROOT}/specification/overview`,
+    transport: 'rest',
+    schema: `${UCP_SPEC_ROOT}/services/shopping/rest.openapi.json`,
+    endpoint: new URL('/ucp/v1', deps.publicBaseUrl).toString(),
+  });
+  const checkout = CapabilityDiscoverySchema.parse({
+    name: 'dev.ucp.shopping.checkout',
+    version: UCP_VERSION,
+    spec: `${UCP_SPEC_ROOT}/specification/checkout`,
+    schema: `${UCP_SPEC_ROOT}/schemas/shopping/checkout.json`,
+  });
+  return {
+    ucp: {
+      version: UCP_VERSION,
+      services: { 'dev.ucp.shopping': [service] },
+      capabilities: { 'dev.ucp.shopping.checkout': [checkout] },
+    },
+    signing_keys: [
+      { ...deps.merchantKey.publicJwk, kid: deps.merchantKey.thumbprint, use: 'sig' as const },
+    ],
+  };
+}
 
 /**
  * Public discovery surface (spec §12):
@@ -21,6 +54,16 @@ export function discoveryRoutes(deps: {
   clock: Clock;
 }) {
   const routes = new Hono<AppEnv>();
+
+  routes.get('/.well-known/ucp', (c) => {
+    c.header('cache-control', 'public, max-age=300');
+    return c.json(
+      buildUcpDiscoveryProfile({
+        publicBaseUrl: deps.config.publicBaseUrl,
+        merchantKey: deps.keys.merchant,
+      }),
+    );
+  });
 
   routes.get('/.well-known/http-message-signatures-directory', async (c) => {
     const entries = await agentDirectory(deps.db, SEED_IDS.marta);

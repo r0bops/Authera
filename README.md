@@ -98,7 +98,7 @@ One Docker service plus PostgreSQL. `railway.json` builds from the `Dockerfile` 
 ## Limitations (honest)
 
 - Yuno adapter unverified against a live sandbox; the demo runs on the mock processor.
-- Passkeys not wired; human actions use the seeded session.
+- Passkey action-hash verification is implemented and tested, but credential registration and UI wiring remain P1; human demo actions use the seeded session.
 - Rate limiting not implemented.
 - The audit ledger is tamper-evident, not immutable (no external anchoring).
-- Playwright suites are written but were not executed in the build session.
+- Local Playwright acceptance passed twice across both supported desktop viewports; Railway deployment still requires a linked project.

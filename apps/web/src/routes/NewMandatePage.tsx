@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
 import type { CreateMandateRequest } from '@agentcerta/contracts';
@@ -82,11 +82,14 @@ export function NewMandatePage() {
       escalate: false,
     },
   });
-  const values = form.watch();
+  const values = useWatch({ control: form.control }) as FormInput;
   const paymentMethods = me.data?.paymentMethods ?? [];
-  if (paymentMethods.length > 0 && values.paymentMethodId === '' && paymentMethods[0]) {
-    form.setValue('paymentMethodId', paymentMethods[0].id);
-  }
+  const defaultPaymentMethodId = paymentMethods[0]?.id;
+  useEffect(() => {
+    if (defaultPaymentMethodId && values.paymentMethodId === '') {
+      form.setValue('paymentMethodId', defaultPaymentMethodId);
+    }
+  }, [defaultPaymentMethodId, form, values.paymentMethodId]);
   const maxMinor = inputToMinor(values.maxPerPurchase);
   const preview = Number.isFinite(maxMinor)
     ? `Buy ${values.passengerCount === 1 ? 'one' : values.passengerCount} economy flight${values.passengerCount === 1 ? '' : 's'} from ${values.origin || '···'} to ${values.destination || '···'} between ${values.departureDateFrom} and ${values.departureDateTo} if the total is ${formatMoney({ currency: 'USD', minor: maxMinor })} or less — ${values.maxFulfillments === 1 ? 'a single purchase' : `up to ${values.maxFulfillments} purchases`}, until ${values.validUntil.replace('T', ' ')}. ${values.escalate ? 'Anything outside pauses for your approval.' : 'Anything outside is blocked.'}`
@@ -350,7 +353,13 @@ export function NewMandatePage() {
               Back
             </Button>
             {step < STEPS.length - 1 ? (
-              <Button type="button" onClick={() => void next()}>
+              <Button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  void next();
+                }}
+              >
                 Continue
               </Button>
             ) : (

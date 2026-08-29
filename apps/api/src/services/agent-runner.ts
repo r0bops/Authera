@@ -138,9 +138,10 @@ export class AgentRunner {
     executionId?: string;
   }): Promise<DemoDirectAttemptResult> {
     const client = await this.client(input.impersonate ? this.impostor : undefined);
+    const checkoutClient = input.impersonate ? await this.client() : client;
     let checkoutId = input.checkoutId;
     if (!checkoutId) {
-      const created = await client.call<{
+      const created = await checkoutClient.call<{
         ok: boolean;
         data?: unknown;
         error?: { code: string; message: string };

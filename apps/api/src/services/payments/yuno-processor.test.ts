@@ -13,13 +13,21 @@ describe('YunoPaymentProcessor', () => {
   it('verifies the webhook HMAC over the raw bytes before parsing', async () => {
     const yuno = new YunoPaymentProcessor(config);
     const body = JSON.stringify({
-      id: 'pay_1',
-      merchant_order_id: '4c0f2c2e-2b2e-4b6c-8a5e-7c8c1e6b9a11',
-      status: 'SUCCEEDED',
-      amount: { currency: 'USD', value: 130 },
+      type: 'payment',
+      type_event: 'payment.purchase',
+      version: 2,
+      retry: 0,
+      data: {
+        payment: {
+          id: 'pay_1',
+          merchant_order_id: '4c0f2c2e-2b2e-4b6c-8a5e-7c8c1e6b9a11',
+          status: 'SUCCEEDED',
+          amount: { currency: 'USD', value: 130 },
+        },
+      },
     });
     const raw = new TextEncoder().encode(body);
-    const signature = createHmac('sha256', config.webhookSecret).update(raw).digest('hex');
+    const signature = createHmac('sha256', config.webhookSecret).update(raw).digest('base64');
     const event = await yuno.parseWebhook(raw, new Headers({ [YUNO_SIGNATURE_HEADER]: signature }));
     expect(event).toMatchObject({
       provider: 'yuno',

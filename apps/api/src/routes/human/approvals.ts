@@ -11,6 +11,7 @@ import { ApiProblem, formatZodIssues } from '../../http/problem.js';
 import { idempotent } from '../../middleware/idempotency.js';
 import { requireHuman } from '../../middleware/session.js';
 import type { ApprovalService } from '../../services/approval-service.js';
+import type { Ap2EvidenceService } from '../../services/ap2-evidence.js';
 import type { DisputeService } from '../../services/dispute-service.js';
 import type { EvidenceService } from '../../services/evidence-service.js';
 
@@ -48,6 +49,7 @@ export function ugliesRoutes(deps: {
   approvals: ApprovalService;
   disputes: DisputeService;
   evidence: EvidenceService;
+  ap2Evidence: Ap2EvidenceService;
 }) {
   const routes = new Hono<AppEnv>();
   routes.use('*', requireHuman());
@@ -97,6 +99,9 @@ export function ugliesRoutes(deps: {
       'cache-control': 'no-store',
     });
   });
+  routes.get('/evidence/:executionId/ap2', async (c) =>
+    ok(c, await deps.ap2Evidence.envelope(uuidParam(c.req.param('executionId'), 'execution'))),
+  );
 
   routes.get('/audit/verify', async (c) => ok(c, await verifyAuditChain(deps.db)));
 

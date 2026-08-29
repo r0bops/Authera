@@ -24,7 +24,7 @@ import type { AppConfig } from '../../config.js';
 import { ok, type AppEnv } from '../../http/envelope.js';
 import { ApiProblem, formatZodIssues } from '../../http/problem.js';
 import { idempotent } from '../../middleware/idempotency.js';
-import { requireHuman } from '../../middleware/session.js';
+import { issueSession, requireHuman } from '../../middleware/session.js';
 import type { AgentRunner } from '../../services/agent-runner.js';
 import { toOfferView } from '../../services/checkout-service.js';
 import { MockPaymentProcessor, type MockBehavior } from '../../services/payments/mock-processor.js';
@@ -86,6 +86,9 @@ export function demoRoutes(deps: DemoDependencies) {
 
   routes.post('/reset', idempotent('demo.reset', deps.db), async (c) => {
     await resetDemo(deps.db, deps.seed);
+    // Reset removes every human session. Rotate the demo cookie in the same response so the
+    // operator can continue the trial without an otherwise surprising re-authentication step.
+    await issueSession(c, { db: deps.db, config: deps.config, clock: deps.clock }, SEED_IDS.marta);
     if (deps.processor instanceof MockPaymentProcessor) deps.processor.reset();
     paymentBehavior = null;
     if (deps.config.demo.clockEnabled) deps.clock.setOffset(0);

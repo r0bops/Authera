@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { PaymentEvent, PaymentEventType } from '@agentcerta/contracts';
+import { z } from 'zod';
 import type {
   CheckoutSessionInput,
   CheckoutSessionResult,
@@ -18,14 +19,13 @@ export interface YunoConfig {
   countryCode?: string;
 }
 
-/** Header carrying the HMAC-SHA256 hex signature of the raw webhook body (assumed name; verify against Yuno docs). */
-export const YUNO_SIGNATURE_HEADER = 'x-signature';
+/** Yuno Webhook V2: Base64-encoded HMAC-SHA256 over the untouched request body. */
+export const YUNO_SIGNATURE_HEADER = 'x-hmac-signature';
 export const YUNO_SANDBOX_BASE_URL = 'https://api-sandbox.y.uno';
 
 /**
  * Yuno sandbox adapter skeleton (spec §13). Configuration-selected (`PAYMENT_MODE=yuno`); the
- * demo runs entirely on the mock. Field names follow the public Yuno REST docs as understood at
- * build time and are unverified against a live sandbox — see IMPLEMENTATION_STATUS.md.
+ * demo runs entirely on the mock. Provider responses remain untrusted and are parsed narrowly.
  */
 export class YunoPaymentProcessor implements PaymentProcessor {
   readonly provider = 'yuno' as const;
@@ -120,29 +120,23 @@ export class YunoPaymentProcessor implements PaymentProcessor {
   async parseWebhook(rawBody: Uint8Array, headers: Headers): Promise<PaymentEvent> {
     const received = headers.get(YUNO_SIGNATURE_HEADER);
     if (!received) throw new WebhookVerificationError('missing webhook signature');
-    const expected = createHmac('sha256', this.config.webhookSecret).update(rawBody).digest('hex');
-    const receivedBuffer = Buffer.from(received.trim(), 'hex');
-    const expectedBuffer = Buffer.from(expected, 'hex');
+    const expectedBuffer = createHmac('sha256', this.config.webhookSecret).update(rawBody).digest();
+    const receivedBuffer = decodeBase64Signature(received);
     if (
       receivedBuffer.length !== expectedBuffer.length ||
       !timingSafeEqual(receivedBuffer, expectedBuffer)
     ) {
       throw new WebhookVerificationError('webhook signature mismatch');
     }
-    let payload: {
-      id?: string;
-      merchant_order_id?: string;
-      status?: string;
-      amount?: { currency?: string; value?: number };
-      transactions?: Array<{ id?: string }>;
-    };
+    let decoded: unknown;
     try {
-      payload = JSON.parse(new TextDecoder().decode(rawBody));
+      decoded = JSON.parse(new TextDecoder().decode(rawBody));
     } catch {
       throw new WebhookVerificationError('webhook body is not JSON');
     }
-    if (!payload.id || !payload.merchant_order_id)
-      throw new WebhookVerificationError('webhook payload missing ids');
+    const parsed = YunoWebhookSchema.safeParse(decoded);
+    if (!parsed.success) throw new WebhookVerificationError('webhook payload is invalid');
+    const payload = normalizeYunoWebhook(parsed.data);
     const state = mapYunoStatus(payload.status);
     const eventType: PaymentEventType =
       state === 'SUCCEEDED'
@@ -152,7 +146,7 @@ export class YunoPaymentProcessor implements PaymentProcessor {
           : 'PAYMENT_PENDING';
     return {
       provider: 'yuno',
-      eventId: `${payload.id}:${payload.status ?? 'unknown'}`,
+      eventId: `${payload.id}:${payload.eventType}:${payload.status ?? 'unknown'}`,
       eventType,
       providerPaymentId: payload.id,
       executionId: payload.merchant_order_id,
@@ -163,6 +157,38 @@ export class YunoPaymentProcessor implements PaymentProcessor {
       occurredAt: new Date().toISOString(),
     };
   }
+}
+
+const YunoPaymentWebhookSchema = z.object({
+  id: z.string().min(1),
+  merchant_order_id: z.string().min(1),
+  status: z.string().optional(),
+  amount: z.object({ currency: z.string().length(3), value: z.number() }).optional(),
+});
+
+const YunoWebhookSchema = z.union([
+  z.object({
+    type: z.literal('payment'),
+    type_event: z.string().min(1),
+    version: z.union([z.literal(2), z.literal('2')]),
+    data: z.object({ payment: YunoPaymentWebhookSchema }),
+  }),
+  YunoPaymentWebhookSchema,
+]);
+
+function normalizeYunoWebhook(payload: z.infer<typeof YunoWebhookSchema>) {
+  if ('data' in payload) {
+    return { ...payload.data.payment, eventType: payload.type_event };
+  }
+  return { ...payload, eventType: 'payment.legacy' };
+}
+
+function decodeBase64Signature(value: string): Buffer {
+  const normalized = value.trim();
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized) || normalized.length % 4 !== 0) {
+    return Buffer.alloc(0);
+  }
+  return Buffer.from(normalized, 'base64');
 }
 
 export function mapYunoStatus(status: string | undefined): 'PENDING' | 'SUCCEEDED' | 'FAILED' {

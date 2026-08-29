@@ -22,13 +22,16 @@ let mandateId: string;
 let purchasedExecutionId: string;
 let blockedExecutionId: string;
 
-test('1 · reset demo', async ({ request }) => {
+test.beforeEach(async ({ request }) => {
   ({ paymentMethodId } = await signIn(request));
+});
+
+test('1 · reset demo', async ({ request }) => {
   await resetDemo(request);
   expect(await paymentCalls(request)).toBe(0);
 });
 
-test('2 · create the USD 150 Córdoba mandate through the wizard', async ({ page, request }) => {
+test('2 · create the USD 150 Córdoba mandate through the wizard', async ({ page }) => {
   await page.goto('/overview');
   await page
     .getByRole('link', { name: /create mandate/i })
@@ -42,10 +45,10 @@ test('2 · create the USD 150 Córdoba mandate through the wizard', async ({ pag
   await page.getByRole('button', { name: /continue/i }).click();
   await expect(page.getByText(/USD 150\.00/).first()).toBeVisible();
   await page.getByRole('button', { name: /authorize mandate/i }).click();
+  await expect(page).toHaveURL(/\/mandates\/[0-9a-f-]{36}$/);
   await expect(page.getByText('ACTIVE').first()).toBeVisible();
   await expectNoHorizontalScroll(page);
-  const list = await get<Array<{ id: string; status: string }>>(request, '/api/mandates');
-  mandateId = list.data!.find((m) => m.status === 'ACTIVE')!.id;
+  mandateId = page.url().split('/').at(-1)!;
   expect(mandateId).toBeTruthy();
 });
 
@@ -81,7 +84,7 @@ test('4 · the agent buys and every role view agrees', async ({ page, request })
 
   await page.goto(`/auditor?executionId=${purchasedExecutionId}`);
   await expect(page.getByText(/chain verified/)).toBeVisible();
-  await expect(page.getByText('PAYMENT_SUCCEEDED').first()).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'PAYMENT_SUCCEEDED', exact: true })).toBeVisible();
   await expectNoHorizontalScroll(page);
 });
 
@@ -241,6 +244,17 @@ test('13 · a dispute resolves deterministically from evidence', async ({ page, 
   );
   expect(evidence.data?.audit.chain.valid).toBe(true);
   expect(evidence.data?.bundleHash).toMatch(/^sha256:/);
+
+  const ap2 = await get<{
+    payload: { alignment: { protocol: string; version: string; certified: boolean } };
+    jws: string;
+  }>(request, `/api/evidence/${purchasedExecutionId}/ap2`);
+  expect(ap2.data?.payload.alignment).toMatchObject({
+    protocol: 'AP2',
+    version: '0.2',
+    certified: false,
+  });
+  expect(ap2.data?.jws.split('.')).toHaveLength(3);
 });
 
 test('14 · every console screen fits the viewport', async ({ page }) => {

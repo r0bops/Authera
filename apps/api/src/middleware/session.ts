@@ -43,6 +43,11 @@ export function sessionMiddleware(deps: SessionDependencies): MiddlewareHandler<
         }
       }
     }
+    // Demo pages issue several protected queries in parallel on a cold load. Establish the seeded
+    // identity here so those requests cannot race the separate /api/me bootstrap request.
+    if (!c.get('user') && deps.config.demo.enabled) {
+      await issueSession(c, deps, SEED_IDS.marta);
+    }
     await next();
   };
 }
