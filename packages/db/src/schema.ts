@@ -199,10 +199,12 @@ export const offers = pgTable(
     status: text('status').notNull().default('AVAILABLE'),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     source: text('source').notNull(),
+    providerOfferId: text('provider_offer_id'),
     ...timestamps,
   },
   (t) => [
     index('offers_route_idx').on(t.merchantId, t.origin, t.destination),
+    uniqueIndex('offers_provider_offer_idx').on(t.source, t.providerOfferId),
     check('offers_amount_ck', sql`${t.amountMinor} >= 0`),
   ],
 );

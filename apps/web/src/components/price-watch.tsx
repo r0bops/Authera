@@ -177,6 +177,11 @@ export function OffersTable({
                     injected
                   </Badge>
                 ) : null}
+                {offer.source === 'duffel' ? (
+                  <Badge tone="verified" className="ml-1.5">
+                    live · Duffel test
+                  </Badge>
+                ) : null}
               </Td>
               <Td mono>
                 {offer.origin}→{offer.destination}

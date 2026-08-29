@@ -41,6 +41,8 @@ const envSchema = z
     YUNO_PRIVATE_SECRET_KEY: optionalSecret,
     YUNO_ACCOUNT_ID: optionalSecret,
     YUNO_WEBHOOK_SECRET: optionalSecret,
+    /** Optional: enables the live Duffel flight market (test-mode token is fine). */
+    DUFFEL_ACCESS_TOKEN: optionalSecret,
     TRUSTED_SURFACE_PRIVATE_JWK: optionalSecret,
     MERCHANT_PRIVATE_JWK: optionalSecret,
     AGENT_PRIVATE_JWK: optionalSecret,
@@ -107,6 +109,8 @@ export interface AppConfig {
   demo: { enabled: boolean; resetSecret: string | undefined; clockEnabled: boolean };
   payment: PaymentConfig;
   agent: AgentConfig;
+  /** External flight markets; each is optional and fails open (search continues without it). */
+  markets: { duffel: { accessToken: string } | undefined };
   keys: {
     trustedSurfacePrivateJwk: string | undefined;
     merchantPrivateJwk: string | undefined;
@@ -193,6 +197,9 @@ function toAppConfig(env: ParsedEnv): AppConfig {
     },
     payment,
     agent,
+    markets: {
+      duffel: env.DUFFEL_ACCESS_TOKEN ? { accessToken: env.DUFFEL_ACCESS_TOKEN } : undefined,
+    },
     keys: {
       trustedSurfacePrivateJwk: env.TRUSTED_SURFACE_PRIVATE_JWK,
       merchantPrivateJwk: env.MERCHANT_PRIVATE_JWK,

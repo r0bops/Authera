@@ -8,10 +8,22 @@ import type {
   Offer,
 } from '@authera/contracts';
 import { UCP_PINNED_VERSION } from '@authera/contracts';
-import { createCheckout, getCheckout, getOffer, listOffers, type Database } from '@authera/db';
+import {
+  applyRevalidation,
+  createCheckout,
+  getCheckout,
+  getOffer,
+  listOffers,
+  syncProviderOffers,
+  type Database,
+} from '@authera/db';
 import { formatMoney, hashCanonical } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
+import type { Logger } from '../logger.js';
+import type { FlightMarketProvider } from './flight-market/provider.js';
+
+const MARKET_SEARCH_TIMEOUT_MS = 8_000;
 
 const CHECKOUT_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -24,11 +36,55 @@ export function toOfferView(offer: Offer): FlightOfferView {
   return { ...offer, summary: offerSummary(offer) };
 }
 
-/** Merchant-side catalog and checkout sessions. Prices are only ever read from storage. */
+/**
+ * Merchant-side catalog and checkout sessions. Prices are only ever read from storage: live
+ * markets are queried during discovery and their offers stored first, then read back like any
+ * seeded offer, so the gateway never sees a provider payload.
+ */
 export class CheckoutService {
-  constructor(private readonly deps: { db: Database; clock: Clock }) {}
+  constructor(
+    private readonly deps: {
+      db: Database;
+      clock: Clock;
+      markets?: FlightMarketProvider[];
+      logger?: Logger;
+    },
+  ) {}
+
+  /** Query every configured live market and store what came back. Failures never block search. */
+  private async refreshLiveMarkets(query: FlightSearchQuery): Promise<void> {
+    const markets = this.deps.markets ?? [];
+    if (markets.length === 0) return;
+    await Promise.all(
+      markets.map(async (market) => {
+        const started = Date.now();
+        try {
+          const found = await market.search(query, {
+            signal: AbortSignal.timeout(MARKET_SEARCH_TIMEOUT_MS),
+          });
+          await syncProviderOffers(this.deps.db, {
+            source: market.source,
+            merchantId: market.merchantId,
+            origin: query.origin,
+            destination: query.destination,
+            offers: found.map((o) => ({ id: randomUUID(), ...o })),
+          });
+          this.deps.logger?.info(
+            { market: market.source, offers: found.length, durationMs: Date.now() - started },
+            'live market searched',
+          );
+        } catch (error) {
+          this.deps.logger?.warn(
+            { err: error, market: market.source, durationMs: Date.now() - started },
+            'live market unavailable; continuing with stored offers',
+          );
+        }
+      }),
+    );
+  }
 
   async searchFlights(query: FlightSearchQuery): Promise<FlightOfferView[]> {
+    await this.refreshLiveMarkets(query);
     const now = this.deps.clock.now();
     const offers = await listOffers(this.deps.db, {
       origin: query.origin,
@@ -49,13 +105,47 @@ export class CheckoutService {
     return offers.filter((o) => Date.parse(o.expiresAt) > now.getTime()).map(toOfferView);
   }
 
+  /** Live offers are re-priced with the provider right before a checkout binds their cart. */
+  private async revalidateLiveOffer(offer: Offer): Promise<Offer> {
+    if (!offer.providerOfferId) return offer;
+    const market = (this.deps.markets ?? []).find((m) => m.source === offer.source);
+    if (!market) return offer;
+    let result;
+    try {
+      result = await market.revalidate(offer.providerOfferId, {
+        signal: AbortSignal.timeout(MARKET_SEARCH_TIMEOUT_MS),
+      });
+    } catch (error) {
+      this.deps.logger?.warn({ err: error, offerId: offer.id }, 'live offer revalidation failed');
+      throw ApiProblem.conflict(
+        'OFFER_NOT_AVAILABLE',
+        'The live offer could not be revalidated with its market',
+      );
+    }
+    const updated = await applyRevalidation(this.deps.db, offer.id, result);
+    if (!updated || !result.available) {
+      throw ApiProblem.conflict('OFFER_NOT_AVAILABLE', 'The live offer is no longer available');
+    }
+    if (
+      updated.total.minor !== offer.total.minor ||
+      updated.total.currency !== offer.total.currency
+    ) {
+      this.deps.logger?.info(
+        { offerId: offer.id, before: offer.total, after: updated.total },
+        'live offer re-priced on revalidation',
+      );
+    }
+    return updated;
+  }
+
   async createSession(input: { offerId: string }): Promise<CheckoutSession> {
     const now = this.deps.clock.now();
-    const offer = await getOffer(this.deps.db, input.offerId);
-    if (!offer) throw ApiProblem.notFound('offer');
-    if (offer.status !== 'AVAILABLE' || Date.parse(offer.expiresAt) <= now.getTime()) {
+    const stored = await getOffer(this.deps.db, input.offerId);
+    if (!stored) throw ApiProblem.notFound('offer');
+    if (stored.status !== 'AVAILABLE' || Date.parse(stored.expiresAt) <= now.getTime()) {
       throw ApiProblem.conflict('OFFER_NOT_AVAILABLE', 'The offer is no longer available');
     }
+    const offer = await this.revalidateLiveOffer(stored);
     const cart: CheckoutCart = {
       schema: 'authera.cart.v1',
       merchantId: offer.merchantId,

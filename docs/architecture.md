@@ -25,6 +25,10 @@ Authority lives in exactly two places: the **pure policy engine** (deterministic
 
 `GET /api/flights` is one signed call, but the catalog behind it belongs to several merchants in several markets (seeded: VuelaYa/VE, AeroSur/AR, AndesGo Travel/CO; demo control can inject offers for any of them). Every offer is returned with `merchantId`, `merchantName`, and `market`. The purchasing agent prepares one UCP checkout per offer, compares all of them, and records `marketsSearched` and a one-sentence `selectionReason` in its run result and trace. The choice is the agent's; the authority is not — the gateway reloads the offer and merchant and enforces the mandate's `allowedMerchantIds` (`MERCHANT_NOT_ALLOWED`) regardless of what the agent argued.
 
+### Live markets (`FlightMarketProvider`)
+
+`apps/api/src/services/flight-market/` defines a provider port with two methods, `search` and `revalidate`, and a Duffel implementation (test mode). `CheckoutService.searchFlights` queries every configured provider with an 8 s budget, stores what came back as `offers` rows (`source = 'duffel'`, `provider_offer_id`, provider expiry) under the "Duffel Marketplace" merchant, expires live offers the provider no longer returns, and only then reads the catalog back from PostgreSQL. A provider failure is logged and skipped — discovery never depends on it. When a checkout session is created for a live offer, the provider is asked again for that exact offer: a new price is written to the row before the cart hash is computed, and a missing or expired offer raises `OFFER_NOT_AVAILABLE`. The purchasing agent drops any offer whose checkout fails and continues with the rest, so a stale live offer can never reach the gateway.
+
 ## Purchase sequence
 
 ```mermaid
@@ -94,7 +98,7 @@ sequenceDiagram
 | Agent runner + demo | `apps/api/src/services/agent-runner.ts`, `routes/demo` | Runs the agent over signed HTTP; direct/forged/replayed/concurrent attempts |
 | Approvals / disputes / evidence | `apps/api/src/services/{approval,dispute,evidence}-service.ts` | Checkout-scoped approvals, deterministic resolver, role-filtered bundles |
 | Audit chain | `packages/db/src/repositories/audit.ts` | Serialized append with hash linking; verification |
-| Console | `apps/web` | Human, Agent, Merchant, Auditor, Demo control views |
+| Console | `apps/web` | Perspective-separated route trees: client `/dashboard`, agent `/agent`, merchant `/verify`, auditor `/audit`, demo `/demo` |
 
 ## Package boundaries
 

@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, notInArray, sql } from 'drizzle-orm';
 import type {
   Cabin,
   Checkout,
@@ -34,6 +34,7 @@ export function toOffer({ offer: row, merchantName, market }: OfferWithMerchantR
     status: row.status as OfferStatus,
     expiresAt: row.expiresAt.toISOString(),
     source: row.source as Offer['source'],
+    ...(row.providerOfferId ? { providerOfferId: row.providerOfferId } : {}),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -107,7 +108,8 @@ export interface InsertOfferInput {
   amountMinor: number;
   currency: Currency;
   expiresAt: Date;
-  source: 'seed' | 'demo';
+  source: 'seed' | 'demo' | 'duffel';
+  providerOfferId?: string;
   status?: OfferStatus;
 }
 
@@ -123,6 +125,83 @@ export async function insertOffer(db: DbExecutor, input: InsertOfferInput): Prom
     .returning();
   if (!row) throw new Error('offer insert returned no row');
   return loadOffer(db, row.id);
+}
+
+/**
+ * Store a fresh batch of live offers for one merchant/route: upsert by provider id and expire
+ * every AVAILABLE live offer on that route that the provider no longer returns.
+ */
+export async function syncProviderOffers(
+  db: DbExecutor,
+  input: {
+    source: 'duffel';
+    merchantId: string;
+    origin: string;
+    destination: string;
+    offers: Omit<InsertOfferInput, 'source' | 'merchantId'>[];
+  },
+): Promise<void> {
+  const origin = input.origin.toUpperCase();
+  const destination = input.destination.toUpperCase();
+  const keep = input.offers.map((o) => o.providerOfferId).filter((id): id is string => !!id);
+  const stale = and(
+    eq(offers.merchantId, input.merchantId),
+    eq(offers.source, input.source),
+    eq(offers.origin, origin),
+    eq(offers.destination, destination),
+    eq(offers.status, 'AVAILABLE'),
+    keep.length > 0 ? notInArray(offers.providerOfferId, keep) : sql`true`,
+  );
+  await db.update(offers).set({ status: 'EXPIRED' }).where(stale);
+  if (input.offers.length === 0) return;
+  await db
+    .insert(offers)
+    .values(
+      input.offers.map((o) => ({
+        ...o,
+        origin: o.origin.toUpperCase(),
+        destination: o.destination.toUpperCase(),
+        merchantId: input.merchantId,
+        source: input.source,
+        status: 'AVAILABLE',
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [offers.source, offers.providerOfferId],
+      set: {
+        amountMinor: sql`excluded.amount_minor`,
+        currency: sql`excluded.currency`,
+        expiresAt: sql`excluded.expires_at`,
+        status: 'AVAILABLE',
+      },
+    });
+}
+
+/** Re-price or withdraw a live offer after provider revalidation. */
+export async function applyRevalidation(
+  db: DbExecutor,
+  id: string,
+  next: { available: boolean; amountMinor?: number; currency?: Currency; expiresAt?: Date },
+): Promise<Offer | undefined> {
+  if (!next.available) {
+    await db.update(offers).set({ status: 'EXPIRED' }).where(eq(offers.id, id));
+  } else {
+    await db
+      .update(offers)
+      .set({
+        ...(next.amountMinor === undefined ? {} : { amountMinor: next.amountMinor }),
+        ...(next.currency === undefined ? {} : { currency: next.currency }),
+        ...(next.expiresAt === undefined ? {} : { expiresAt: next.expiresAt }),
+      })
+      .where(eq(offers.id, id));
+  }
+  return getOffer(db, id);
+}
+
+export async function listOffersByIds(db: DbExecutor, ids: string[]): Promise<Offer[]> {
+  if (ids.length === 0) return [];
+  const rows = await selectWithMerchant(db).where(inArray(offers.id, ids));
+  return rows.map(toOffer);
 }
 
 export async function updateOfferStatus(

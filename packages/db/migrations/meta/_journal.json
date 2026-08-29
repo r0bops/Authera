@@ -15,6 +15,13 @@
       "when": 1788035025055,
       "tag": "0001_faithful_fixer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788043409218,
+      "tag": "0002_striped_bucky",
+      "breakpoints": true
     }
   ]
 }

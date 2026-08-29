@@ -12,6 +12,7 @@ export const SEED_IDS = {
   vuelaya: '33333333-3333-4333-8333-333333333333',
   aerosur: '33333333-3333-4333-8333-333333333334',
   andesgo: '33333333-3333-4333-8333-333333333335',
+  duffel: '33333333-3333-4333-8333-333333333336',
   agentKey: '22222222-2222-4222-8222-aaaaaaaaaaaa',
   trustedSurfaceKey: '99999999-9999-4999-8999-000000000001',
   merchantKey: '99999999-9999-4999-8999-000000000002',
@@ -37,6 +38,8 @@ export const SEED_MERCHANTS: SeedMerchant[] = [
   { id: SEED_IDS.vuelaya, slug: 'vuelaya', displayName: 'VuelaYa', market: 'VE' },
   { id: SEED_IDS.aerosur, slug: 'aerosur', displayName: 'AeroSur', market: 'AR' },
   { id: SEED_IDS.andesgo, slug: 'andesgo', displayName: 'AndesGo Travel', market: 'CO' },
+  /** Live market: offers come from the Duffel Flights API (test mode) when a token is configured. */
+  { id: SEED_IDS.duffel, slug: 'duffel', displayName: 'Duffel Marketplace', market: 'GB' },
 ];
 
 /** Default merchant for demo controls that do not name one. */

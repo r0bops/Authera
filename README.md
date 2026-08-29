@@ -19,6 +19,7 @@ Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Cór
 | Guarantee | How |
 |---|---|
 | The LLM never authorizes anything | The purchasing agent has two tools (`search_flights`, `request_purchase`) and submits ids only; `evaluatePolicy` is a pure function and PostgreSQL holds live state |
+| Live market, same guarantees | With `DUFFEL_ACCESS_TOKEN` set, discovery also queries the Duffel Flights API (test mode) as a fourth merchant; its offers are stored server-side first, the winner is re-priced with Duffel right before the checkout binds its cart, and a changed or vanished price fails closed (`OFFER_NOT_AVAILABLE`) |
 | The agent chooses, the gateway decides | `search_flights` fans out over every merchant/market (each offer carries `merchantName` + `market`); the agent ranks them and records a plain-language `selectionReason`; the gateway re-checks the chosen merchant against the mandate's `allowedMerchantIds` and blocks with `MERCHANT_NOT_ALLOWED` |
 | Agent identity ≠ human authority | RFC 9421 (Ed25519) signed requests prove *who*; the trusted-surface JWS mandate proves *what was allowed*; both are checked separately |
 | No spend outside the mandate | Route, cabin, passengers, dates, merchant, currency, per-purchase and total caps, usage count, validity window — evaluated on server data, then enforced again by one conditional `UPDATE` on `mandate_runtime` |
@@ -90,7 +91,7 @@ docs/               architecture, threat model, demo runbook
 
 ## Configuration
 
-See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|yuno` (Yuno keys required only for `yuno`), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
+See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|yuno` (Yuno keys required only for `yuno`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
 
 ## Deployment
 

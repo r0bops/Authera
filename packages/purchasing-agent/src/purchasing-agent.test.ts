@@ -444,9 +444,10 @@ describe('signed gateway adapter and operational guardrails', () => {
       ),
     };
 
+    // The mismatching offer is dropped; the agent never sees an unverified candidate.
     await expect(
       new HttpPurchasingAgentGateway(transport).searchFlights(searchInput),
-    ).rejects.toThrow('Prepared checkout does not match');
+    ).resolves.toEqual({ offers: [] });
   });
 
   it('adds the execution ID locally and sends no price or payment data', async () => {

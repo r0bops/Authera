@@ -22,7 +22,10 @@ export const OfferSchema = z.strictObject({
   total: MoneySchema,
   status: OfferStatusSchema,
   expiresAt: z.iso.datetime(),
-  source: z.enum(['seed', 'demo']),
+  /** `duffel` offers are discovered live and stored server-side before any checkout. */
+  source: z.enum(['seed', 'demo', 'duffel']),
+  /** Provider-scoped id for live offers (revalidated before checkout). */
+  providerOfferId: z.string().min(1).optional(),
   createdAt: z.iso.datetime(),
 });
 export type Offer = z.infer<typeof OfferSchema>;

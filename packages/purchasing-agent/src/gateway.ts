@@ -102,9 +102,12 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
       signal: options.signal,
     });
     const offers = parseGatewayResponse(z.array(FlightOfferViewSchema).max(100), response);
-    const prepared = await Promise.all(
+    // A live offer can expire or re-price between search and checkout; that offer is dropped
+    // (fail closed per offer) rather than aborting the whole search.
+    const settled = await Promise.allSettled(
       offers.map((offer) => this.prepareCheckout(offer, options.signal)),
     );
+    const prepared = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
     return FlightSearchResultSchema.parse({ offers: prepared });
   }
 

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { requestId } from 'hono/request-id';
 import type { ReadinessCheck } from '@authera/contracts';
-import type { Database, SeedInput } from '@authera/db';
+import { SEED_IDS, type Database, type SeedInput } from '@authera/db';
 import type { KeyMaterial } from '@authera/domain';
 import type { Clock } from './clock.js';
 import type { AppConfig } from './config.js';
@@ -28,6 +28,8 @@ import { humanMandateRoutes } from './routes/human/mandates.js';
 import { meRoutes } from './routes/human/me.js';
 import { databaseAgentIdentityStore } from './services/agent-identity.js';
 import { AgentRunner } from './services/agent-runner.js';
+import { DuffelFlightMarketProvider } from './services/flight-market/duffel-provider.js';
+import type { FlightMarketProvider } from './services/flight-market/provider.js';
 import { ApprovalService } from './services/approval-service.js';
 import { Ap2EvidenceService } from './services/ap2-evidence.js';
 import { DisputeService } from './services/dispute-service.js';
@@ -120,7 +122,16 @@ export function createApp(deps: AppDependencies): App {
 
     // Signed agent lane: identity is verified here; authority is decided by the gateway.
     const identity = databaseAgentIdentityStore(db);
-    const checkout = new CheckoutService({ db, clock });
+    const markets: FlightMarketProvider[] = [];
+    if (deps.config.markets.duffel) {
+      markets.push(
+        new DuffelFlightMarketProvider({
+          accessToken: deps.config.markets.duffel.accessToken,
+          merchantId: SEED_IDS.duffel,
+        }),
+      );
+    }
+    const checkout = new CheckoutService({ db, clock, markets, logger: deps.logger });
     const payments = new PaymentService({
       store: databasePaymentStore(db),
       processor: paymentProcessor,
