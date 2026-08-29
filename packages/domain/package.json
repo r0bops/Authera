@@ -14,9 +14,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentcerta/contracts": "workspace:*"
+    "@agentcerta/contracts": "workspace:*",
+    "canonicalize": "4.0.0"
   },
   "devDependencies": {
+    "@types/node": "24.13.3",
+    "fast-check": "4.9.0",
     "typescript": "6.0.3"
   }
 }

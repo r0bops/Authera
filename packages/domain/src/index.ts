@@ -1,11 +1,11 @@
 /**
  * @agentcerta/domain — pure, deterministic logic only.
  *
- * Boundary (CLAUDE_IMPLEMENTATION_SPEC.md §6): this package imports no React, Hono,
- * OpenAI, Yuno, or database code. The rule is enforced by ESLint (`no-restricted-imports`)
- * in the root eslint.config.js.
- *
- * Phase 1 adds: policy evaluator, state machines, integer money, canonical hashing,
- * reason-code templates.
+ * Boundary (CLAUDE_IMPLEMENTATION_SPEC.md §6): no React, Hono, OpenAI, Yuno, or database
+ * imports; enforced by ESLint `no-restricted-imports` in the root config.
  */
-export const DOMAIN_PACKAGE = '@agentcerta/domain' as const;
+export * from './money/index.js';
+export * from './policy/index.js';
+export * from './state-machines/index.js';
+export * from './crypto/canonical.js';
+export * from './evidence/summaries.js';

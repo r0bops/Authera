@@ -16,5 +16,8 @@
   "devDependencies": {
     "@types/node": "24.13.3",
     "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "@agentcerta/contracts": "workspace:*"
   }
 }
