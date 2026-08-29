@@ -11,7 +11,7 @@ import type {
 } from './processor.js';
 import { WebhookVerificationError } from './processor.js';
 
-export type MockOutcome = 'succeed' | 'fail' | 'pending';
+type MockOutcome = 'succeed' | 'fail' | 'pending';
 
 export interface MockBehavior {
   outcome: MockOutcome;

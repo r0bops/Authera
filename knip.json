@@ -1,0 +1,3 @@
+{
+  "ignoreDependencies": ["@ucp-js/sdk", "pino-pretty"]
+}

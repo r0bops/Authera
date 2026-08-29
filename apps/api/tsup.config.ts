@@ -10,6 +10,7 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   dts: false,
+  external: ['@openai/agents'],
   // Workspace packages ship TypeScript source, so they are bundled into the server.
   // Third-party runtime dependencies stay external and are installed in the image.
   noExternal: [/^@authera\//],

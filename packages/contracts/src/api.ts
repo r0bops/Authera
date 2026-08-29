@@ -40,10 +40,6 @@ export type HealthReadyResponse = z.infer<typeof HealthReadyResponseSchema>;
 /** Error code carried by a 503 from /health/ready. */
 export const NOT_READY_ERROR_CODE = 'NOT_READY';
 
-// ---------------------------------------------------------------------------
-// Human API (CLAUDE_IMPLEMENTATION_SPEC.md §12)
-// ---------------------------------------------------------------------------
-
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key';
 export const CSRF_HEADER = 'X-Requested-With';
 export const CSRF_HEADER_VALUE = 'Authera';

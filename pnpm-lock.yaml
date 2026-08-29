@@ -50,9 +50,6 @@ importers:
       prettier:
         specifier: 3.9.6
         version: 3.9.6
-      testcontainers:
-        specifier: 12.1.0
-        version: 12.1.0
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -80,9 +77,6 @@ importers:
       '@hono/node-server':
         specifier: 2.1.1
         version: 2.1.1(hono@4.13.5)
-      '@openai/agents':
-        specifier: 0.17.0
-        version: 0.17.0(undici@8.10.0)(ws@8.21.3)(zod@4.4.3)
       '@simplewebauthn/server':
         specifier: 13.3.3
         version: 13.3.3

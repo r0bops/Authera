@@ -5,7 +5,7 @@ import {
   type ApiResult,
 } from '@authera/contracts';
 
-export class ApiError extends Error {
+class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
@@ -26,7 +26,7 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
-export function newIdempotencyKey(): string {
+function newIdempotencyKey(): string {
   return crypto.randomUUID();
 }
 

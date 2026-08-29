@@ -40,7 +40,6 @@
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-react-hooks": "7.1.1",
     "prettier": "3.9.6",
-    "testcontainers": "12.1.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.68.0",
     "vitest": "4.1.11"

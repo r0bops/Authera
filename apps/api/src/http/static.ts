@@ -3,11 +3,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { fail, type AppEnv } from './envelope.js';
 
 /** URL namespaces owned by the backend. They never fall through to the SPA. */
-export const BACKEND_NAMESPACES = ['/api', '/health', '/ucp', '/.well-known', '/webhooks'] as const;
-
-export function isBackendPath(path: string): boolean {
-  return BACKEND_NAMESPACES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
-}
+const BACKEND_NAMESPACES = ['/api', '/health', '/ucp', '/.well-known', '/webhooks'] as const;
 
 /**
  * Serve the compiled Vite SPA from the API process (single origin in production).

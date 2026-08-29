@@ -36,7 +36,6 @@ export interface MandateServiceDependencies {
   logger: Logger;
 }
 
-/** Human-facing mandate lifecycle: issue, inspect, revise, revoke (spec Phase 3). */
 export class MandateService {
   constructor(private readonly deps: MandateServiceDependencies) {}
 

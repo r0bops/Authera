@@ -36,7 +36,7 @@ export type PasskeyAuthenticationVerifier = (input: {
   requireUserVerification: true;
 }) => Promise<{ verified: boolean; authenticationInfo: { newCounter: number } }>;
 
-export class PasskeyActionError extends Error {
+class PasskeyActionError extends Error {
   constructor(readonly code: 'CHALLENGE_INVALID' | 'ACTION_MISMATCH' | 'VERIFICATION_FAILED') {
     super(code);
     this.name = 'PasskeyActionError';

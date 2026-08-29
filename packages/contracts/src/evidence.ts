@@ -8,10 +8,6 @@ import { MoneySchema } from './money.js';
 import { DecisionSchema, PolicyCheckSchema, ReasonCodeSchema } from './policy.js';
 import { ApprovalStateSchema } from './execution.js';
 
-// ---------------------------------------------------------------------------
-// Approvals (checkout-scoped human decisions)
-// ---------------------------------------------------------------------------
-
 export const ApprovalViewSchema = z.object({
   id: z.uuid(),
   state: ApprovalStateSchema,
@@ -39,10 +35,6 @@ export const ApprovalDecisionRequestSchema = z.strictObject({
   note: z.string().trim().max(200).optional(),
 });
 export type ApprovalDecisionRequest = z.infer<typeof ApprovalDecisionRequestSchema>;
-
-// ---------------------------------------------------------------------------
-// Disputes
-// ---------------------------------------------------------------------------
 
 export const DISPUTE_REASONS = [
   'DID_NOT_CREATE_MANDATE',
@@ -90,10 +82,6 @@ export const DisputeViewSchema = z.object({
   resolvedAt: z.iso.datetime().nullable(),
 });
 export type DisputeView = z.infer<typeof DisputeViewSchema>;
-
-// ---------------------------------------------------------------------------
-// Evidence bundle (spec §15)
-// ---------------------------------------------------------------------------
 
 export const EvidenceRoleSchema = z.enum(['human', 'merchant', 'auditor']);
 export type EvidenceRole = z.infer<typeof EvidenceRoleSchema>;

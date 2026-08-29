@@ -9,10 +9,7 @@ export interface CreateLoggerOptions {
   pretty?: boolean;
 }
 
-/**
- * Pino JSON logger with redaction for secrets (CLAUDE_IMPLEMENTATION_SPEC.md §17).
- * Redaction paths are widened in later phases as new sensitive fields appear.
- */
+/** Pino JSON logger with redaction for secrets. */
 export function createLogger(options: CreateLoggerOptions): Logger {
   return pino({
     level: options.level,

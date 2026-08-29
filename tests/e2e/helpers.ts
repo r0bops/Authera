@@ -65,7 +65,7 @@ const endOfMonth = () => {
   ).toISOString();
 };
 
-export function travelWindow(): { departureDateFrom: string; departureDateTo: string } {
+function travelWindow(): { departureDateFrom: string; departureDateTo: string } {
   const now = new Date();
   const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
   const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 3, 0));

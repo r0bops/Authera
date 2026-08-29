@@ -10,8 +10,8 @@ import {
 } from '@authera/db';
 import { loadKeyMaterial, type KeyMaterial } from '@authera/domain';
 
-export const POSTGRES_IMAGE = 'postgres:18-alpine';
-export const TEST_DEMO_SECRET = 'integration-test-demo-secret';
+const POSTGRES_IMAGE = 'postgres:18-alpine';
+const TEST_DEMO_SECRET = 'integration-test-demo-secret';
 
 export interface TestPostgres {
   container: StartedPostgreSqlContainer;
@@ -22,7 +22,7 @@ export interface TestPostgres {
   stop: () => Promise<void>;
 }
 
-export function testKeys(): { keys: KeyMaterial; seed: SeedInput } {
+function testKeys(): { keys: KeyMaterial; seed: SeedInput } {
   const keys = loadKeyMaterial({ demoSecret: TEST_DEMO_SECRET });
   return {
     keys,

@@ -10,7 +10,7 @@ import { Check, X } from 'lucide-react';
 import { formatTime, shortHash, shortId } from '../lib/format.js';
 import { Badge, Table, Td, Th, type Tone } from './ui/primitives.js';
 
-export function mandateTone(status: MandateState): Tone {
+function mandateTone(status: MandateState): Tone {
   switch (status) {
     case 'ACTIVE':
       return 'verified';
@@ -28,7 +28,7 @@ export function MandateStatusBadge({ status }: { status: MandateState }) {
   return <Badge tone={mandateTone(status)}>{status}</Badge>;
 }
 
-export function decisionTone(decision: Decision | null, state?: ExecutionState): Tone {
+function decisionTone(decision: Decision | null, state?: ExecutionState): Tone {
   if (state === 'SUCCEEDED') return 'verified';
   if (state === 'FAILED') return 'destructive';
   if (state === 'PAYMENT_PENDING' || state === 'RESERVED') return 'info';
@@ -69,20 +69,6 @@ export function DecisionBadge({
       ) : null}
     </span>
   );
-}
-
-export function StateBadge({ state }: { state: ExecutionState }) {
-  const tone: Tone =
-    state === 'SUCCEEDED'
-      ? 'verified'
-      : state === 'BLOCKED' || state === 'FAILED'
-        ? 'destructive'
-        : state === 'REQUIRES_HUMAN'
-          ? 'attention'
-          : state === 'RESERVED' || state === 'PAYMENT_PENDING'
-            ? 'info'
-            : 'neutral';
-  return <Badge tone={tone}>{state.replace(/_/g, ' ')}</Badge>;
 }
 
 export function Checklist({

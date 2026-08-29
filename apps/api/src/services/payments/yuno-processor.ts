@@ -21,7 +21,7 @@ export interface YunoConfig {
 
 /** Yuno Webhook V2: Base64-encoded HMAC-SHA256 over the untouched request body. */
 export const YUNO_SIGNATURE_HEADER = 'x-hmac-signature';
-export const YUNO_SANDBOX_BASE_URL = 'https://api-sandbox.y.uno';
+const YUNO_SANDBOX_BASE_URL = 'https://api-sandbox.y.uno';
 
 /**
  * Yuno sandbox adapter skeleton (spec §13). Configuration-selected (`PAYMENT_MODE=yuno`); the

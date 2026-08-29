@@ -6,7 +6,7 @@ import type { SessionRow, UserRow } from '@authera/db';
 import type { Logger } from '../logger.js';
 import type { VerifiedAgentRequest } from '../middleware/agent-signature.js';
 
-export interface AppVariables extends RequestIdVariables {
+interface AppVariables extends RequestIdVariables {
   logger: Logger;
   user?: UserRow;
   session?: SessionRow;

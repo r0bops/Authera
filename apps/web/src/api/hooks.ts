@@ -11,7 +11,6 @@ import type {
   DemoPaymentBehaviorRequest,
   DemoState,
   ExecutionSummary,
-  ExecutionView,
   FlightOfferView,
   MandateView,
   MeResponse,
@@ -21,13 +20,12 @@ import type {
 } from '@authera/contracts';
 import { api } from './client.js';
 
-export const keys = {
+const keys = {
   me: ['me'] as const,
   mandates: ['mandates'] as const,
   mandate: (id: string) => ['mandates', id] as const,
   offers: ['offers'] as const,
   executions: (mandateId?: string) => ['executions', mandateId ?? 'all'] as const,
-  execution: (id: string) => ['execution', id] as const,
   verification: (id: string) => ['verification', id] as const,
   audit: (filter: { mandateId?: string; executionId?: string }) =>
     ['audit', filter.mandateId ?? '', filter.executionId ?? ''] as const,
@@ -37,7 +35,7 @@ export const keys = {
 };
 
 /** Demo mode polls once per second so server truth replaces the screen within one tick. */
-export function usePollInterval(): number {
+function usePollInterval(): number {
   const me = useMe();
   return me.data?.demoMode ? 1000 : 5000;
 }
@@ -84,16 +82,6 @@ export function useExecutions(mandateId?: string, limit = 50) {
   return useQuery({
     queryKey: [...keys.executions(mandateId), limit],
     queryFn: () => api<ExecutionSummary[]>(`/api/executions?${search.toString()}`),
-    refetchInterval: interval,
-  });
-}
-
-export function useExecution(id: string | undefined) {
-  const interval = usePollInterval();
-  return useQuery({
-    queryKey: keys.execution(id ?? ''),
-    queryFn: () => api<ExecutionView>(`/api/executions/${id}`),
-    enabled: Boolean(id),
     refetchInterval: interval,
   });
 }
@@ -190,7 +178,7 @@ export function useReviseMandate(id: string) {
   });
 }
 
-export function useDemoAction<TInput, TResult>(path: string) {
+function useDemoAction<TInput, TResult>(path: string) {
   const invalidate = useInvalidateAll();
   return useMutation({
     mutationFn: (input: TInput) => api<TResult>(path, { method: 'POST', body: input ?? {} }),
@@ -242,10 +230,6 @@ export function useMockWebhook() {
     retry: false,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Approvals, disputes, evidence (Phase 9)
-// ---------------------------------------------------------------------------
 
 import type {
   ApprovalDecisionRequest,

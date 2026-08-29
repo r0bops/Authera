@@ -35,7 +35,6 @@ export type SignedGatewayRequest = Readonly<{
   signal?: AbortSignal;
 }>;
 
-/** Phase 4 supplies this transport so search and purchase use the signed agent lane. */
 export interface SignedGatewayTransport {
   request(request: SignedGatewayRequest): Promise<unknown>;
 }
@@ -60,7 +59,6 @@ export class SignedGatewayHttpError extends Error {
   }
 }
 
-/** Adapts the Phase 4 RFC 9421 client without exposing signing keys to the agent runner. */
 export class AgentHttpClientTransport implements SignedGatewayTransport {
   constructor(private readonly client: SignedAgentHttpClient) {}
 

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { Decision, ExecutionState, Money, PolicyCheck, ReasonCode } from '@authera/contracts';
 import {
   consumeApproval,
@@ -57,7 +56,7 @@ export interface ApprovalRecord {
   state: string;
 }
 
-export interface ReserveInput {
+interface ReserveInput {
   executionId: string;
   mandateId: string;
   version: number;
@@ -68,7 +67,7 @@ export interface ReserveInput {
   actorId?: string;
 }
 
-export interface CreateApprovalInput {
+interface CreateApprovalInput {
   executionId: string;
   mandateId: string;
   mandateVersion: number;
@@ -121,10 +120,7 @@ export interface GatewayStore {
   audit(event: AppendAuditEventInput): Promise<void>;
 }
 
-export function toExecutionRecord(
-  row: ExecutionRow,
-  paymentId: string | null = null,
-): ExecutionRecord {
+function toExecutionRecord(row: ExecutionRow, paymentId: string | null = null): ExecutionRecord {
   return {
     id: row.id,
     paymentId,
@@ -202,4 +198,3 @@ export function databaseGatewayStore(db: Database): GatewayStore {
 }
 
 export const newEvidenceId = (executionId: string): string => `ev_${executionId}`;
-export const newId = (): string => randomUUID();

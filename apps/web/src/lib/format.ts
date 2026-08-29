@@ -58,17 +58,6 @@ export function formatTime(iso: string | null | undefined): string {
   });
 }
 
-export function timeAgo(iso: string, now: Date = new Date()): string {
-  const diff = Math.max(0, now.getTime() - new Date(iso).getTime());
-  const seconds = Math.round(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 48) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
-
 export function shortId(value: string | null | undefined, length = 8): string {
   if (!value) return '—';
   return value.length > length ? `${value.slice(0, length)}…` : value;
@@ -84,8 +73,4 @@ export function shortHash(value: string | null | undefined): string {
 export function endOfMonthIso(now: Date = new Date()): string {
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59));
   return end.toISOString();
-}
-
-export function isoDateInput(iso: string): string {
-  return iso.slice(0, 10);
 }

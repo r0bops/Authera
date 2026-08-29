@@ -2,9 +2,9 @@ import { importJWK, jwtVerify, SignJWT, type JWTPayload } from 'jose';
 import { MANDATE_SCHEMA_ID, MandatePolicyV1Schema, type MandatePolicyV1 } from '@authera/contracts';
 import { hashCanonical, type Ed25519PublicJwk, type KeyPair } from '@authera/domain';
 
-export const MANDATE_JWS_TYPE = 'authera-mandate+jwt';
-export const MANDATE_ISSUER = 'authera:trusted-surface';
-export const MANDATE_AUDIENCE = 'authera:gateway';
+const MANDATE_JWS_TYPE = 'authera-mandate+jwt';
+const MANDATE_ISSUER = 'authera:trusted-surface';
+const MANDATE_AUDIENCE = 'authera:gateway';
 
 export interface SignedMandate {
   jws: string;

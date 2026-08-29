@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { ok, type AppEnv } from '../../http/envelope.js';
 
-/** Protected no-op behind the signature middleware (Phase 4 acceptance route). */
 export function agentPingRoutes() {
   const routes = new Hono<AppEnv>();
   routes.post('/ping', (c) => {
