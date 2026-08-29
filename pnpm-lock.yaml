@@ -77,6 +77,9 @@ importers:
       '@hono/node-server':
         specifier: 2.1.1
         version: 2.1.1(hono@4.13.5)
+      '@openai/agents':
+        specifier: 0.17.0
+        version: 0.17.0(undici@8.10.0)(ws@8.21.3)(zod@4.4.3)
       '@simplewebauthn/server':
         specifier: 13.3.3
         version: 13.3.3

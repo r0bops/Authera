@@ -21,6 +21,7 @@
     "@authera/domain": "workspace:*",
     "@authera/purchasing-agent": "workspace:*",
     "@hono/node-server": "2.1.1",
+    "@openai/agents": "0.17.0",
     "@simplewebauthn/server": "13.3.3",
     "@ucp-js/sdk": "0.4.6",
     "drizzle-orm": "0.45.2",
