@@ -37,7 +37,7 @@ const PERSPECTIVE_CONFIG = {
     footer: 'Discovery and decisions, never authorization',
   },
   merchant: {
-    section: 'VuelaYa',
+    section: 'Merchant',
     nav: [{ to: '/verify', label: 'Purchase verification', icon: Store, end: true }],
     footer: 'Verify before accepting an agent purchase',
   },
@@ -109,7 +109,7 @@ export function AppShell({
       : perspective === 'agent'
         ? agentName
         : perspective === 'merchant'
-          ? 'VuelaYa'
+          ? 'Merchant'
           : perspective === 'auditor'
             ? 'Auditor'
             : 'Demo operator';

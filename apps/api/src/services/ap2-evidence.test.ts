@@ -83,7 +83,7 @@ describe('AP2 v0.2-aligned evidence', () => {
     );
     await expect(
       jwtVerify(envelope.jws, publicKey, {
-        issuer: 'authera:merchant:vuelaya',
+        issuer: 'authera:merchant',
         audience: 'ap2:dispute-evidence',
         typ: 'authera-ap2-aligned+jwt',
       }),

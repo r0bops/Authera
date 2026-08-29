@@ -81,7 +81,7 @@ export function PurchaseDetailPage() {
                     {offer ? `${offer.airline} ${offer.flightNumber}` : 'Flight'}
                   </p>
                   <p className="text-[12.5px] text-ink-muted">
-                    Merchant: VuelaYa · Passenger: Marta Ledezma
+                    Merchant: {offer?.merchantName ?? '—'} · Passenger: Marta Ledezma
                   </p>
                 </div>
               </div>

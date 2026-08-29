@@ -27,7 +27,7 @@ export function MerchantPage() {
     <>
       <PageHeader
         title="Merchant view"
-        description="What VuelaYa can verify before accepting an agent purchase: identity, mandate, constraints, the exact cart, and the payment state."
+        description="What the merchant can verify before accepting an agent purchase: identity, mandate, constraints, the exact cart, and the payment state."
       />
       <Card className="mb-4">
         <div className="flex items-end gap-3">

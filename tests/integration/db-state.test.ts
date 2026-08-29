@@ -6,6 +6,7 @@ import {
   beginIdempotent,
   completeIdempotent,
   createCheckout,
+  insertOffer,
   createExecution,
   createMandate,
   getMandate,
@@ -47,7 +48,7 @@ describe('PostgreSQL state and concurrency', () => {
       humanId: SEED_IDS.marta,
       agentId: SEED_IDS.agent,
       agentKeyThumbprint: pg.keys.agent.thumbprint,
-      allowedMerchantIds: [SEED_IDS.vuelaya],
+      allowedMerchantIds: [SEED_IDS.duffel],
       paymentMethodRef: SEED_IDS.paymentMethod,
       ...overrides,
     });
@@ -431,17 +432,34 @@ describe('PostgreSQL state and concurrency', () => {
     expect(await pg.db.query.mandates.findMany()).toHaveLength(0);
     expect(await pg.db.query.auditEvents.findMany()).toHaveLength(0);
     expect(await pg.db.query.offers.findMany()).toHaveLength(SEED_OFFERS.length);
+    // The catalog is never seeded; a judge-injected offer is the only non-live source.
+    const offer = await insertOffer(pg.db, {
+      id: randomUUID(),
+      merchantId: SEED_IDS.duffel,
+      airline: 'Injected Air',
+      flightNumber: 'VY201',
+      origin: 'CCS',
+      destination: 'COR',
+      cabin: 'economy',
+      departureAt: new Date(NOW.getTime() + 7 * 86_400_000),
+      arrivalAt: new Date(NOW.getTime() + 7 * 86_400_000 + 5 * 3_600_000),
+      passengerCount: 1,
+      amountMinor: 18_400,
+      currency: 'USD',
+      expiresAt: new Date(NOW.getTime() + 600_000),
+      source: 'demo',
+    });
     const checkout = await createCheckout(pg.db, {
       id: randomUUID(),
-      offerId: SEED_OFFERS[0]!.id,
-      merchantId: SEED_IDS.vuelaya,
+      offerId: offer.id,
+      merchantId: SEED_IDS.duffel,
       cart: {
         schema: 'authera.cart.v1',
-        merchantId: SEED_IDS.vuelaya,
-        offerId: SEED_OFFERS[0]!.id,
+        merchantId: SEED_IDS.duffel,
+        offerId: offer.id,
         lineItems: [
           {
-            offerId: SEED_OFFERS[0]!.id,
+            offerId: offer.id,
             description: 'VY201',
             quantity: 1,
             unitPrice: { currency: 'USD', minor: 18_400 },

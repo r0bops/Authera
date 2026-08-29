@@ -365,8 +365,9 @@ export function NewMandatePage() {
               <details className="mt-3 rounded-md border border-line px-3 py-2 text-[13px]">
                 <summary className="font-medium">What your agent can do</summary>
                 <p className="mt-1 text-ink-muted">
-                  Search VuelaYa flights on this route, prepare a checkout for an eligible offer,
-                  and request the purchase through the gateway using your tokenized payment method.
+                  Search every connected market for flights on this route, prepare a checkout for an
+                  eligible offer, and request the purchase through the gateway using your tokenized
+                  payment method.
                 </p>
               </details>
               <details className="mt-2 rounded-md border border-line px-3 py-2 text-[13px]">

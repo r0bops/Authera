@@ -12,7 +12,7 @@ Built for **NextWave Hackathon 2026 — Challenge 1: Agentic Purchase Mandates**
 
 ## The scenario
 
-Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Córdoba for at most USD 150** before the end of the month, using a tokenized card, from any of the merchants she ticks (VuelaYa in Venezuela, AeroSur in Argentina, AndesGo Travel in Colombia). Aria searches all three markets, compares every authoritative offer, and explains its pick in one sentence. When a USD 130 offer appears in any market, Aria requests the purchase; Authera verifies Aria's signature, Marta's signed mandate, and the exact checkout, reserves the single allowed use, pays, and hands everyone a receipt. A USD 300 offer is blocked (or paused for Marta), a forged key is rejected, a replayed request is rejected, two racing attempts yield one purchase, and a live revocation stops the next attempt cold.
+Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Córdoba for at most USD 150** before the end of the month, using a tokenized card. Aria searches the live market (real offers via the Duffel Flights API, test mode — nothing on the dashboard is invented), compares every authoritative offer, and explains its pick in one sentence. When a qualifying offer appears — or a judge injects one, clearly labelled — Aria requests the purchase; Authera verifies Aria's signature, Marta's signed mandate, and the exact checkout, reserves the single allowed use, pays, and hands everyone a receipt. A USD 300 offer is blocked (or paused for Marta), a forged key is rejected, a replayed request is rejected, two racing attempts yield one purchase, and a live revocation stops the next attempt cold.
 
 ## What the gateway guarantees
 

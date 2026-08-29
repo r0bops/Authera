@@ -102,6 +102,7 @@ export async function seedDemo(db: DbExecutor, input: SeedInput): Promise<void> 
     .insert(paymentMethods)
     .values({ ...SEED_PAYMENT_METHOD, userId: SEED_USER.id })
     .onConflictDoNothing();
+  if (SEED_OFFERS.length === 0) return;
   await db
     .insert(offers)
     .values(

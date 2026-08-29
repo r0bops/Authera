@@ -63,7 +63,7 @@ export class Ap2EvidenceService {
       cart_hash: bundle.checkout.cartHash,
     })
       .setProtectedHeader({ alg: 'EdDSA', kid: this.deps.merchantKey.kid, typ: UCP_CHECKOUT_TYPE })
-      .setIssuer('authera:merchant:vuelaya')
+      .setIssuer('authera:merchant')
       .setAudience('ap2:shopping-agent')
       .setSubject(bundle.checkout.id)
       .setJti(randomUUID())
@@ -123,7 +123,7 @@ export class Ap2EvidenceService {
     };
     const jws = await new SignJWT(payload)
       .setProtectedHeader({ alg: 'EdDSA', kid: this.deps.merchantKey.kid, typ: AP2_EVIDENCE_TYPE })
-      .setIssuer('authera:merchant:vuelaya')
+      .setIssuer('authera:merchant')
       .setAudience('ap2:dispute-evidence')
       .setSubject(bundle.executionId)
       .setIssuedAt(Math.floor(now.getTime() / 1000))

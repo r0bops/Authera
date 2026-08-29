@@ -23,7 +23,7 @@ Authority lives in exactly two places: the **pure policy engine** (deterministic
 
 ## Discovery across markets
 
-`GET /api/flights` is one signed call, but the catalog behind it belongs to several merchants in several markets (seeded: VuelaYa/VE, AeroSur/AR, AndesGo Travel/CO; demo control can inject offers for any of them). Every offer is returned with `merchantId`, `merchantName`, and `market`. The purchasing agent prepares one UCP checkout per offer, compares all of them, and records `marketsSearched` and a one-sentence `selectionReason` in its run result and trace. The choice is the agent's; the authority is not — the gateway reloads the offer and merchant and enforces the mandate's `allowedMerchantIds` (`MERCHANT_NOT_ALLOWED`) regardless of what the agent argued.
+`GET /api/flights` is one signed call over a catalog that is never seeded: offers come from live markets (Duffel today) and, in demo mode, from explicitly labelled judge injections. Merchants are the unit of scope — a mandate lists the merchant ids it allows. Every offer is returned with `merchantId`, `merchantName`, and `market`. The purchasing agent prepares one UCP checkout per offer, compares all of them, and records `marketsSearched` and a one-sentence `selectionReason` in its run result and trace. The choice is the agent's; the authority is not — the gateway reloads the offer and merchant and enforces the mandate's `allowedMerchantIds` (`MERCHANT_NOT_ALLOWED`) regardless of what the agent argued.
 
 ### Live markets (`FlightMarketProvider`)
 

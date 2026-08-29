@@ -33,7 +33,7 @@ describe('human data access control', () => {
       humanId: SEED_IDS.marta,
       agentId: SEED_IDS.agent,
       agentKeyThumbprint: pg.keys.agent.thumbprint,
-      allowedMerchantIds: [SEED_IDS.vuelaya],
+      allowedMerchantIds: [SEED_IDS.duffel],
       paymentMethodRef: SEED_IDS.paymentMethod,
     });
     await createMandate(pg.db, {
