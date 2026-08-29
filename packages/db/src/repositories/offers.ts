@@ -175,3 +175,21 @@ export async function replaceCheckoutCart(
   if (!row) throw new Error(`checkout ${id} not found`);
   return toCheckout(row);
 }
+
+/**
+ * DEMO ONLY: overwrite the stored cart without touching `cart_hash`, simulating a cart that
+ * changed after authorization. The gateway must detect it (`CHECKOUT_HASH_MISMATCH`).
+ */
+export async function tamperCheckoutCart(
+  db: DbExecutor,
+  id: string,
+  cart: CheckoutCart,
+): Promise<Checkout> {
+  const [row] = await db
+    .update(checkouts)
+    .set({ cart: cart as unknown as Record<string, unknown>, updatedAt: sql`now()` })
+    .where(eq(checkouts.id, id))
+    .returning();
+  if (!row) throw new Error(`checkout ${id} not found`);
+  return toCheckout(row);
+}

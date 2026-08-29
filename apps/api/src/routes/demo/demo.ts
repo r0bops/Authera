@@ -10,7 +10,15 @@ import {
   DemoTimeRequestSchema,
   type DemoState,
 } from '@agentcerta/contracts';
-import { insertOffer, resetDemo, SEED_IDS, type Database, type SeedInput } from '@agentcerta/db';
+import {
+  getCheckout,
+  insertOffer,
+  resetDemo,
+  SEED_IDS,
+  tamperCheckoutCart,
+  type Database,
+  type SeedInput,
+} from '@agentcerta/db';
 import type { Clock } from '../../clock.js';
 import type { AppConfig } from '../../config.js';
 import { ok, type AppEnv } from '../../http/envelope.js';
@@ -149,6 +157,28 @@ export function demoRoutes(deps: DemoDependencies) {
   routes.post('/concurrent-attempts', idempotent('demo.concurrent', deps.db), async (c) => {
     const input = await parse(c, DemoConcurrentAttemptsRequestSchema);
     return ok(c, await deps.runner.concurrent(input));
+  });
+
+  /** Simulate a cart modified after authorization: the stored hash no longer matches the cart. */
+  routes.post('/checkouts/:id/tamper', idempotent('demo.tamper', deps.db), async (c) => {
+    const id = c.req.param('id');
+    const checkout = await getCheckout(deps.db, id);
+    if (!checkout) throw ApiProblem.notFound('checkout');
+    const tampered = {
+      ...checkout.cart,
+      total: { ...checkout.cart.total, minor: checkout.cart.total.minor + 1 },
+      lineItems: checkout.cart.lineItems.map((item, index) =>
+        index === 0
+          ? { ...item, unitPrice: { ...item.unitPrice, minor: item.unitPrice.minor + 1 } }
+          : item,
+      ),
+    };
+    const result = await tamperCheckoutCart(deps.db, id, tampered);
+    return ok(c, {
+      checkoutId: result.id,
+      cartHash: result.cartHash,
+      cartTotalMinor: result.cart.total.minor,
+    });
   });
 
   routes.post('/time', idempotent('demo.time', deps.db), async (c) => {
