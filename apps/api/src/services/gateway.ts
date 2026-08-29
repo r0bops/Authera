@@ -1,11 +1,12 @@
 import {
   PurchaseAttemptRequestSchema,
+  type Money,
   type PolicyCheck,
   type PolicyInput,
   type PurchaseAttemptResponse,
   type ReasonCode,
 } from '@authera/contracts';
-import { describeReason, evaluatePolicy, hashCanonical } from '@authera/domain';
+import { evaluatePolicy, hashCanonical } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem, formatZodIssues } from '../http/problem.js';
 import type { Logger } from '../logger.js';
@@ -30,7 +31,7 @@ export interface ReservedExecution {
   checkoutId: string;
   offerId: string;
   amountMinor: number;
-  currency: string;
+  currency: Money['currency'];
   paymentMethodRef: string;
   evidenceId: string;
 }
@@ -39,7 +40,7 @@ export interface GatewayDependencies {
   store: GatewayStore;
   clock: Clock;
   logger: Logger;
-  /** Runs after a committed reservation (payment, Phase 6). Never called for BLOCK/REQUIRE_HUMAN. */
+  /** Runs after a committed reservation. Never called for BLOCK/REQUIRE_HUMAN. */
   onReserved?: (reserved: ReservedExecution) => Promise<Partial<PurchaseAttemptResponse>>;
 }
 
@@ -329,11 +330,4 @@ export class MandateGateway {
       evidenceId: record.evidenceId,
     };
   }
-}
-
-export function explain(
-  reasonCode: ReasonCode | null,
-  ctx: Parameters<typeof describeReason>[1] = {},
-): string | null {
-  return reasonCode ? describeReason(reasonCode, ctx) : null;
 }

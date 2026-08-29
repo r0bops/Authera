@@ -352,6 +352,29 @@ describe('PostgreSQL state and concurrency', () => {
     });
   });
 
+  it('scopes webhook event identity to the provider', async () => {
+    const providerEventId = `evt_${randomUUID()}`;
+    const mock = await recordWebhookEvent(pg.db, {
+      provider: 'mock',
+      providerEventId,
+      payload: { provider: 'mock' },
+    });
+    const yuno = await recordWebhookEvent(pg.db, {
+      provider: 'yuno',
+      providerEventId,
+      payload: { provider: 'yuno' },
+    });
+    const duplicateMock = await recordWebhookEvent(pg.db, {
+      provider: 'mock',
+      providerEventId,
+      payload: { provider: 'mock', duplicate: true },
+    });
+
+    expect(mock.duplicate).toBe(false);
+    expect(yuno.duplicate).toBe(false);
+    expect(duplicateMock).toMatchObject({ duplicate: true, event: { id: mock.event.id } });
+  });
+
   it('revision supersedes the old version without changing its historical evidence', async () => {
     const created = await activeMandate();
     const v1 = await getMandateVersion(pg.db, created.policy.mandateId, 1);

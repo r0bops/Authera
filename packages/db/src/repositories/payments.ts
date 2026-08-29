@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { PaymentProvider, PaymentState } from '@authera/contracts';
 import { paymentMachine, transition } from '@authera/domain';
 import { isUniqueViolation, type DbExecutor } from '../client.js';
@@ -99,7 +99,12 @@ export async function recordWebhookEvent(
     const [existing] = await db
       .select()
       .from(webhookEvents)
-      .where(eq(webhookEvents.providerEventId, input.providerEventId))
+      .where(
+        and(
+          eq(webhookEvents.provider, input.provider),
+          eq(webhookEvents.providerEventId, input.providerEventId),
+        ),
+      )
       .orderBy(desc(webhookEvents.createdAt));
     if (!existing) throw error;
     return { event: existing, duplicate: true };

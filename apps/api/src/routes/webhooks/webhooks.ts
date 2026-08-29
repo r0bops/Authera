@@ -66,9 +66,13 @@ export function mockWebhookRoutes(deps: {
     const parsed = MockWebhookRequestSchema.safeParse(raw);
     if (!parsed.success) throw ApiProblem.validation(formatZodIssues(parsed.error.issues));
     const known = deps.processor.resultFor(executionId);
+    const expected = await deps.payments.expectedPayment(executionId);
     const event = deps.processor.buildEvent({
       executionId,
-      amount: { currency: parsed.data.currency ?? 'USD', minor: parsed.data.amountMinor ?? 0 },
+      amount: {
+        currency: parsed.data.currency ?? expected?.currency ?? 'USD',
+        minor: parsed.data.amountMinor ?? expected?.amountMinor ?? 0,
+      },
       type:
         parsed.data.outcome === 'succeeded'
           ? 'PAYMENT_SUCCEEDED'

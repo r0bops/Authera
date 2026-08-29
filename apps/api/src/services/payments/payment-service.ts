@@ -2,7 +2,7 @@ import type { PaymentEvent, PurchaseAttemptResponse } from '@authera/contracts';
 import type { Clock } from '../../clock.js';
 import type { Logger } from '../../logger.js';
 import type { ReservedExecution } from '../gateway.js';
-import type { PaymentStore } from './payment-store.js';
+import type { PaymentRecord, PaymentStore } from './payment-store.js';
 import type { PaymentProcessor } from './processor.js';
 
 export interface PaymentServiceDependencies {
@@ -21,6 +21,10 @@ export type WebhookOutcome = 'processed' | 'duplicate' | 'ignored' | 'unknown_ex
  */
 export class PaymentService {
   constructor(private readonly deps: PaymentServiceDependencies) {}
+
+  expectedPayment(executionId: string): Promise<PaymentRecord | undefined> {
+    return this.deps.store.getPayment(executionId);
+  }
 
   async executeReserved(reserved: ReservedExecution): Promise<Partial<PurchaseAttemptResponse>> {
     const { store, processor, logger } = this.deps;
@@ -123,6 +127,24 @@ export class PaymentService {
     if (payment.state === 'SUCCEEDED' || payment.state === 'FAILED') {
       // Contradicting or late events are retained as evidence but never move a terminal payment.
       await store.markWebhook(recorded.id, 'IGNORED');
+      return 'ignored';
+    }
+    const providerPaymentIdMatches =
+      !payment.providerPaymentId ||
+      payment.providerPaymentId.startsWith('unknown:') ||
+      payment.providerPaymentId.startsWith('pending:') ||
+      payment.providerPaymentId === event.providerPaymentId;
+    if (
+      payment.provider !== event.provider ||
+      payment.amountMinor !== event.amount.minor ||
+      payment.currency !== event.amount.currency ||
+      !providerPaymentIdMatches
+    ) {
+      await store.markWebhook(recorded.id, 'REJECTED');
+      logger.warn(
+        { executionId: event.executionId, eventId: event.eventId },
+        'webhook did not match the stored payment',
+      );
       return 'ignored';
     }
     if (event.eventType === 'PAYMENT_PENDING') {

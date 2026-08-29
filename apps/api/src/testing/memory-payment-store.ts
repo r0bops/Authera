@@ -43,6 +43,8 @@ export class MemoryPaymentStore implements PaymentStore {
       provider: input.provider,
       state: 'CREATED' as PaymentState,
       providerPaymentId: null,
+      amountMinor: input.amountMinor,
+      currency: input.currency,
       providerTransactionId: null,
       failureReason: null,
       events: [] as string[],

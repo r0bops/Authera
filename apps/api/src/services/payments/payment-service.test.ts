@@ -131,6 +131,27 @@ describe('PaymentService', () => {
     ).toBe('unknown_execution');
   });
 
+  it('rejects a webhook that does not match the stored payment', async () => {
+    processor.setBehavior(EXECUTION, { outcome: 'pending' });
+    await service.executeReserved(reserved());
+
+    const outcome = await service.handleWebhook(
+      processor.buildEvent({
+        executionId: EXECUTION,
+        amount: { currency: 'USD', minor: 1 },
+        type: 'PAYMENT_SUCCEEDED',
+        eventId: 'wrong-amount',
+      }),
+    );
+
+    expect(outcome).toBe('ignored');
+    expect(store.executions.get(EXECUTION)?.state).toBe('PAYMENT_PENDING');
+    expect(store.counters.reservedCount).toBe(1);
+    expect(
+      [...store.webhooks.values()].find((row) => row.event.eventId === 'wrong-amount')?.state,
+    ).toBe('REJECTED');
+  });
+
   it('a provider outage leaves a recoverable PAYMENT_PENDING, never a guessed success', async () => {
     const failing = {
       provider: 'mock' as const,

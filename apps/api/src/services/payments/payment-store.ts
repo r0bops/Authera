@@ -1,4 +1,4 @@
-import type { PaymentEvent, PaymentProvider, PaymentState } from '@authera/contracts';
+import type { Money, PaymentEvent, PaymentProvider, PaymentState } from '@authera/contracts';
 import {
   appendAuditEvent,
   createPayment,
@@ -20,6 +20,8 @@ export interface PaymentRecord {
   provider: PaymentProvider;
   state: PaymentState;
   providerPaymentId: string | null;
+  amountMinor: number;
+  currency: Money['currency'];
 }
 
 /** Persistence needed by the payment service; database and in-memory implementations. */
@@ -29,7 +31,7 @@ export interface PaymentStore {
     executionId: string;
     provider: PaymentProvider;
     amountMinor: number;
-    currency: string;
+    currency: Money['currency'];
     checkoutId: string;
     mandateId: string;
     mandateVersion: number;
@@ -102,6 +104,8 @@ export function databasePaymentStore(db: Database): PaymentStore {
           provider: row.provider as PaymentProvider,
           state: row.state as PaymentState,
           providerPaymentId: row.providerPaymentId,
+          amountMinor: row.amountMinor,
+          currency: row.currency as Money['currency'],
         };
       });
     },
@@ -114,6 +118,8 @@ export function databasePaymentStore(db: Database): PaymentStore {
             provider: row.provider as PaymentProvider,
             state: row.state as PaymentState,
             providerPaymentId: row.providerPaymentId,
+            amountMinor: row.amountMinor,
+            currency: row.currency as Money['currency'],
           }
         : undefined;
     },
