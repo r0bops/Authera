@@ -2,122 +2,103 @@
 
 **The mandate gateway for agentic commerce.**
 
-AgentCerta is a merchant-side authorization gateway for purchases initiated by AI agents. A human issues a signed, bounded **mandate** ("buy one economy flight Caracas → Córdoba on VuelaYa for at most USD 150 before month end"); the agent discovers offers and *requests* a purchase; a deterministic gateway verifies agent identity, mandate validity, and the exact checkout, reserves usage atomically in PostgreSQL, and only then calls the payment processor. Every decision leaves an auditable trail that the human, the merchant, and an auditor can read.
+Every payment system assumes the one pressing "pay" is a person. AgentCerta is what a merchant puts in front of its checkout when the buyer is an AI agent: a human signs a bounded **mandate**, the agent shops with a cryptographic identity and submits *identifiers only*, and a deterministic gateway decides — `ALLOW`, `BLOCK`, or `REQUIRE_HUMAN` — reserves the allowance atomically in PostgreSQL, and only then pays. Every party gets a readable record; disputes are settled from evidence, not from anyone's word.
 
 Built for **NextWave Hackathon 2026 — Challenge 1: Agentic Purchase Mandates** (Yuno × Nauta, supported by OpenAI).
 
-> **Status:** Phase 0 (foundation) complete. See [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) for the phase ledger and verification evidence, and [`docs/architecture.md`](./docs/architecture.md) for the architecture.
+- Demo runbook: [`docs/demo-runbook.md`](./docs/demo-runbook.md)
+- Architecture: [`docs/architecture.md`](./docs/architecture.md)
+- Threat model: [`docs/threat-model.md`](./docs/threat-model.md)
 
-## Non-negotiables (from the spec)
+## The scenario
 
-- The deterministic **Mandate Gateway** is the only component that returns `ALLOW`, `BLOCK`, or `REQUIRE_HUMAN`.
-- The LLM may discover offers and request purchases; it never authorizes and never calls the payment processor.
-- The agent submits **identifiers only**; the server loads price, currency, merchant, offer, checkout, mandate, and payment reference.
-- Agent identity and human authorization are **separate** checks.
-- Revocation and usage reservation update the **same** `mandate_runtime` row.
-- No external network call inside a database transaction; `BLOCK` / `REQUIRE_HUMAN` never touch the processor.
-- Everything is idempotent; unknown mandate conditions **fail closed**.
-- The full demo works offline with `PAYMENT_MODE=mock` and `OPENAI_MODE=scripted`.
+Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Córdoba on VuelaYa for at most USD 150** before the end of the month, using a tokenized card. Aria watches prices. When a USD 130 offer appears, Aria requests the purchase; AgentCerta verifies Aria's signature, Marta's signed mandate, and the exact checkout, reserves the single allowed use, pays, and hands everyone a receipt. A USD 300 offer is blocked (or paused for Marta), a forged key is rejected, a replayed request is rejected, two racing attempts yield one purchase, and a live revocation stops the next attempt cold.
 
-Full source of truth: [`CLAUDE_IMPLEMENTATION_SPEC.md`](./CLAUDE_IMPLEMENTATION_SPEC.md).
+## What the gateway guarantees
 
-## Stack
+| Guarantee | How |
+|---|---|
+| The LLM never authorizes anything | The purchasing agent has two tools (`search_flights`, `request_purchase`) and submits ids only; `evaluatePolicy` is a pure function and PostgreSQL holds live state |
+| Agent identity ≠ human authority | RFC 9421 (Ed25519) signed requests prove *who*; the trusted-surface JWS mandate proves *what was allowed*; both are checked separately |
+| No spend outside the mandate | Route, cabin, passengers, dates, merchant, currency, per-purchase and total caps, usage count, validity window — evaluated on server data, then enforced again by one conditional `UPDATE` on `mandate_runtime` |
+| Live revocation | Revocation and reservation update the same row; whichever commits first wins, and every attempt after revocation fails |
+| Replay and impersonation fail | Unique `(agent key, nonce)`, short signature lifetime, body digest, pinned key directory |
+| The cart cannot change under an approval | Canonical (RFC 8785) cart hash bound to checkouts and to single-use human approvals |
+| Money moves once | Execution id = provider idempotency key; provider calls happen outside transactions; settlement consumes or releases exactly once; duplicate webhooks are harmless |
+| Evidence you can audit | Append-only, hash-chained events; per-execution evidence bundles with a bundle hash; deterministic dispute resolution |
+| Works offline | `PAYMENT_MODE=mock`, `OPENAI_MODE=scripted` run the whole challenge without external services |
 
-Node.js 24 LTS · TypeScript (ESM) · pnpm workspaces · React 19 + Vite 8 · Hono on `@hono/node-server` · Zod 4 · PostgreSQL 18 · Drizzle ORM + `pg` · Pino · Vitest · Testcontainers · Docker Compose.
+## Quick start
+
+```bash
+pnpm install
+cp .env.example .env
+docker compose up --build            # PostgreSQL 18 + app → http://localhost:3000
+```
+
+Development with hot reload:
+
+```bash
+docker compose up -d postgres        # POSTGRES_PORT=5434 if 5432 is taken
+pnpm dev                             # API on :3000, Vite on :5173 (proxies to the API)
+```
+
+The API runs migrations and seeds the demo scenario (Marta, VuelaYa, Aria, Visa •••• 4242, a flight catalog with nothing under USD 150) on start when `DEMO_MODE=true`.
+
+## Console
+
+One desktop console, four roles, one event stream:
+
+- **Marta** — overview, guided mandate wizard, mandate detail with revoke/revise, purchases and receipts, approvals, disputes.
+- **Agent** — price watch, offers considered, signed requests, gateway decisions.
+- **Merchant** — identity → mandate → constraint checklist → checkout binding → reservation/payment for any execution.
+- **Auditor** — filterable hash-chained ledger with live chain verification and evidence export.
+- **Demo control** — inject offers, run the agent (scripted/OpenAI), direct/forged/replayed/concurrent attempts, demo clock, mock payment behavior, simulated webhooks.
+
+## API surface
+
+| Lane | Endpoints |
+|---|---|
+| Health | `GET /health/live`, `GET /health/ready` |
+| Discovery | `GET /.well-known/ucp`, `GET /.well-known/http-message-signatures-directory`, `GET /agents/:id/profile` |
+| Signed agent (browse) | `GET /api/flights`, `POST /ucp/v1/checkout-sessions`, `GET /ucp/v1/checkout-sessions/:id` |
+| Signed agent (payment) | `POST /api/purchase-attempts` — body is `{ executionId, mandateId, offerId, checkoutId }` and nothing else |
+| Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]`, `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
+| Demo (DEMO_MODE) | `/api/demo/*` |
+| Webhooks | `POST /webhooks/yuno` (raw-body HMAC), `POST /webhooks/mock/:executionId` (demo) |
+
+All JSON responses use `{ ok: true, data, requestId } | { ok: false, error: { code, message, details? }, requestId }`.
 
 ## Repository layout
 
 ```text
-apps/
-  api/        Hono HTTP application (health, later: gateway, human/merchant/auditor APIs, webhooks)
-  web/        React 19 + Vite desktop console (served by the API in production)
-packages/
-  contracts/  Shared external shapes and Zod schemas (API envelope, health, later: mandate/policy/...)
-  domain/     Pure deterministic logic — no HTTP, UI, LLM, payment, or DB imports (lint-enforced)
-  db/         PostgreSQL client, Drizzle schema + migrations, repositories, atomic transitions
-  test-support/ Test helpers (env builders, later: clocks, factories, fakes)
-tests/
-  integration/  Real PostgreSQL via Testcontainers
-  contract/     API contract tests (later phases)
-  e2e/          Playwright trial-by-fire suite (later phases)
-docs/           architecture.md (+ threat-model.md, demo-runbook.md in later phases)
+apps/api          Hono API (Node 24): gateway, signing, sessions, payments, demo controls, serves the SPA
+apps/web          React 19 + Vite console
+packages/contracts  Zod schemas shared by API, agent, and console
+packages/domain     Pure logic: policy evaluator, state machines, money, canonical hashing, RFC 9421, dispute resolver
+packages/db         PostgreSQL (Drizzle + pg): schema, migrations, atomic transactions, audit chain, seed
+packages/purchasing-agent  Scripted + OpenAI purchasing agent with strict tools
+packages/test-support      Fixtures and signed-request helpers
+tests/integration   Testcontainers PostgreSQL suites (concurrency, revocation, replay, settlement)
+docs/               architecture, threat model, demo runbook
 ```
-
-## Prerequisites
-
-- Node.js 24 LTS
-- pnpm 11 (`npm i -g pnpm@11.22.0`)
-- Docker with Compose v2 (for PostgreSQL, the integration tests, and the production image)
-
-## Quick start (development)
-
-```bash
-pnpm install
-cp .env.example .env            # placeholders are fine locally
-docker compose up -d postgres   # PostgreSQL 18 on localhost:5432 (POSTGRES_PORT=5434 to change)
-pnpm dev                        # API on http://localhost:3000, Vite on http://localhost:5173
-```
-
-The Vite dev server proxies `/health`, `/api`, `/ucp`, `/.well-known`, and `/webhooks` to the API so the browser sees a single origin, exactly as in production.
-
-## Quick start (production image)
-
-```bash
-docker compose up --build       # builds the image, starts PostgreSQL + the app on http://localhost:3000
-curl -s localhost:3000/health/live
-curl -s localhost:3000/health/ready
-```
-
-The image is a multi-stage build: Vite compiles `apps/web`, tsup bundles `apps/api` (workspace packages inlined, third-party runtime deps installed), and the runtime stage serves the SPA from Hono with an `index.html` fallback for client routes. Backend namespaces always answer JSON.
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `pnpm dev` | Run API (`tsx watch`) and web (Vite) together |
-| `pnpm build` | Build web (`vite build`) and API (`tsup` → `apps/api/dist/server.js`) |
-| `pnpm start` | Run the built API (serves `apps/web/dist` when present) |
-| `pnpm typecheck` | `tsc --noEmit` for the root tests and every workspace package |
-| `pnpm lint` / `pnpm format` / `pnpm format:check` | ESLint (flat config) / Prettier |
-| `pnpm test` | All Vitest projects (unit + integration; integration needs Docker) |
-| `pnpm test:unit` | Unit tests under `apps/**/src` and `packages/**/src` |
-| `pnpm test:integration` | Testcontainers PostgreSQL tests under `tests/integration` |
-| `pnpm test:e2e` | Playwright suite — placeholder until Phase 8 (exits non-zero on purpose) |
-| `pnpm db:generate` | `drizzle-kit generate` (schema arrives in Phase 2) |
-| `pnpm db:migrate` | Apply migrations (no-op with a clear message until the first migration exists) |
-| `pnpm db:seed` / `pnpm demo:reset` | Placeholders until Phase 2 (exit non-zero on purpose) |
-| `pnpm verify` | `format:check` → `lint` → `typecheck` → `test:unit` → `build` |
+`pnpm dev` · `pnpm build` · `pnpm start` · `pnpm typecheck` · `pnpm lint` · `pnpm test` (unit + integration; integration needs Docker) · `pnpm test:unit` · `pnpm test:integration` · `pnpm test:e2e` · `pnpm db:migrate` · `pnpm db:seed` · `pnpm demo:reset` · `pnpm verify` (format → lint → typecheck → unit → build).
 
-## Environment
+## Configuration
 
-Copy `.env.example` to `.env`. Variables are validated at startup (`apps/api/src/config.ts`); a bad configuration fails fast listing variable names, never values.
+See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|yuno` (Yuno keys required only for `yuno`), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
 
-| Variable | Notes |
-|---|---|
-| `NODE_ENV`, `PORT`, `PUBLIC_BASE_URL`, `LOG_LEVEL` | Defaults: `development`, `3000`, `http://localhost:3000`, `info` |
-| `DATABASE_URL` | Required, `postgres://` or `postgresql://` |
-| `SESSION_SECRET` | Required, ≥ 32 chars; production refuses the `.env.example` placeholder |
-| `DEMO_MODE`, `DEMO_RESET_SECRET`, `DEMO_CLOCK_ENABLED` | Demo mode defaults to on outside production; the reset secret is required while it is on |
-| `PAYMENT_MODE` | `mock` (default) or `yuno` — Yuno keys required only for `yuno` |
-| `OPENAI_MODE`, `OPENAI_API_KEY`, `OPENAI_MODEL` | `scripted` (default) or `openai` — key required only for `openai` |
-| `YUNO_*`, `*_PRIVATE_JWK`, `WEBAUTHN_*` | Integration secrets for later phases; keep out of the repository |
-| `WEB_DIST_DIR` | Optional absolute path of the compiled SPA (defaults to `apps/web/dist`) |
+## Deployment
 
-## Health endpoints
+One Docker service plus PostgreSQL. `railway.json` builds from the `Dockerfile` and gates deploys on `GET /health/ready` (database reachable, schema migrated). Set `NODE_ENV=production`, a real `SESSION_SECRET`, `DATABASE_URL`, `PUBLIC_BASE_URL`, and explicit signing keys for anything beyond a demo.
 
-| Endpoint | Meaning |
-|---|---|
-| `GET /health/live` | The process is running. `200 { ok: true, data: { status: "live", uptimeSeconds, timestamp }, requestId }` |
-| `GET /health/ready` | PostgreSQL answered `SELECT 1`. `200` with `checks.database.latencyMs`, or `503 { ok: false, error: { code: "NOT_READY", details: { checks } } }`. Readiness never depends on OpenAI or Yuno. |
+## Limitations (honest)
 
-Every JSON response uses the envelope `{ ok: true, data, requestId } | { ok: false, error: { code, message, details? }, requestId }`; `X-Request-Id` is honoured and echoed.
-
-## Documents
-
-- `HACKATHON.md` — event facts and deadlines
-- `CHALLENGES.md` — the four official briefs (we build Challenge 1)
-- `RESEARCH.md` — organizer research and judging signals
-- `TECH_STACK_RESEARCH.md` — stack rationale
-- `END_USER_UX_IMAGE_PROMPTS.md` — desktop UX direction
-- `CLAUDE_IMPLEMENTATION_SPEC.md` — implementation source of truth
-- `IMPLEMENTATION_STATUS.md` — phase ledger, decisions, test evidence, blockers
+- Yuno adapter unverified against a live sandbox; the demo runs on the mock processor.
+- Passkeys not wired; human actions use the seeded session.
+- Rate limiting not implemented.
+- The audit ledger is tamper-evident, not immutable (no external anchoring).
+- Playwright suites are written but were not executed in the build session.
