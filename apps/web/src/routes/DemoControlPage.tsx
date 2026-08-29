@@ -146,8 +146,8 @@ export function DemoControlPage() {
             title="1 · Inject an offer"
             description="Any merchant, price, route, cabin, or date — the judge's combination"
           >
-            <div className="grid grid-cols-7 gap-3">
-              <div>
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-3">
                 <Label htmlFor="merchant">Merchant</Label>
                 <Select
                   id="merchant"
@@ -156,12 +156,12 @@ export function DemoControlPage() {
                 >
                   {(me.data?.merchants ?? []).map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.displayName} ({m.market})
+                      {m.displayName}
                     </option>
                   ))}
                 </Select>
               </div>
-              <div>
+              <div className="col-span-2">
                 <Label htmlFor="price">Price (USD)</Label>
                 <Input
                   id="price"
@@ -170,7 +170,7 @@ export function DemoControlPage() {
                   inputMode="decimal"
                 />
               </div>
-              <div>
+              <div className="col-span-1">
                 <Label htmlFor="o">From</Label>
                 <Input
                   id="o"
@@ -179,7 +179,7 @@ export function DemoControlPage() {
                   onChange={(e) => setOrigin(e.target.value.toUpperCase())}
                 />
               </div>
-              <div>
+              <div className="col-span-1">
                 <Label htmlFor="d">To</Label>
                 <Input
                   id="d"
@@ -188,7 +188,7 @@ export function DemoControlPage() {
                   onChange={(e) => setDestination(e.target.value.toUpperCase())}
                 />
               </div>
-              <div>
+              <div className="col-span-2">
                 <Label htmlFor="cabin">Cabin</Label>
                 <Select
                   id="cabin"
@@ -199,7 +199,7 @@ export function DemoControlPage() {
                   <option value="business">business</option>
                 </Select>
               </div>
-              <div>
+              <div className="col-span-2">
                 <Label htmlFor="dep">Departure</Label>
                 <Input
                   id="dep"
@@ -208,7 +208,7 @@ export function DemoControlPage() {
                   onChange={(e) => setDeparture(e.target.value)}
                 />
               </div>
-              <div className="flex items-end">
+              <div className="col-span-1 flex items-end">
                 <Button
                   className="w-full"
                   loading={inject.isPending}
@@ -264,14 +264,14 @@ export function DemoControlPage() {
                 </Select>
               </div>
               <div className="col-span-2">
-                <Label htmlFor="mode">Agent mode</Label>
+                <Label htmlFor="mode">Who decides</Label>
                 <Select
                   id="mode"
                   value={mode}
                   onChange={(e) => setMode(e.target.value as 'scripted' | 'openai')}
                 >
-                  <option value="scripted">scripted</option>
-                  <option value="openai">openai</option>
+                  <option value="scripted">Deterministic (no LLM)</option>
+                  <option value="openai">AI agent (OpenAI)</option>
                 </Select>
               </div>
               <div className="col-span-5 flex items-end gap-2">

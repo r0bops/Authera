@@ -15,9 +15,9 @@ import {
   Label,
   PageHeader,
   Select,
-  Switch,
 } from '../components/ui/primitives.js';
 import { cn } from '../lib/cn.js';
+import { AIRPORTS, airportLabel } from '../lib/airports.js';
 import { endOfMonthIso, formatMoney, inputToMinor } from '../lib/format.js';
 
 const FormSchema = z
@@ -113,7 +113,7 @@ export function NewMandatePage() {
   }, [defaultPaymentMethodId, form, values.paymentMethodId]);
   const maxMinor = inputToMinor(values.maxPerPurchase);
   const preview = Number.isFinite(maxMinor)
-    ? `Buy ${values.passengerCount === 1 ? 'one' : values.passengerCount} economy flight${values.passengerCount === 1 ? '' : 's'} from ${values.origin || '···'} to ${values.destination || '···'} between ${values.departureDateFrom} and ${values.departureDateTo} if the total is ${formatMoney({ currency: 'USD', minor: maxMinor })} or less — ${values.maxFulfillments === 1 ? 'a single purchase' : `up to ${values.maxFulfillments} purchases`}, until ${values.validUntil.replace('T', ' ')}. ${values.escalate ? 'Anything outside pauses for your approval.' : 'Anything outside is blocked.'}`
+    ? `Buy ${values.passengerCount === 1 ? 'one' : values.passengerCount} economy flight${values.passengerCount === 1 ? '' : 's'} from ${airportLabel(values.origin)} to ${airportLabel(values.destination)}, leaving between ${values.departureDateFrom} and ${values.departureDateTo}, if the total is ${formatMoney({ currency: 'USD', minor: maxMinor })} or less — ${values.maxFulfillments === 1 ? 'a single purchase' : `up to ${values.maxFulfillments} purchases`}, until ${values.validUntil.replace('T', ' ')}. ${values.escalate ? 'Anything outside these limits pauses and asks you first.' : 'Anything outside these limits is blocked.'}`
     : 'Set a maximum price to see the preview.';
 
   const next = async () => {
@@ -186,35 +186,45 @@ export function NewMandatePage() {
       <form onSubmit={submit} className="grid grid-cols-12 gap-4">
         <div className="col-span-8">
           {step === 0 ? (
-            <Card title="Trip">
+            <Card
+              title="Where and when"
+              description="Describe the trip the way you would to a travel agent."
+            >
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="origin">From</Label>
-                  <Input id="origin" placeholder="CCS" maxLength={3} {...form.register('origin')} />
+                  <Label htmlFor="origin">Flying from</Label>
+                  <Select id="origin" {...form.register('origin')}>
+                    {AIRPORTS.map((a) => (
+                      <option key={a.code} value={a.code}>
+                        {a.city}, {a.country} ({a.code})
+                      </option>
+                    ))}
+                  </Select>
                   <FieldError message={form.formState.errors.origin?.message} />
                 </div>
                 <div>
-                  <Label htmlFor="destination">To</Label>
-                  <Input
-                    id="destination"
-                    placeholder="COR"
-                    maxLength={3}
-                    {...form.register('destination')}
-                  />
+                  <Label htmlFor="destination">Flying to</Label>
+                  <Select id="destination" {...form.register('destination')}>
+                    {AIRPORTS.map((a) => (
+                      <option key={a.code} value={a.code}>
+                        {a.city}, {a.country} ({a.code})
+                      </option>
+                    ))}
+                  </Select>
                   <FieldError message={form.formState.errors.destination?.message} />
                 </div>
                 <div>
-                  <Label htmlFor="from">Earliest departure</Label>
+                  <Label htmlFor="from">Leave no earlier than</Label>
                   <Input id="from" type="date" {...form.register('departureDateFrom')} />
                   <FieldError message={form.formState.errors.departureDateFrom?.message} />
                 </div>
                 <div>
-                  <Label htmlFor="to">Latest departure</Label>
+                  <Label htmlFor="to">Leave no later than</Label>
                   <Input id="to" type="date" {...form.register('departureDateTo')} />
                   <FieldError message={form.formState.errors.departureDateTo?.message} />
                 </div>
                 <div>
-                  <Label htmlFor="pax">Passengers</Label>
+                  <Label htmlFor="pax">Travellers</Label>
                   <Input
                     id="pax"
                     type="number"
@@ -233,13 +243,13 @@ export function NewMandatePage() {
           ) : null}
           {step === 1 ? (
             <Card
-              title="Conditions and limits"
-              description="Restrictive defaults are intentional. The agent may not exceed any of these."
+              title="How much, how often, until when"
+              description="These are hard limits. The agent cannot exceed any of them, and the gateway checks every purchase against them."
             >
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="max" hint="USD, total per purchase">
-                    Maximum price
+                  <Label htmlFor="max" hint="USD, total per ticket">
+                    Spend up to
                   </Label>
                   <Input
                     id="max"
@@ -250,7 +260,9 @@ export function NewMandatePage() {
                   <FieldError message={form.formState.errors.maxPerPurchase?.message} />
                 </div>
                 <div>
-                  <Label htmlFor="uses">Purchases permitted</Label>
+                  <Label htmlFor="uses" hint="how many times it may buy">
+                    Number of purchases
+                  </Label>
                   <Input
                     id="uses"
                     type="number"
@@ -261,12 +273,12 @@ export function NewMandatePage() {
                   <FieldError message={form.formState.errors.maxFulfillments?.message} />
                 </div>
                 <div>
-                  <Label htmlFor="until">Valid until</Label>
+                  <Label htmlFor="until">Authorization ends</Label>
                   <Input id="until" type="datetime-local" {...form.register('validUntil')} />
                   <FieldError message={form.formState.errors.validUntil?.message} />
                 </div>
                 <div>
-                  <Label htmlFor="pm">Payment method</Label>
+                  <Label htmlFor="pm">Pay with</Label>
                   <Select id="pm" {...form.register('paymentMethodId')}>
                     {paymentMethods.map((pm) => (
                       <option key={pm.id} value={pm.id}>
@@ -277,37 +289,82 @@ export function NewMandatePage() {
                   <FieldError message={form.formState.errors.paymentMethodId?.message} />
                 </div>
                 <div className="col-span-2">
-                  <Label>Allowed merchants</Label>
-                  <p className="mb-1.5 text-[12px] text-ink-faint">
-                    The agent searches every market below; the gateway blocks any purchase from a
-                    merchant you untick.
-                  </p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                    {merchants.map((m) => {
-                      const on = allowedMerchants.some((a) => a.id === m.id);
-                      return (
-                        <label key={m.id} className="flex items-center gap-1.5 text-[13px]">
-                          <input
-                            type="checkbox"
-                            checked={on}
-                            onChange={(e) => toggleMerchant(m.id, e.target.checked)}
-                          />
-                          {m.displayName}{' '}
-                          <span className="font-mono text-[11px] text-ink-faint">{m.market}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                  <Label>Where it may buy</Label>
+                  {merchants.length <= 1 ? (
+                    <p className="text-[13px] text-ink">
+                      {merchants[0]?.displayName ?? 'The connected flight market'}{' '}
+                      <span className="text-ink-faint">
+                        — every offer comes from this live market.
+                      </span>
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mb-1.5 text-[12px] text-ink-faint">
+                        The agent searches all of them; untick one and the gateway blocks any
+                        purchase from it.
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                        {merchants.map((m) => {
+                          const on = allowedMerchants.some((a) => a.id === m.id);
+                          return (
+                            <label key={m.id} className="flex items-center gap-1.5 text-[13px]">
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={(e) => toggleMerchant(m.id, e.target.checked)}
+                              />
+                              {m.displayName}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                   <FieldError message={form.formState.errors.allowedMerchantIds?.message} />
                 </div>
-                <div className="col-span-2">
-                  <Switch
-                    id="escalate"
-                    checked={values.escalate}
-                    onChange={(v) => form.setValue('escalate', v)}
-                    label="Pause for my approval when an offer is outside these limits (otherwise block it)"
-                  />
-                </div>
+                <fieldset className="col-span-2">
+                  <legend className="mb-1.5 text-[12.5px] font-medium text-ink">
+                    If the agent finds a flight outside these limits
+                  </legend>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        {
+                          value: false,
+                          title: 'Block it',
+                          hint: 'Nothing happens. You see the blocked attempt in your activity.',
+                        },
+                        {
+                          value: true,
+                          title: 'Pause and ask me',
+                          hint: 'The purchase waits for your one-time approval of that exact offer.',
+                        },
+                      ] as const
+                    ).map((opt) => (
+                      <label
+                        key={String(opt.value)}
+                        className={cn(
+                          'flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2.5 text-[13px]',
+                          values.escalate === opt.value
+                            ? 'border-cobalt bg-cobalt-soft/40'
+                            : 'border-line hover:border-line-strong',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="escalate"
+                          className="mt-0.5"
+                          checked={values.escalate === opt.value}
+                          onChange={() => form.setValue('escalate', opt.value)}
+                        />
+                        <span>
+                          <span className="block font-medium text-ink">{opt.title}</span>
+                          <span className="block text-[12px] text-ink-muted">{opt.hint}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </div>
             </Card>
           ) : null}
@@ -331,14 +388,14 @@ export function NewMandatePage() {
                   },
                   {
                     label: 'Trip',
-                    value: `${values.origin} → ${values.destination}, ${values.passengerCount} passenger(s), economy`,
+                    value: `${airportLabel(values.origin)} → ${airportLabel(values.destination)}, ${values.passengerCount} traveller${values.passengerCount === 1 ? '' : 's'}, economy`,
                   },
                   {
-                    label: 'Departure window',
+                    label: 'Leaving between',
                     value: `${values.departureDateFrom} → ${values.departureDateTo}`,
                   },
                   {
-                    label: 'Maximum total',
+                    label: 'Spend up to',
                     value: (
                       <span className="font-semibold">
                         {Number.isFinite(maxMinor)
@@ -347,9 +404,15 @@ export function NewMandatePage() {
                       </span>
                     ),
                   },
-                  { label: 'Purchases permitted', value: String(values.maxFulfillments) },
-                  { label: 'Merchants', value: merchantLabel(allowedMerchants) },
-                  { label: 'Expires', value: values.validUntil.replace('T', ' ') },
+                  {
+                    label: 'May buy',
+                    value:
+                      values.maxFulfillments === 1
+                        ? 'once'
+                        : `up to ${values.maxFulfillments} times`,
+                  },
+                  { label: 'Where', value: merchantLabel(allowedMerchants) },
+                  { label: 'Authorization ends', value: values.validUntil.replace('T', ' ') },
                   {
                     label: 'Payment',
                     value: paymentMethods.find((pm) => pm.id === values.paymentMethodId)
@@ -357,8 +420,8 @@ export function NewMandatePage() {
                       : '—',
                   },
                   {
-                    label: 'Outside limits',
-                    value: values.escalate ? 'Paused for your approval' : 'Blocked',
+                    label: 'Outside the limits',
+                    value: values.escalate ? 'Pause and ask me' : 'Block it',
                   },
                 ]}
               />
