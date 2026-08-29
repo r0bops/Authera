@@ -606,14 +606,14 @@ function ResultSummary({ value }: { value: unknown }) {
           />
           <Link
             className="text-[12px] text-cobalt hover:underline"
-            to={`/merchant?executionId=${purchase.executionId}`}
+            to={`/verify?executionId=${purchase.executionId}`}
           >
             merchant view
           </Link>
           <span className="text-ink-faint">·</span>
           <Link
             className="text-[12px] text-cobalt hover:underline"
-            to={`/auditor?executionId=${purchase.executionId}`}
+            to={`/audit?executionId=${purchase.executionId}`}
           >
             evidence
           </Link>
@@ -624,7 +624,7 @@ function ResultSummary({ value }: { value: unknown }) {
               <span className="text-ink-faint">·</span>
               <Link
                 className="text-[12px] text-cobalt hover:underline"
-                to={`/purchases/${purchase.executionId}`}
+                to={`/dashboard/purchases/${purchase.executionId}`}
               >
                 receipt
               </Link>

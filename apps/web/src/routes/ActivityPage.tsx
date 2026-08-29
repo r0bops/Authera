@@ -63,7 +63,7 @@ export function ActivityPage() {
                         {e.mandateId ? (
                           <Link
                             className="font-mono text-[12px] text-cobalt hover:underline"
-                            to={`/mandates/${e.mandateId}`}
+                            to={`/dashboard/mandates/${e.mandateId}`}
                           >
                             {shortId(e.mandateId)}
                           </Link>

@@ -22,7 +22,7 @@ export function MandatesPage() {
         title="Mandates"
         description="Signed authorizations your agent can spend under. Revoking one stops every later purchase attempt immediately."
         actions={
-          <Link to="/mandates/new">
+          <Link to="/dashboard/mandates/new">
             <Button>
               <Plus className="h-4 w-4" aria-hidden /> Create mandate
             </Button>
@@ -77,7 +77,7 @@ export function MandatesPage() {
                 <Td>
                   <Link
                     className="text-[12.5px] font-medium text-cobalt hover:underline"
-                    to={`/mandates/${m.id}`}
+                    to={`/dashboard/mandates/${m.id}`}
                   >
                     Open
                   </Link>

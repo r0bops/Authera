@@ -154,7 +154,7 @@ export function NewMandatePage() {
       escalation: v.escalate ? 'require_human' : 'block',
     };
     const created = await create.mutateAsync(request);
-    void navigate(`/mandates/${created.id}`);
+    void navigate(`/dashboard/mandates/${created.id}`);
   });
 
   return (

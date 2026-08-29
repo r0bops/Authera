@@ -51,10 +51,10 @@ export function PurchaseDetailPage() {
         description={execution.explanation ?? undefined}
         actions={
           <>
-            <Link to={`/auditor?executionId=${execution.id}`}>
+            <Link to={`/audit?executionId=${execution.id}`}>
               <Button variant="secondary">Inspect decision record</Button>
             </Link>
-            <Link to={`/disputes/new?executionId=${execution.id}`}>
+            <Link to={`/dashboard/disputes/new?executionId=${execution.id}`}>
               <Button variant="ghost">Report a problem</Button>
             </Link>
           </>
@@ -142,7 +142,7 @@ export function PurchaseDetailPage() {
                       value: (
                         <Link
                           className="text-cobalt hover:underline"
-                          to={`/mandates/${mandate.id}`}
+                          to={`/dashboard/mandates/${mandate.id}`}
                         >
                           {shortId(mandate.id, 18)}
                         </Link>

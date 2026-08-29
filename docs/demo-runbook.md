@@ -9,13 +9,13 @@ cp .env.example .env            # placeholders are fine locally
 docker compose up --build       # PostgreSQL 18 + the app on http://localhost:3000
 ```
 
-Wait for `GET /health/ready` to return 200 (the container health check does this). Open http://localhost:3000 — it lands on **Overview** as Marta (demo session is issued automatically).
+Wait for `GET /health/ready` to return 200 (the container health check does this). Open http://localhost:3000 — it redirects to `/dashboard` as Marta (demo session is issued automatically).
 
 If port 5432 is busy: `POSTGRES_PORT=5434 docker compose up --build`.
 
 ## 1. Reset the scenario
 
-Demo control → **Reset scenario**. State panel shows `Processor calls: 0`, no captured requests, clock offset 0.
+Open `/demo` → **Reset scenario**. State panel shows `Processor calls: 0`, no captured requests, clock offset 0.
 
 ## 2. Create the mandate (as Marta)
 

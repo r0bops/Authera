@@ -140,7 +140,7 @@ export function NewDisputePage() {
                     reason,
                     ...(description.trim() ? { description: description.trim() } : {}),
                   })
-                  .then((d) => navigate(`/disputes/${d.id}`))
+                  .then((d) => navigate(`/dashboard/disputes/${d.id}`))
               }
             >
               Submit dispute
@@ -179,7 +179,7 @@ export function DisputePage() {
         description={`Dispute ${shortId(d.id)} · opened ${formatDateTime(d.createdAt)} · reason: ${REASONS.find((x) => x.value === d.reason)?.label ?? d.reason}`}
         actions={
           <>
-            <Link to={`/auditor?executionId=${d.executionId}`}>
+            <Link to={`/audit?executionId=${d.executionId}`}>
               <Button variant="secondary">Open evidence</Button>
             </Link>
             <Button
@@ -317,7 +317,7 @@ export function DisputesListPage() {
                 <Td>
                   <Link
                     className="text-[12.5px] font-medium text-cobalt hover:underline"
-                    to={`/disputes/${d.id}`}
+                    to={`/dashboard/disputes/${d.id}`}
                   >
                     Open
                   </Link>

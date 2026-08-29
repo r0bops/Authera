@@ -87,7 +87,10 @@ export function ApprovalPage() {
                   {
                     label: 'Mandate',
                     value: (
-                      <Link className="text-cobalt hover:underline" to={`/mandates/${a.mandateId}`}>
+                      <Link
+                        className="text-cobalt hover:underline"
+                        to={`/dashboard/mandates/${a.mandateId}`}
+                      >
                         v{a.mandateVersion} · open
                       </Link>
                     ),
@@ -153,7 +156,7 @@ export function ApprovalPage() {
                     Reject
                   </Button>
                   <Link
-                    to="/mandates/new"
+                    to="/dashboard/mandates/new"
                     className="text-center text-[12.5px] text-cobalt hover:underline"
                   >
                     Create a new mandate instead
@@ -184,7 +187,7 @@ export function ApprovalPage() {
                   {a.consumedByExecutionId ? (
                     <Link
                       className="ml-1 text-cobalt hover:underline"
-                      to={`/purchases/${a.consumedByExecutionId}`}
+                      to={`/dashboard/purchases/${a.consumedByExecutionId}`}
                     >
                       View receipt
                     </Link>

@@ -6,7 +6,7 @@ export function NotFoundPage() {
     <EmptyState
       title="This screen does not exist"
       action={
-        <Link className="text-cobalt underline" to="/overview">
+        <Link className="text-cobalt underline" to="/dashboard">
           Back to overview
         </Link>
       }

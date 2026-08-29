@@ -32,7 +32,7 @@ test('1 · reset demo', async ({ request }) => {
 });
 
 test('2 · create the USD 150 Córdoba mandate through the wizard', async ({ page }) => {
-  await page.goto('/overview');
+  await page.goto('/dashboard');
   await page
     .getByRole('link', { name: /create mandate/i })
     .first()
@@ -45,7 +45,7 @@ test('2 · create the USD 150 Córdoba mandate through the wizard', async ({ pag
   await page.getByRole('button', { name: /continue/i }).click();
   await expect(page.getByText(/USD 150\.00/).first()).toBeVisible();
   await page.getByRole('button', { name: /authorize mandate/i }).click();
-  await expect(page).toHaveURL(/\/mandates\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/dashboard\/mandates\/[0-9a-f-]{36}$/);
   await expect(page.getByText('ACTIVE').first()).toBeVisible();
   await expectNoHorizontalScroll(page);
   mandateId = page.url().split('/').at(-1)!;
@@ -72,17 +72,17 @@ test('4 · the agent buys and every role view agrees', async ({ page, request })
   purchasedExecutionId = run.body.data!.purchase!.executionId;
   expect(await paymentCalls(request)).toBe(1);
 
-  await page.goto(`/purchases/${purchasedExecutionId}`);
+  await page.goto(`/dashboard/purchases/${purchasedExecutionId}`);
   await expect(page.getByRole('heading', { name: /flight purchased/i })).toBeVisible();
   await expect(page.getByText(/USD 130\.00/).first()).toBeVisible();
   await expectNoHorizontalScroll(page);
 
-  await page.goto(`/merchant?executionId=${purchasedExecutionId}`);
+  await page.goto(`/verify?executionId=${purchasedExecutionId}`);
   await expect(page.getByText('PURCHASED').first()).toBeVisible();
   await expect(page.getByText(/bound/).first()).toBeVisible();
   await expectNoHorizontalScroll(page);
 
-  await page.goto(`/auditor?executionId=${purchasedExecutionId}`);
+  await page.goto(`/audit?executionId=${purchasedExecutionId}`);
   await expect(page.getByText(/chain verified/)).toBeVisible();
   await expect(page.getByRole('cell', { name: 'PAYMENT_SUCCEEDED', exact: true })).toBeVisible();
   await expectNoHorizontalScroll(page);
@@ -152,7 +152,7 @@ test('9 · racing two attempts on a one-use mandate allows exactly one', async (
 test('10 · live revocation blocks the immediate retry', async ({ page, request }) => {
   const fresh = await createMandate(request, { paymentMethodId });
   const offer = await injectOffer(request, 12_000);
-  await page.goto(`/mandates/${fresh.id}`);
+  await page.goto(`/dashboard/mandates/${fresh.id}`);
   await page.getByRole('button', { name: /^revoke$/i }).click();
   await page.getByRole('button', { name: /revoke now/i }).click();
   await expect(page.getByText('Revoked').first()).toBeVisible();
@@ -176,7 +176,7 @@ test('11 · USD 168 escalates, one approval completes the exact checkout once', 
   const approvalId = paused.purchase!.approvalRequestId!;
   const checkoutId = paused.checkoutId!;
 
-  await page.goto(`/approvals/${approvalId}`);
+  await page.goto(`/dashboard/approvals/${approvalId}`);
   await expect(page.getByRole('heading', { name: /approval requested/i })).toBeVisible();
   await page.getByRole('button', { name: /approve this purchase only/i }).click();
   await expect(page.getByText(/Approved/).first()).toBeVisible();
@@ -233,7 +233,7 @@ test('13 · a dispute resolves deterministically from evidence', async ({ page, 
   );
   expect(dispute.status).toBe(201);
   expect(dispute.body.data?.resolution.outcome).toBe('AUTHORIZED');
-  await page.goto(`/disputes/${dispute.body.data!.id}`);
+  await page.goto(`/dashboard/disputes/${dispute.body.data!.id}`);
   await expect(page.getByRole('heading', { name: /purchase was authorized/i })).toBeVisible();
   await expect(page.getByText(/Mandate revoked/).first()).toBeVisible();
   await expectNoHorizontalScroll(page);
@@ -259,22 +259,46 @@ test('13 · a dispute resolves deterministically from evidence', async ({ page, 
 
 test('14 · every console screen fits the viewport', async ({ page }) => {
   for (const path of [
-    '/overview',
-    '/mandates',
-    '/activity',
-    '/purchases',
-    '/settings',
+    '/dashboard',
+    '/dashboard/mandates',
+    '/dashboard/activity',
+    '/dashboard/purchases',
+    '/dashboard/settings',
     '/agent',
-    '/merchant',
-    '/auditor',
-    '/demo-control',
+    '/verify',
+    '/audit',
+    '/demo',
   ]) {
     await page.goto(path);
     await expect(page.locator('main')).toBeVisible();
     await expectNoHorizontalScroll(page);
     await page.screenshot({
-      path: `test-results/screens/${path.replace('/', '') || 'root'}-${page.viewportSize()?.width}.png`,
+      path: `test-results/screens/${path.replaceAll('/', '-').replace(/^-/, '') || 'root'}-${page.viewportSize()?.width}.png`,
       fullPage: false,
     });
   }
+});
+
+test('15 · perspectives stay separated and legacy links redirect', async ({ page }) => {
+  await page.goto('/dashboard');
+  await expect(page.getByRole('navigation', { name: /Marta navigation/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Agent overview' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Purchase verification' })).toHaveCount(0);
+
+  await page.goto('/agent');
+  await expect(
+    page.getByRole('navigation', { name: /Purchasing agent navigation/i }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Mandates' })).toHaveCount(0);
+
+  await page.goto('/overview');
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await page.goto(`/mandates/${mandateId}`);
+  await expect(page).toHaveURL(new RegExp(`/dashboard/mandates/${mandateId}$`));
+
+  await page.goto(`/merchant?executionId=${purchasedExecutionId}`);
+  await expect(page).toHaveURL(
+    new RegExp(`/verify\\?executionId=${purchasedExecutionId.replaceAll('-', '\\-')}$`),
+  );
 });

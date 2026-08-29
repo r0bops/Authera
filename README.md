@@ -48,15 +48,17 @@ pnpm dev                             # API on :3000, Vite on :5173 (proxies to t
 
 The API runs migrations and seeds the demo scenario (Marta, VuelaYa, Aria, Visa •••• 4242, a flight catalog with nothing under USD 150) on start when `DEMO_MODE=true`.
 
-## Console
+## Local interfaces
 
-One desktop console, four roles, one event stream:
+One deployment exposes separate route trees for each perspective while sharing the same event stream:
 
-- **Marta** — overview, guided mandate wizard, mandate detail with revoke/revise, purchases and receipts, approvals, disputes.
-- **Agent** — price watch, offers considered, signed requests, gateway decisions.
-- **Merchant** — identity → mandate → constraint checklist → checkout binding → reservation/payment for any execution.
-- **Auditor** — filterable hash-chained ledger with live chain verification and evidence export.
-- **Demo control** — inject offers, run the agent (scripted/OpenAI), direct/forged/replayed/concurrent attempts, demo clock, mock payment behavior, simulated webhooks.
+- **Marta — `/dashboard`**: overview, guided mandate wizard, mandate detail with revoke/revise, purchases and receipts, approvals, disputes.
+- **Agent — `/agent`**: price watch, offers considered, signed requests, gateway decisions.
+- **Merchant — `/verify`**: identity → mandate → constraint checklist → checkout binding → reservation/payment for any execution.
+- **Auditor — `/audit`**: filterable hash-chained ledger with live chain verification and evidence export.
+- **Demo control — `/demo`**: inject offers, run the agent (scripted/OpenAI), direct/forged/replayed/concurrent attempts, demo clock, mock payment behavior, simulated webhooks.
+
+The route separation is a local product boundary, not a replacement for role-specific production authentication.
 
 ## API surface
 

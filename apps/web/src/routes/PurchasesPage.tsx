@@ -55,7 +55,7 @@ export function PurchasesPage() {
                 <Td>
                   <Link
                     className="text-[12.5px] font-medium text-cobalt hover:underline"
-                    to={`/purchases/${p.id}`}
+                    to={`/dashboard/purchases/${p.id}`}
                   >
                     Receipt
                   </Link>

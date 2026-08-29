@@ -228,8 +228,8 @@ export function MandateDetailPage() {
                             e.state === 'SUCCEEDED' ||
                             e.state === 'FAILED' ||
                             e.state === 'PAYMENT_PENDING'
-                              ? `/purchases/${e.id}`
-                              : `/auditor?executionId=${e.id}`
+                              ? `/dashboard/purchases/${e.id}`
+                              : `/audit?executionId=${e.id}`
                           }
                         >
                           Details

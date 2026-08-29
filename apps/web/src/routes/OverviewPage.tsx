@@ -47,7 +47,7 @@ export function OverviewPage() {
         title={`Good day, ${me.data?.user.displayName.split(' ')[0] ?? 'Marta'}`}
         description="Your purchasing agent only spends inside the mandates you sign. Everything it does is verified by the gateway and recorded."
         actions={
-          <Link to="/mandates/new">
+          <Link to="/dashboard/mandates/new">
             <Button>
               <Plus className="h-4 w-4" aria-hidden /> Create mandate
             </Button>
@@ -61,7 +61,10 @@ export function OverviewPage() {
             title={`Approval requested: ${formatMoney(a.requested)} for ${a.offer ? `${a.offer.airline} ${a.offer.flightNumber}` : 'a flight'} (limit ${formatMoney(a.limit)})`}
           >
             The agent stopped because this offer is outside your mandate.{' '}
-            <Link className="font-medium text-cobalt hover:underline" to={`/approvals/${a.id}`}>
+            <Link
+              className="font-medium text-cobalt hover:underline"
+              to={`/dashboard/approvals/${a.id}`}
+            >
               Review and decide
             </Link>
           </Alert>
@@ -75,7 +78,7 @@ export function OverviewPage() {
         <EmptyState
           title="No mandate yet"
           action={
-            <Link to="/mandates/new">
+            <Link to="/dashboard/mandates/new">
               <Button>Create your first mandate</Button>
             </Link>
           }
@@ -127,7 +130,7 @@ export function OverviewPage() {
                 ]}
               />
               <Link
-                to={`/mandates/${active.id}`}
+                to={`/dashboard/mandates/${active.id}`}
                 className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-cobalt hover:underline"
               >
                 Inspect or pause <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -185,7 +188,7 @@ export function OverviewPage() {
               title="Recent agent activity"
               actions={
                 <Link
-                  to="/activity"
+                  to="/dashboard/activity"
                   className="text-[12.5px] font-medium text-cobalt hover:underline"
                 >
                   All activity

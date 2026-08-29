@@ -12,39 +12,72 @@ import {
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useMandates, useMe } from '../../api/hooks.js';
-import { cn } from '../../lib/cn.js';
 import { Badge } from '../../components/ui/primitives.js';
+import { cn } from '../../lib/cn.js';
 
-const HUMAN_NAV = [
-  { to: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { to: '/mandates', label: 'Mandates', icon: FileSignature },
-  { to: '/activity', label: 'Activity', icon: Activity },
-  { to: '/purchases', label: 'Purchases', icon: ReceiptText },
-  { to: '/settings', label: 'Settings', icon: Settings },
+export type AppPerspective = 'client' | 'agent' | 'merchant' | 'auditor' | 'demo';
+
+const CLIENT_NAV = [
+  { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/dashboard/mandates', label: 'Mandates', icon: FileSignature },
+  { to: '/dashboard/activity', label: 'Activity', icon: Activity },
+  { to: '/dashboard/purchases', label: 'Purchases', icon: ReceiptText },
+  { to: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
-const ROLE_NAV = [
-  { to: '/agent', label: 'Agent', icon: Bot },
-  { to: '/merchant', label: 'Merchant', icon: Store },
-  { to: '/auditor', label: 'Auditor', icon: ShieldCheck },
-  { to: '/demo-control', label: 'Demo control', icon: SlidersHorizontal },
-];
+const PERSPECTIVE_CONFIG = {
+  client: {
+    section: 'Marta',
+    nav: CLIENT_NAV,
+    footer: 'Your agent, inside the limits you set',
+  },
+  agent: {
+    section: 'Purchasing agent',
+    nav: [{ to: '/agent', label: 'Agent overview', icon: Bot, end: true }],
+    footer: 'Discovery and decisions, never authorization',
+  },
+  merchant: {
+    section: 'VuelaYa',
+    nav: [{ to: '/verify', label: 'Purchase verification', icon: Store, end: true }],
+    footer: 'Verify before accepting an agent purchase',
+  },
+  auditor: {
+    section: 'Independent audit',
+    nav: [{ to: '/audit', label: 'Evidence ledger', icon: ShieldCheck, end: true }],
+    footer: 'Decisions explained from recorded evidence',
+  },
+  demo: {
+    section: 'Judge tools',
+    nav: [{ to: '/demo', label: 'Trial by fire', icon: SlidersHorizontal, end: true }],
+    footer: 'Local controls available only in demo mode',
+  },
+} satisfies Record<
+  AppPerspective,
+  {
+    section: string;
+    nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; end?: boolean }>;
+    footer: string;
+  }
+>;
 
 function NavItem({
   to,
   label,
   icon: Icon,
+  end,
 }: {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
+  end?: boolean;
 }) {
   return (
     <NavLink
       to={to}
+      end={end}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+          'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-cobalt focus-visible:ring-offset-2 focus-visible:outline-none',
           isActive
             ? 'bg-cobalt-soft text-cobalt'
             : 'text-ink-muted hover:bg-surface-muted hover:text-ink',
@@ -57,17 +90,35 @@ function NavItem({
   );
 }
 
-export function AppShell({ children }: { children?: ReactNode }) {
+export function AppShell({
+  perspective,
+  children,
+}: {
+  perspective: AppPerspective;
+  children?: ReactNode;
+}) {
   const me = useMe();
   const mandates = useMandates();
-  const active = mandates.data?.find((m) => m.status === 'ACTIVE');
-  const initials =
-    me.data?.user.displayName
-      .split(' ')
-      .map((p) => p[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() ?? '··';
+  const active = mandates.data?.find((mandate) => mandate.status === 'ACTIVE');
+  const config = PERSPECTIVE_CONFIG[perspective];
+  const humanName = me.data?.user.displayName ?? 'Marta Ledezma';
+  const agentName = me.data?.agents[0]?.displayName ?? 'Purchasing agent';
+  const identity =
+    perspective === 'client'
+      ? humanName
+      : perspective === 'agent'
+        ? agentName
+        : perspective === 'merchant'
+          ? 'VuelaYa'
+          : perspective === 'auditor'
+            ? 'Auditor'
+            : 'Demo operator';
+  const initials = identity
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="grid min-h-screen grid-cols-[208px_1fr]">
@@ -76,32 +127,35 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <span className="h-2.5 w-2.5 rounded-sm bg-cobalt" aria-hidden />
           <span className="text-[14px] font-semibold tracking-tight">Authera</span>
         </div>
-        <nav className="flex flex-1 flex-col gap-0.5 p-2.5">
+        <nav
+          className="flex flex-1 flex-col gap-0.5 p-2.5"
+          aria-label={`${config.section} navigation`}
+        >
           <p className="px-2.5 pt-1 pb-1.5 text-[10.5px] font-semibold tracking-wider text-ink-faint uppercase">
-            Marta
+            {config.section}
           </p>
-          {HUMAN_NAV.map((item) => (
-            <NavItem key={item.to} {...item} />
-          ))}
-          <p className="px-2.5 pt-4 pb-1.5 text-[10.5px] font-semibold tracking-wider text-ink-faint uppercase">
-            Role views
-          </p>
-          {ROLE_NAV.map((item) => (
+          {config.nav.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
         </nav>
         <div className="border-t border-line px-4 py-3 text-[11.5px] text-ink-faint">
-          The mandate gateway for agentic commerce
+          {config.footer}
         </div>
       </aside>
       <div className="flex min-w-0 flex-col">
         <header className="flex h-12 items-center justify-between gap-4 border-b border-line bg-surface px-5">
           <div className="flex items-center gap-2 text-[13px]">
-            <span className="text-ink-muted">Agent</span>
-            {active ? (
-              <Badge tone="verified">Watching prices</Badge>
+            {perspective === 'client' ? (
+              <>
+                <span className="text-ink-muted">Agent</span>
+                {active ? (
+                  <Badge tone="verified">Watching prices</Badge>
+                ) : (
+                  <Badge tone="neutral">Idle — no active mandate</Badge>
+                )}
+              </>
             ) : (
-              <Badge tone="neutral">Idle — no active mandate</Badge>
+              <span className="font-medium text-ink">{config.section}</span>
             )}
             {me.data?.demoMode ? <Badge tone="info">Demo mode</Badge> : null}
           </div>
@@ -109,9 +163,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
             {me.isError ? <Badge tone="destructive">API unreachable</Badge> : null}
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cobalt-soft text-[11.5px] font-semibold text-cobalt">
-                {initials}
+                {initials || '··'}
               </span>
-              <span className="text-[13px] font-medium">{me.data?.user.displayName ?? '…'}</span>
+              <span className="text-[13px] font-medium">{identity}</span>
             </div>
           </div>
         </header>

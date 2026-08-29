@@ -55,7 +55,10 @@ export function AgentPage() {
                 {
                   label: 'Mandate',
                   value: active ? (
-                    <Link className="text-cobalt hover:underline" to={`/mandates/${active.id}`}>
+                    <Link
+                      className="text-cobalt hover:underline"
+                      to={`/dashboard/mandates/${active.id}`}
+                    >
                       {active.policy.intent.origin} → {active.policy.intent.destination}
                     </Link>
                   ) : (
