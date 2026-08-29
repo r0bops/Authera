@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Authera code review — 2026-08-29</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        color: #17211b;
+        background: #f4f7f4;
+      }
+      body {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 48px 24px 72px;
+      }
+      h1,
+      h2 {
+        letter-spacing: -0.025em;
+      }
+      h1 {
+        margin-bottom: 6px;
+        font-size: 38px;
+      }
+      h2 {
+        margin-top: 40px;
+      }
+      .muted {
+        color: #607066;
+      }
+      .scores {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin: 28px 0;
+      }
+      .score,
+      .finding,
+      .panel {
+        border: 1px solid #d7dfd9;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 8px 24px rgb(28 48 35 / 5%);
+      }
+      .score {
+        padding: 18px;
+      }
+      .score strong {
+        display: block;
+        margin-top: 5px;
+        font-size: 28px;
+      }
+      .panel {
+        padding: 20px;
+      }
+      .finding {
+        margin: 12px 0;
+        padding: 18px 20px;
+      }
+      .finding h3 {
+        margin: 0 0 8px;
+        font-size: 17px;
+      }
+      .finding p {
+        margin: 7px 0;
+      }
+      code {
+        padding: 2px 5px;
+        border-radius: 5px;
+        background: #eef3ef;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+      }
+      th,
+      td {
+        padding: 11px 12px;
+        border: 1px solid #d7dfd9;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #edf3ef;
+      }
+      .fixed {
+        color: #12633b;
+      }
+      .open {
+        color: #895300;
+      }
+      li {
+        margin: 7px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Authera full code review</h1>
+    <p class="muted">
+      Completed 2026-08-29 · API, web console, domain, database, agent, and deployment paths
+    </p>
+
+    <div class="scores">
+      <div class="score">Security<strong>B</strong></div>
+      <div class="score">Correctness<strong>A</strong></div>
+      <div class="score">Error handling<strong>A</strong></div>
+      <div class="score">Testing<strong>A</strong></div>
+      <div class="score">Code organization<strong>A</strong></div>
+      <div class="score">Overall<strong>B+</strong></div>
+    </div>
+
+    <div class="panel">
+      <strong>Outcome:</strong> the confirmed application defects found in this pass were fixed and
+      covered by regression tests. The app is demo-ready and all automated checks pass. It is not
+      yet production-ready because rate limiting, complete passkey enrollment/UI, and a live Yuno
+      sandbox validation remain open.
+    </div>
+
+    <h2>Fixed findings</h2>
+
+    <div class="finding">
+      <h3>
+        <span class="fixed">Fixed · High · Authorization</span> — cross-user execution and evidence
+        access
+      </h3>
+      <p>
+        Authenticated humans could list global executions/audit events and fetch arbitrary receipts,
+        verification records, evidence exports, AP2 envelopes, or open disputes by execution UUID.
+      </p>
+      <p>
+        <strong>Fix:</strong> added database-scoped ownership queries and a central
+        <code>requireExecutionAccess</code> guard. Lists now join through the owning mandate or
+        agent, and direct-ID routes return 404 outside that boundary. A real-PostgreSQL cross-user
+        regression suite covers every affected route.
+      </p>
+    </div>
+
+    <div class="finding">
+      <h3>
+        <span class="fixed">Fixed · High · Payment integrity</span> — webhook values were not
+        reconciled
+      </h3>
+      <p>
+        A validly signed provider event could settle a reservation even when its amount, currency,
+        provider, or established provider payment ID disagreed with the stored payment.
+      </p>
+      <p>
+        <strong>Fix:</strong> webhook settlement now compares all four values with server-owned
+        payment data. Mismatches are retained in the webhook ledger, marked <code>REJECTED</code>,
+        logged without values, and never change payment or reservation state.
+      </p>
+    </div>
+
+    <div class="finding">
+      <h3>
+        <span class="fixed">Fixed · Medium · Agent identity</span> — key validity and production
+        discovery
+      </h3>
+      <p>
+        Active agent keys were accepted before <code>validFrom</code> or after
+        <code>validUntil</code>. Public discovery was also hard-coded to the seeded demo user,
+        leaving non-demo agents undiscoverable.
+      </p>
+      <p>
+        <strong>Fix:</strong> signature verification enforces the persisted validity window,
+        discovery filters expired/revoked keys at the injected clock, and directory/profile lookup
+        now covers database agents instead of one seed identity.
+      </p>
+    </div>
+
+    <div class="finding">
+      <h3>
+        <span class="fixed">Fixed · Medium · Availability</span> — request bodies were allocated
+        before limits
+      </h3>
+      <p>
+        Human and webhook bodies had no pre-read cap, while agent/webhook checks measured data only
+        after buffering it.
+      </p>
+      <p>
+        <strong>Fix:</strong> an application-wide 256 KiB streaming body limit now runs before route
+        parsing, while the stricter 64 KiB signed-agent limit remains in force.
+      </p>
+    </div>
+
+    <div class="finding">
+      <h3>
+        <span class="fixed">Fixed · Low · Session hardening</span> — configured session secret was
+        unused
+      </h3>
+      <p>
+        Opaque session tokens were stored as plain SHA-256 hashes and the required session secret
+        did not participate in lookup.
+      </p>
+      <p>
+        <strong>Fix:</strong> persisted token identifiers now use HMAC-SHA-256 with
+        <code>SESSION_SECRET</code>.
+      </p>
+    </div>
+
+    <div class="finding">
+      <h3>
+        <span class="fixed">Fixed · Low · Performance and maintenance</span> — monolithic bundle and
+        dead code
+      </h3>
+      <p>
+        The web build emitted a 572 KB single-chunk warning. One unused phase script, one unused
+        direct dependency, unused hooks/components/helpers, unnecessary exports, and stale
+        phase-divider comments remained.
+      </p>
+      <p>
+        <strong>Fix:</strong> route modules are lazy-loaded (largest initial chunk about 413 KB, no
+        warning); the unused script, dependency, code, exports, and stale commentary were removed.
+      </p>
+    </div>
+
+    <h2>Open production work</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Severity</th>
+          <th>Finding</th>
+          <th>Specific next fix</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Medium</td>
+          <td>No application or edge rate limiting.</td>
+          <td>
+            Add per-IP limits for public/webhook routes and per-session or key-thumbprint limits for
+            human/agent lanes; cap audit-producing failures separately.
+          </td>
+        </tr>
+        <tr>
+          <td>Medium</td>
+          <td>Yuno has not been verified against a live sandbox.</td>
+          <td>
+            Run contract tests against sandbox checkout, purchase, conflict, pending, and Webhook V2
+            payloads before selecting <code>PAYMENT_MODE=yuno</code>.
+          </td>
+        </tr>
+        <tr>
+          <td>Medium</td>
+          <td>
+            Passkey action verification exists, but enrollment and console wiring are incomplete.
+          </td>
+          <td>
+            Add credential registration, counter persistence, and passkey requirements for
+            mandate/approval/revocation actions.
+          </td>
+        </tr>
+        <tr>
+          <td>Low</td>
+          <td>The audit chain is database-local.</td>
+          <td>
+            Periodically anchor the chain head to an external immutable store and alert on
+            verification failure.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Validation evidence</h2>
+    <ul>
+      <li>Prettier check and ESLint: pass</li>
+      <li>Strict TypeScript checks across all workspaces: pass</li>
+      <li>Unit tests: 169 pass across 22 files</li>
+      <li>PostgreSQL integration tests: 20 pass across 3 files</li>
+      <li>Playwright trial-by-fire: 28 pass at 1600×1000 and 1440×900</li>
+      <li>Production API and Vite builds: pass without bundle-size warnings</li>
+      <li>Docker production image, migrations, seed, and readiness probe: pass</li>
+      <li>Production dependency audit and lockfile supply-chain policy check: pass</li>
+      <li>
+        Dead-code scan: no unused files, exports, or types remain; the only dependency warnings are
+        manually verified dynamic-runtime imports
+      </li>
+    </ul>
+  </body>
+</html>
