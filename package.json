@@ -1,0 +1,45 @@
+{
+  "name": "agentcerta",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AgentCerta — the mandate gateway for agentic commerce (NextWave 2026, Challenge 1)",
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/**\" dev",
+    "build": "pnpm --recursive --filter \"./apps/**\" build",
+    "start": "node apps/api/dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --recursive typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "node scripts/phase-placeholder.mjs test:e2e 8",
+    "db:generate": "pnpm --filter @agentcerta/db generate",
+    "db:migrate": "pnpm --filter @agentcerta/db migrate",
+    "db:seed": "pnpm --filter @agentcerta/db seed",
+    "demo:reset": "pnpm --filter @agentcerta/db demo:reset",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build"
+  },
+  "devDependencies": {
+    "@agentcerta/api": "workspace:*",
+    "@agentcerta/db": "workspace:*",
+    "@agentcerta/test-support": "workspace:*",
+    "@eslint/js": "10.0.1",
+    "@testcontainers/postgresql": "12.1.0",
+    "@types/node": "24.13.3",
+    "eslint": "10.9.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "prettier": "3.9.6",
+    "testcontainers": "12.1.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}

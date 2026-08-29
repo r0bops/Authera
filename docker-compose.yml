@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: agentcerta-postgres
+    environment:
+      POSTGRES_USER: agentcerta
+      POSTGRES_PASSWORD: agentcerta
+      POSTGRES_DB: agentcerta
+    ports:
+      - '5432:5432'
+    volumes:
+      - agentcerta-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U agentcerta -d agentcerta']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentcerta-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgres://agentcerta:agentcerta@postgres:5432/agentcerta
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Local-only defaults so `docker compose up` works out of the box. Override for any
+      # shared deployment; production refuses the .env.example placeholder.
+      SESSION_SECRET: ${SESSION_SECRET:-local-compose-session-secret-0123456789abcdef}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      DEMO_RESET_SECRET: ${DEMO_RESET_SECRET:-local-compose-demo-reset-secret}
+      PAYMENT_MODE: ${PAYMENT_MODE:-mock}
+      OPENAI_MODE: ${OPENAI_MODE:-scripted}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health/live >/dev/null || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+
+volumes:
+  agentcerta-pgdata:

@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/coverage
+.git
+.env
+.env.*
+!.env.example
+*.log
+.superstack
+.commandcode
+docs
+*.md
+!README.md
+tests

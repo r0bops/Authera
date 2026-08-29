@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 11 blocks dependency lifecycle scripts unless listed here.
+# esbuild's postinstall only copies its platform binary; the rest are optional native builds
+# (testcontainers' ssh2/cpu-features, protobufjs codegen) that we never need.
+allowBuilds:
+  esbuild: true
+  cpu-features: false
+  protobufjs: false
+  ssh2: false

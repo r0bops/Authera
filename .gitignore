@@ -1,0 +1,19 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vite/
+playwright-report/
+test-results/
+.*.kate-swp
+
+# Private planning/research notes and agent context — kept local, never committed.
+# Only README.md and docs/*.md are tracked.
+/*.md
+!/README.md
+.superstack/
+.commandcode/
