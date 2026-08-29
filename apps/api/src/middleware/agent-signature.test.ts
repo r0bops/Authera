@@ -25,6 +25,8 @@ function memoryStore(overrides: Partial<ResolvedAgentKey> = {}) {
     publicJwk: keys.agent.publicJwk,
     keyStatus: 'ACTIVE',
     agentStatus: 'ACTIVE',
+    validFrom: new Date(NOW.getTime() - 60_000),
+    validUntil: null,
     profileUri: PROFILE,
     displayName: 'Aria',
     ...overrides,
@@ -157,6 +159,14 @@ describe('agentSignature middleware', () => {
     expect(await code(res)).toBe('AGENT_REVOKED');
     const revokedKey = memoryStore({ keyStatus: 'REVOKED' });
     expect(await code(await build(revokedKey.store).request(sign()))).toBe('AGENT_REVOKED');
+  });
+
+  it('rejects keys outside their validity window', async () => {
+    const notYetValid = memoryStore({ validFrom: new Date(NOW.getTime() + 1) });
+    expect(await code(await build(notYetValid.store).request(sign()))).toBe('AGENT_REVOKED');
+
+    const expired = memoryStore({ validUntil: new Date(NOW) });
+    expect(await code(await build(expired.store).request(sign()))).toBe('AGENT_REVOKED');
   });
 
   it('refuses non-JSON and oversized bodies before touching crypto', async () => {

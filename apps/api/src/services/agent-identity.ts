@@ -3,8 +3,8 @@ import {
   getAgentById,
   getAgentKeyByThumbprint,
   insertNonce,
+  listAgents,
   listAgentKeys,
-  listAgentsForUser,
   type AppendAuditEventInput,
   type Database,
 } from '@authera/db';
@@ -17,6 +17,8 @@ export interface ResolvedAgentKey {
   publicJwk: Ed25519PublicJwk;
   keyStatus: 'ACTIVE' | 'REVOKED';
   agentStatus: 'ACTIVE' | 'REVOKED';
+  validFrom: Date;
+  validUntil: Date | null;
   profileUri: string;
   displayName: string;
 }
@@ -51,6 +53,8 @@ export function databaseAgentIdentityStore(db: Database): AgentIdentityStore {
         publicJwk: key.publicJwk as unknown as Ed25519PublicJwk,
         keyStatus: key.status as 'ACTIVE' | 'REVOKED',
         agentStatus: agent.status as 'ACTIVE' | 'REVOKED',
+        validFrom: key.validFrom,
+        validUntil: key.validUntil,
         profileUri: agent.profileUri,
         displayName: agent.displayName,
       };
@@ -71,19 +75,22 @@ export interface AgentDirectoryEntry {
 }
 
 /** Public key directory data for `/.well-known/http-message-signatures-directory` and profiles. */
-export async function agentDirectory(
-  db: Database,
-  ownerUserId: string,
-): Promise<AgentDirectoryEntry[]> {
-  const agents = await listAgentsForUser(db, ownerUserId);
+export async function agentDirectory(db: Database, now: Date): Promise<AgentDirectoryEntry[]> {
+  const agentRows = await listAgents(db);
   return Promise.all(
-    agents.map(async (agent) => ({
+    agentRows.map(async (agent) => ({
       agentId: agent.id,
       displayName: agent.displayName,
       status: agent.status,
       profileUri: agent.profileUri,
       keys: (await listAgentKeys(db, agent.id))
-        .filter((k) => k.status === 'ACTIVE')
+        .filter(
+          (key) =>
+            agent.status === 'ACTIVE' &&
+            key.status === 'ACTIVE' &&
+            key.validFrom <= now &&
+            (!key.validUntil || key.validUntil > now),
+        )
         .map((k) => k.publicJwk as unknown as Ed25519PublicJwk),
     })),
   );

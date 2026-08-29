@@ -52,6 +52,10 @@ export async function listAgentsForUser(db: DbExecutor, userId: string): Promise
   return db.select().from(agents).where(eq(agents.ownerUserId, userId));
 }
 
+export async function listAgents(db: DbExecutor): Promise<AgentRow[]> {
+  return db.select().from(agents);
+}
+
 export async function getAgentKeyByThumbprint(
   db: DbExecutor,
   thumbprint: string,

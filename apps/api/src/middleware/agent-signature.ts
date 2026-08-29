@@ -119,6 +119,14 @@ export function agentSignature(deps: AgentSignatureDependencies): MiddlewareHand
     if (agent.keyStatus !== 'ACTIVE' || agent.agentStatus !== 'ACTIVE') {
       await reject('AGENT_REVOKED', 'Agent or key is revoked', agent.thumbprint, 403);
     }
+    if (agent.validFrom > now || (agent.validUntil && agent.validUntil <= now)) {
+      await reject(
+        'AGENT_REVOKED',
+        'Agent key is outside its validity window',
+        agent.thumbprint,
+        403,
+      );
+    }
 
     const fresh = await deps.store.claimNonce({
       agentKeyId: agent.agentKeyId,

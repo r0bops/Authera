@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import {
@@ -15,7 +15,7 @@ import type { AppConfig } from '../config.js';
 import type { AppContext, AppEnv } from '../http/envelope.js';
 import { ApiProblem } from '../http/problem.js';
 
-export const SESSION_COOKIE = 'authera_session';
+const SESSION_COOKIE = 'authera_session';
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 export interface SessionDependencies {
@@ -24,8 +24,8 @@ export interface SessionDependencies {
   clock: Clock;
 }
 
-export function hashSessionToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
+function hashSessionToken(token: string, secret: string): string {
+  return createHmac('sha256', secret).update(token).digest('hex');
 }
 
 /** Resolve the cookie session (if any) into `user` and `session` context variables. */
@@ -33,7 +33,10 @@ export function sessionMiddleware(deps: SessionDependencies): MiddlewareHandler<
   return async (c, next) => {
     const token = getCookie(c, SESSION_COOKIE);
     if (token) {
-      const session = await getSessionByTokenHash(deps.db, hashSessionToken(token));
+      const session = await getSessionByTokenHash(
+        deps.db,
+        hashSessionToken(token, deps.config.sessionSecret),
+      );
       const now = deps.clock.now();
       if (session && !session.revokedAt && session.expiresAt > now) {
         const user = await getUserById(deps.db, session.userId);
@@ -65,7 +68,7 @@ export async function issueSession(
   const session = await createSession(deps.db, {
     id: randomUUID(),
     userId,
-    tokenHash: hashSessionToken(token),
+    tokenHash: hashSessionToken(token, deps.config.sessionSecret),
     expiresAt,
   });
   const secure =

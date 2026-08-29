@@ -1,9 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { ActorType, AuditEvent, AuditEventType, ReasonCode } from '@authera/contracts';
 import { describeAuditEvent, hashCanonical } from '@authera/domain';
 import type { DbExecutor } from '../client.js';
-import { auditChainHeads, auditEvents } from '../schema.js';
+import {
+  agentKeys,
+  agents,
+  auditChainHeads,
+  auditEvents,
+  executions,
+  mandates,
+} from '../schema.js';
 
 export const AUDIT_STREAM = 'global';
 
@@ -113,6 +121,37 @@ export async function listAuditEvents(
   const rows =
     conditions.length > 0 ? await query.where(sql.join(conditions, sql` AND `)) : await query;
   return rows.map(toAuditEvent);
+}
+
+export async function listAuditEventsForUser(
+  db: DbExecutor,
+  userId: string,
+  filter: AuditFilter = {},
+): Promise<AuditEvent[]> {
+  const signingAgentKeys = alias(agentKeys, 'audit_signing_agent_keys');
+  const signingAgents = alias(agents, 'audit_signing_agents');
+  const conditions = [
+    or(
+      eq(mandates.userId, userId),
+      eq(agents.ownerUserId, userId),
+      eq(signingAgents.ownerUserId, userId),
+      and(eq(auditEvents.actorType, 'HUMAN'), eq(auditEvents.actorId, userId)),
+    ),
+  ];
+  if (filter.mandateId) conditions.push(eq(auditEvents.mandateId, filter.mandateId));
+  if (filter.executionId) conditions.push(eq(auditEvents.executionId, filter.executionId));
+  const rows = await db
+    .select({ event: auditEvents })
+    .from(auditEvents)
+    .leftJoin(mandates, eq(mandates.id, auditEvents.mandateId))
+    .leftJoin(executions, eq(executions.id, auditEvents.executionId))
+    .leftJoin(agents, eq(agents.id, executions.agentId))
+    .leftJoin(signingAgentKeys, eq(signingAgentKeys.thumbprint, auditEvents.actorId))
+    .leftJoin(signingAgents, eq(signingAgents.id, signingAgentKeys.agentId))
+    .where(and(...conditions))
+    .orderBy(asc(auditEvents.sequence))
+    .limit(filter.limit ?? 500);
+  return rows.map((row) => toAuditEvent(row.event));
 }
 
 export interface ChainVerification {

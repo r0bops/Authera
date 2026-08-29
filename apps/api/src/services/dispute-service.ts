@@ -2,7 +2,6 @@ import type { DisputeReason, DisputeView, EvidenceBundle } from '@authera/contra
 import {
   createDispute,
   getDispute,
-  getMandate,
   listDisputesForUser,
   resolveDispute,
   type Database,
@@ -12,6 +11,7 @@ import { resolveDisputeFromEvidence } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 import type { Logger } from '../logger.js';
+import { requireExecutionAccess } from './access-control.js';
 import { toDisputeView, type EvidenceService } from './evidence-service.js';
 
 /**
@@ -33,13 +33,7 @@ export class DisputeService {
     input: { executionId: string; reason: DisputeReason; description?: string },
   ): Promise<DisputeView> {
     const { db } = this.deps;
-    const { getExecution } = await import('@authera/db');
-    const execution = await getExecution(db, input.executionId);
-    if (!execution) throw ApiProblem.notFound('execution');
-    if (execution.mandateId) {
-      const mandate = await getMandate(db, execution.mandateId);
-      if (mandate && mandate.mandate.userId !== user.id) throw ApiProblem.notFound('execution');
-    }
+    const execution = await requireExecutionAccess(db, user, input.executionId);
     const created = await db.transaction((tx) =>
       createDispute(tx, {
         executionId: input.executionId,

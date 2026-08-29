@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { UCP_PINNED_VERSION } from '@authera/contracts';
-import { SEED_IDS, type Database } from '@authera/db';
+import type { Database } from '@authera/db';
 import { signRequest, type KeyMaterial } from '@authera/domain';
 import type { Clock } from '../../clock.js';
 import type { AppConfig } from '../../config.js';
@@ -66,7 +66,7 @@ export function discoveryRoutes(deps: {
   });
 
   routes.get('/.well-known/http-message-signatures-directory', async (c) => {
-    const entries = await agentDirectory(deps.db, SEED_IDS.marta);
+    const entries = await agentDirectory(deps.db, deps.clock.now());
     const keys = entries.flatMap((e) => e.keys);
     const body = JSON.stringify({ keys });
     const now = deps.clock.now();
@@ -95,7 +95,7 @@ export function discoveryRoutes(deps: {
 
   routes.get('/agents/:agentId/profile', async (c) => {
     const agentId = c.req.param('agentId');
-    const entry = (await agentDirectory(deps.db, SEED_IDS.marta)).find(
+    const entry = (await agentDirectory(deps.db, deps.clock.now())).find(
       (e) => e.agentId === agentId,
     );
     if (!entry) return fail(c, 404, 'NOT_FOUND', 'agent profile not found');

@@ -10,6 +10,7 @@ import { ok, type AppEnv } from '../../http/envelope.js';
 import { ApiProblem, formatZodIssues } from '../../http/problem.js';
 import { idempotent } from '../../middleware/idempotency.js';
 import { requireHuman } from '../../middleware/session.js';
+import { requireExecutionAccess } from '../../services/access-control.js';
 import type { ApprovalService } from '../../services/approval-service.js';
 import type { Ap2EvidenceService } from '../../services/ap2-evidence.js';
 import type { DisputeService } from '../../services/dispute-service.js';
@@ -43,8 +44,7 @@ function uuidParam(value: string, what: string): string {
   return value;
 }
 
-/** Approvals, disputes, evidence bundles, and chain verification (human console session). */
-export function ugliesRoutes(deps: {
+export function humanEvidenceRoutes(deps: {
   db: Database;
   approvals: ApprovalService;
   disputes: DisputeService;
@@ -83,15 +83,15 @@ export function ugliesRoutes(deps: {
   );
 
   routes.get('/evidence/:executionId', async (c) => {
+    const executionId = uuidParam(c.req.param('executionId'), 'execution');
+    await requireExecutionAccess(deps.db, c.get('user')!, executionId);
     const role = EvidenceRoleSchema.safeParse(c.req.query('role') ?? 'auditor');
     if (!role.success) throw ApiProblem.validation(formatZodIssues(role.error.issues));
-    return ok(
-      c,
-      await deps.evidence.bundle(uuidParam(c.req.param('executionId'), 'execution'), role.data),
-    );
+    return ok(c, await deps.evidence.bundle(executionId, role.data));
   });
   routes.get('/evidence/:executionId/export', async (c) => {
     const executionId = uuidParam(c.req.param('executionId'), 'execution');
+    await requireExecutionAccess(deps.db, c.get('user')!, executionId);
     const bundle = await deps.evidence.bundle(executionId, 'auditor');
     return c.body(canonicalJson(bundle), 200, {
       'content-type': 'application/json; charset=utf-8',
@@ -99,9 +99,11 @@ export function ugliesRoutes(deps: {
       'cache-control': 'no-store',
     });
   });
-  routes.get('/evidence/:executionId/ap2', async (c) =>
-    ok(c, await deps.ap2Evidence.envelope(uuidParam(c.req.param('executionId'), 'execution'))),
-  );
+  routes.get('/evidence/:executionId/ap2', async (c) => {
+    const executionId = uuidParam(c.req.param('executionId'), 'execution');
+    await requireExecutionAccess(deps.db, c.get('user')!, executionId);
+    return ok(c, await deps.ap2Evidence.envelope(executionId));
+  });
 
   routes.get('/audit/verify', async (c) => ok(c, await verifyAuditChain(deps.db)));
 

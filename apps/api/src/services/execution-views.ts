@@ -17,6 +17,7 @@ import {
   getPaymentByExecution,
   getReservationByExecution,
   listAuditEvents,
+  listExecutionsForUser,
   type Database,
   type PaymentRow,
 } from '@authera/db';
@@ -176,26 +177,16 @@ export class ExecutionViews {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Lists and receipts (console read models)
-// ---------------------------------------------------------------------------
-
 import type { ExecutionSummary, PurchaseReceipt } from '@authera/contracts';
-import {
-  getMandate,
-  getOffer,
-  getPaymentMethodById,
-  listExecutions,
-  listMerchants,
-} from '@authera/db';
+import { getMandate, getOffer, getPaymentMethodById, listMerchants } from '@authera/db';
 import { describeMandatePolicy } from '@authera/domain';
 import { offerSummary } from './checkout-service.js';
 
 export async function listExecutionSummaries(
-  deps: { db: Database },
+  deps: { db: Database; userId: string },
   filter: { mandateId?: string; limit?: number } = {},
 ): Promise<ExecutionSummary[]> {
-  const rows = await listExecutions(deps.db, filter);
+  const rows = await listExecutionsForUser(deps.db, deps.userId, filter);
   const summaries: ExecutionSummary[] = [];
   for (const row of rows) {
     const offer = row.offerId ? await getOffer(deps.db, row.offerId) : undefined;

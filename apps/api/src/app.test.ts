@@ -113,6 +113,20 @@ describe('error envelopes', () => {
     expect(body).toMatchObject({ ok: false, error: { code: 'INTERNAL_ERROR' } });
     expect(JSON.stringify(body)).not.toContain('kaboom internal detail');
   });
+
+  it('rejects oversized request bodies before routing or parsing them', async () => {
+    const app = build(healthyProbe);
+    const res = await app.request('/api/nothing', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value: 'x'.repeat(256 * 1024) }),
+    });
+    expect(res.status).toBe(413);
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: { code: 'PAYLOAD_TOO_LARGE' },
+    });
+  });
 });
 
 describe('static SPA serving', () => {

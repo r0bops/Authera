@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { requestId } from 'hono/request-id';
 import type { ReadinessCheck } from '@authera/contracts';
 import type { Database, SeedInput } from '@authera/db';
@@ -19,7 +20,7 @@ import { checkoutRoutes } from './routes/gateway/checkout.js';
 import { flightRoutes } from './routes/gateway/flights.js';
 import { purchaseAttemptRoutes } from './routes/gateway/purchase-attempts.js';
 import { healthRoutes } from './routes/health.js';
-import { ugliesRoutes } from './routes/human/approvals.js';
+import { humanEvidenceRoutes } from './routes/human/approvals.js';
 import { consoleReadRoutes } from './routes/human/executions.js';
 import { discoveryRoutes } from './routes/public/discovery.js';
 import { mockWebhookRoutes, providerWebhookRoutes } from './routes/webhooks/webhooks.js';
@@ -66,6 +67,7 @@ export interface AppDependencies {
 }
 
 export type App = Hono<AppEnv>;
+const MAX_REQUEST_BODY_BYTES = 256 * 1024;
 
 /**
  * Assemble the Hono application. Pure function of its dependencies so tests can
@@ -76,6 +78,13 @@ export function createApp(deps: AppDependencies): App {
 
   app.use(requestId());
   app.use(requestLogger(deps.logger));
+  app.use(
+    '*',
+    bodyLimit({
+      maxSize: MAX_REQUEST_BODY_BYTES,
+      onError: (c) => fail(c, 413, 'PAYLOAD_TOO_LARGE', 'Request body too large'),
+    }),
+  );
 
   app.onError((error, c) => {
     if (error instanceof ApiProblem) {
@@ -170,7 +179,7 @@ export function createApp(deps: AppDependencies): App {
     const ap2Evidence = new Ap2EvidenceService({ evidence, merchantKey: keys.merchant, clock });
     const approvals = new ApprovalService({ db, clock, logger: deps.logger });
     const disputes = new DisputeService({ db, clock, logger: deps.logger, evidence });
-    app.route('/api', ugliesRoutes({ db, approvals, disputes, evidence, ap2Evidence }));
+    app.route('/api', humanEvidenceRoutes({ db, approvals, disputes, evidence, ap2Evidence }));
 
     // Demo controls (DEMO_MODE only). The runner talks to this very app over signed HTTP.
     if (deps.config.demo.enabled) {

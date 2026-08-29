@@ -1,8 +1,8 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
 import type { Decision, ExecutionState, PolicyCheck, ReasonCode } from '@authera/contracts';
 import { executionMachine, transition } from '@authera/domain';
 import { isUniqueViolation, type DbExecutor } from '../client.js';
-import { executions } from '../schema.js';
+import { agents, executions, mandates } from '../schema.js';
 
 export type ExecutionRow = typeof executions.$inferSelect;
 
@@ -42,6 +42,22 @@ export async function createExecution(
 export async function getExecution(db: DbExecutor, id: string): Promise<ExecutionRow | undefined> {
   const [row] = await db.select().from(executions).where(eq(executions.id, id));
   return row;
+}
+
+export async function getExecutionForUser(
+  db: DbExecutor,
+  userId: string,
+  id: string,
+): Promise<ExecutionRow | undefined> {
+  const [row] = await db
+    .select({ execution: executions })
+    .from(executions)
+    .leftJoin(mandates, eq(mandates.id, executions.mandateId))
+    .leftJoin(agents, eq(agents.id, executions.agentId))
+    .where(
+      and(eq(executions.id, id), or(eq(mandates.userId, userId), eq(agents.ownerUserId, userId))),
+    );
+  return row?.execution;
 }
 
 export interface ExecutionPatch {
@@ -103,4 +119,24 @@ export async function listExecutions(
     .orderBy(desc(executions.createdAt))
     .limit(filter.limit ?? 100);
   return filter.mandateId ? query.where(eq(executions.mandateId, filter.mandateId)) : query;
+}
+
+export async function listExecutionsForUser(
+  db: DbExecutor,
+  userId: string,
+  filter: { mandateId?: string; limit?: number } = {},
+): Promise<ExecutionRow[]> {
+  const access = or(eq(mandates.userId, userId), eq(agents.ownerUserId, userId));
+  const conditions = filter.mandateId
+    ? and(access, eq(executions.mandateId, filter.mandateId))
+    : access;
+  const rows = await db
+    .select({ execution: executions })
+    .from(executions)
+    .leftJoin(mandates, eq(mandates.id, executions.mandateId))
+    .leftJoin(agents, eq(agents.id, executions.agentId))
+    .where(conditions)
+    .orderBy(desc(executions.createdAt))
+    .limit(filter.limit ?? 100);
+  return rows.map((row) => row.execution);
 }
