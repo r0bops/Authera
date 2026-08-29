@@ -11,9 +11,15 @@ importers:
       '@agentcerta/api':
         specifier: workspace:*
         version: link:apps/api
+      '@agentcerta/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
       '@agentcerta/db':
         specifier: workspace:*
         version: link:packages/db
+      '@agentcerta/domain':
+        specifier: workspace:*
+        version: link:packages/domain
       '@agentcerta/test-support':
         specifier: workspace:*
         version: link:packages/test-support
@@ -146,6 +152,9 @@ importers:
       '@agentcerta/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@agentcerta/domain':
+        specifier: workspace:*
+        version: link:../domain
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)

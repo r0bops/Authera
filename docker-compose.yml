@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: agentcerta
       POSTGRES_DB: agentcerta
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - agentcerta-pgdata:/var/lib/postgresql
     healthcheck:

@@ -54,7 +54,7 @@ docs/           architecture.md (+ threat-model.md, demo-runbook.md in later pha
 ```bash
 pnpm install
 cp .env.example .env            # placeholders are fine locally
-docker compose up -d postgres   # PostgreSQL 18 on localhost:5432
+docker compose up -d postgres   # PostgreSQL 18 on localhost:5432 (POSTGRES_PORT=5434 to change)
 pnpm dev                        # API on http://localhost:3000, Vite on http://localhost:5173
 ```
 

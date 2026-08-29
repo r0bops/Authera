@@ -1,1 +1,17 @@
 export * from './client.js';
+export * from './migrations.js';
+export * from './seed.js';
+export * from './seed-data.js';
+export * from './cli-common.js';
+export * as schema from './schema.js';
+export * from './repositories/audit.js';
+export * from './repositories/identity.js';
+export * from './repositories/mandates.js';
+export * from './repositories/executions.js';
+export * from './repositories/reservations.js';
+export * from './repositories/nonces.js';
+export * from './repositories/idempotency.js';
+export * from './repositories/offers.js';
+export * from './repositories/approvals.js';
+export * from './repositories/payments.js';
+export * from './repositories/disputes.js';

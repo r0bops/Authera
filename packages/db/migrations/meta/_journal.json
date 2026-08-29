@@ -1,1 +1,13 @@
-{"version":"7","dialect":"postgresql","entries":[]}
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788027515157,
+      "tag": "0000_aromatic_spencer_smythe",
+      "breakpoints": true
+    }
+  ]
+}

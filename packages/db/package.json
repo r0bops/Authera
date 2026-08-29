@@ -14,11 +14,12 @@
     "typecheck": "tsc --noEmit",
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",
-    "seed": "tsx src/seed.ts",
+    "seed": "tsx src/seed-cli.ts",
     "demo:reset": "tsx src/demo-reset.ts"
   },
   "dependencies": {
     "@agentcerta/contracts": "workspace:*",
+    "@agentcerta/domain": "workspace:*",
     "drizzle-orm": "0.45.2",
     "pg": "8.23.0"
   },

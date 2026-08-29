@@ -2,7 +2,7 @@
   "name": "agentcerta",
   "version": "0.1.0",
   "private": true,
-  "description": "AgentCerta — the mandate gateway for agentic commerce (NextWave 2026, Challenge 1)",
+  "description": "AgentCerta \u2014 the mandate gateway for agentic commerce (NextWave 2026, Challenge 1)",
   "type": "module",
   "packageManager": "pnpm@11.22.0",
   "engines": {
@@ -28,7 +28,9 @@
   },
   "devDependencies": {
     "@agentcerta/api": "workspace:*",
+    "@agentcerta/contracts": "workspace:*",
     "@agentcerta/db": "workspace:*",
+    "@agentcerta/domain": "workspace:*",
     "@agentcerta/test-support": "workspace:*",
     "@eslint/js": "10.0.1",
     "@testcontainers/postgresql": "12.1.0",
