@@ -18,6 +18,7 @@ import { loadDotEnv } from './dotenv.js';
 import { createLogger } from './logger.js';
 import { MockPaymentProcessor } from './services/payments/mock-processor.js';
 import type { PaymentProcessor } from './services/payments/processor.js';
+import { StripePaymentProcessor } from './services/payments/stripe-processor.js';
 import { YunoPaymentProcessor } from './services/payments/yuno-processor.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
@@ -87,7 +88,12 @@ async function main(): Promise<void> {
           accountId: config.payment.accountId,
           webhookSecret: config.payment.webhookSecret,
         })
-      : new MockPaymentProcessor(clock);
+      : config.payment.mode === 'stripe'
+        ? new StripePaymentProcessor({
+            secretKey: config.payment.secretKey,
+            webhookSecret: config.payment.webhookSecret,
+          })
+        : new MockPaymentProcessor(clock);
   const webDistDir = resolveWebDistDir(config);
   const app = createApp({
     config,

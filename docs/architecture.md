@@ -94,6 +94,7 @@ sequenceDiagram
 | Policy engine | `packages/domain/src/policy/evaluate.ts` | Pure evaluator, ordered checklist, reason codes |
 | Reservation / settlement | `packages/db/src/repositories/reservations.ts` | Atomic `UPDATE` predicate; idempotent consume/release |
 | Payments | `apps/api/src/services/payments/*` | `PaymentProcessor` boundary, mock + Yuno adapters, webhook handling |
+| Payment processors | `apps/api/src/services/payments/{mock,stripe,yuno}-processor.ts` | One `PaymentProcessor` port; mock (demo controls), Stripe test mode (real PaymentIntents), Yuno (unverified) |
 | Purchasing agent | `packages/purchasing-agent` | Scripted watcher + OpenAI agent with `search_flights` / `request_purchase` |
 | Agent runner + demo | `apps/api/src/services/agent-runner.ts`, `routes/demo` | Runs the agent over signed HTTP; direct/forged/replayed/concurrent attempts |
 | Approvals / disputes / evidence | `apps/api/src/services/{approval,dispute,evidence}-service.ts` | Checkout-scoped approvals, deterministic resolver, role-filtered bundles |

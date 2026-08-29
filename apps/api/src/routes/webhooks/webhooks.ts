@@ -19,15 +19,19 @@ const MockWebhookRequestSchema = z.strictObject({
   currency: z.enum(['USD', 'MXN', 'COP', 'BRL', 'ARS']).optional(),
 });
 
-/** `POST /webhooks/yuno` — raw-body HMAC verification happens inside the adapter before JSON parsing. */
+/**
+ * `POST /webhooks/yuno` and `POST /webhooks/stripe` — raw-body signature verification happens
+ * inside the active adapter before JSON parsing; the route for any other provider is 404.
+ */
 export function providerWebhookRoutes(deps: {
   processor: PaymentProcessor;
   payments: PaymentService;
 }) {
   const routes = new Hono<AppEnv>();
-  routes.post('/yuno', async (c) => {
-    if (deps.processor.provider !== 'yuno')
-      throw ApiProblem.notFound('yuno webhook (PAYMENT_MODE is not yuno)');
+  routes.post('/:provider{yuno|stripe}', async (c) => {
+    const provider = c.req.param('provider');
+    if (deps.processor.provider !== provider)
+      throw ApiProblem.notFound(`${provider} webhook (PAYMENT_MODE is not ${provider})`);
     const raw = new Uint8Array(await c.req.arrayBuffer());
     if (raw.byteLength > MAX_WEBHOOK_BYTES)
       throw new ApiProblem(413, 'PAYLOAD_TOO_LARGE', 'Webhook body too large');

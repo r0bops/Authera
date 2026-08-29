@@ -33,7 +33,7 @@ const envSchema = z
     DEMO_MODE: booleanString.optional(),
     DEMO_RESET_SECRET: z.string().min(16, { message: 'must be at least 16 characters' }).optional(),
     DEMO_CLOCK_ENABLED: booleanString.default('false'),
-    PAYMENT_MODE: z.enum(['mock', 'yuno']).default('mock'),
+    PAYMENT_MODE: z.enum(['mock', 'yuno', 'stripe']).default('mock'),
     OPENAI_MODE: z.enum(['scripted', 'openai']).default('scripted'),
     OPENAI_API_KEY: optionalSecret,
     OPENAI_MODEL: z.string().min(1).default('gpt-5-mini'),
@@ -41,6 +41,10 @@ const envSchema = z
     YUNO_PRIVATE_SECRET_KEY: optionalSecret,
     YUNO_ACCOUNT_ID: optionalSecret,
     YUNO_WEBHOOK_SECRET: optionalSecret,
+    /** Stripe test-mode secret (sk_test_…); required when PAYMENT_MODE=stripe. */
+    STRIPE_SECRET_KEY: optionalSecret,
+    /** Stripe webhook signing secret (whsec_…); without it /webhooks/stripe rejects everything. */
+    STRIPE_WEBHOOK_SECRET: optionalSecret,
     /** Optional: enables the live Duffel flight market (test-mode token is fine). */
     DUFFEL_ACCESS_TOKEN: optionalSecret,
     TRUSTED_SURFACE_PRIVATE_JWK: optionalSecret,
@@ -57,6 +61,16 @@ const envSchema = z
       }
     };
 
+    if (env.PAYMENT_MODE === 'stripe') {
+      require('STRIPE_SECRET_KEY', 'when PAYMENT_MODE=stripe');
+      if (env.STRIPE_SECRET_KEY && !/^(sk|rk)_test_/.test(env.STRIPE_SECRET_KEY)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['STRIPE_SECRET_KEY'],
+          message: 'must be a test-mode key (sk_test_…) for this build',
+        });
+      }
+    }
     if (env.PAYMENT_MODE === 'yuno') {
       require('YUNO_PUBLIC_API_KEY', 'when PAYMENT_MODE=yuno');
       require('YUNO_PRIVATE_SECRET_KEY', 'when PAYMENT_MODE=yuno');
@@ -94,7 +108,8 @@ export type PaymentConfig =
       privateSecretKey: string;
       accountId: string;
       webhookSecret: string;
-    };
+    }
+  | { mode: 'stripe'; secretKey: string; webhookSecret: string | undefined };
 
 export type AgentConfig =
   { mode: 'scripted'; model: string } | { mode: 'openai'; model: string; apiKey: string };
@@ -176,7 +191,13 @@ function toAppConfig(env: ParsedEnv): AppConfig {
           accountId: mustHave(env.YUNO_ACCOUNT_ID),
           webhookSecret: mustHave(env.YUNO_WEBHOOK_SECRET),
         }
-      : { mode: 'mock' };
+      : env.PAYMENT_MODE === 'stripe'
+        ? {
+            mode: 'stripe',
+            secretKey: mustHave(env.STRIPE_SECRET_KEY),
+            webhookSecret: env.STRIPE_WEBHOOK_SECRET,
+          }
+        : { mode: 'mock' };
 
   const agent: AgentConfig =
     env.OPENAI_MODE === 'openai'

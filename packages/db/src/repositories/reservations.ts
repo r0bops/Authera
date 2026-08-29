@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
-import type { ExecutionState, PaymentState, ReasonCode } from '@authera/contracts';
+import type { ExecutionState, PaymentProvider, PaymentState, ReasonCode } from '@authera/contracts';
 import { settleReservation as settleCounters } from '@authera/domain';
 import type { Database, DbExecutor } from '../client.js';
 import { executions, mandateRuntime, payments, reservations } from '../schema.js';
@@ -131,7 +131,7 @@ export interface SettleExecutionInput {
   executionId: string;
   outcome: 'succeeded' | 'failed';
   payment: {
-    provider: 'mock' | 'yuno';
+    provider: PaymentProvider;
     providerPaymentId?: string | null;
     providerTransactionId?: string | null;
     lastEventId?: string | null;

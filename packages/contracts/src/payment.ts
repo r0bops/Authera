@@ -4,7 +4,7 @@ import { MoneySchema } from './money.js';
 export const PaymentStateSchema = z.enum(['CREATED', 'PENDING', 'SUCCEEDED', 'FAILED']);
 export type PaymentState = z.infer<typeof PaymentStateSchema>;
 
-export const PaymentProviderSchema = z.enum(['mock', 'yuno']);
+export const PaymentProviderSchema = z.enum(['mock', 'yuno', 'stripe']);
 export type PaymentProvider = z.infer<typeof PaymentProviderSchema>;
 
 export const PaymentEventTypeSchema = z.enum([

@@ -28,6 +28,7 @@ Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Cór
 | The cart cannot change under an approval | Canonical (RFC 8785) cart hash bound to checkouts and to single-use human approvals |
 | Money moves once | Execution id = provider idempotency key; provider calls happen outside transactions; settlement consumes or releases exactly once; duplicate webhooks are harmless |
 | Evidence you can audit | Append-only, hash-chained events; per-execution evidence bundles with a bundle hash; deterministic dispute resolution |
+| Real processor, same relay | `PAYMENT_MODE=stripe` charges a Stripe **test-mode** PaymentIntent (`confirm=true`, `off_session=true`) with the execution id as Stripe's idempotency key; declines map to `PAYMENT_FAILED`, `processing` to `PAYMENT_PENDING`, and `/webhooks/stripe` verifies `Stripe-Signature` before any state moves. Live keys are refused at startup |
 | Works offline | `PAYMENT_MODE=mock`, `OPENAI_MODE=scripted` run the whole challenge without external services |
 
 ## Quick start
@@ -67,7 +68,7 @@ One desktop console, four roles, one event stream:
 | Signed agent (payment) | `POST /api/purchase-attempts` — body is `{ executionId, mandateId, offerId, checkoutId }` and nothing else |
 | Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]`, `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
 | Demo (DEMO_MODE) | `/api/demo/*` |
-| Webhooks | `POST /webhooks/yuno` (raw-body HMAC), `POST /webhooks/mock/:executionId` (demo) |
+| Webhooks | `POST /webhooks/stripe`, `POST /webhooks/yuno` (raw-body signature checks), `POST /webhooks/mock/:executionId` (demo) |
 
 All JSON responses use `{ ok: true, data, requestId } | { ok: false, error: { code, message, details? }, requestId }`.
 
@@ -91,7 +92,7 @@ docs/               architecture, threat model, demo runbook
 
 ## Configuration
 
-See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|yuno` (Yuno keys required only for `yuno`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
+See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe|yuno` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`, Yuno keys only for `yuno`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
 
 ## Deployment
 
