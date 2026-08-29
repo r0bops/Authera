@@ -1,20 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell } from './shell/AppShell.js';
-import { ActivityPage } from '../routes/ActivityPage.js';
-import { AgentPage } from '../routes/AgentPage.js';
-import { ApprovalPage } from '../routes/ApprovalPage.js';
-import { DisputePage, DisputesListPage, NewDisputePage } from '../routes/DisputePages.js';
-import { AuditorPage } from '../routes/AuditorPage.js';
-import { DemoControlPage } from '../routes/DemoControlPage.js';
-import { MandateDetailPage } from '../routes/MandateDetailPage.js';
-import { MandatesPage } from '../routes/MandatesPage.js';
-import { MerchantPage } from '../routes/MerchantPage.js';
-import { NewMandatePage } from '../routes/NewMandatePage.js';
-import { NotFoundPage } from '../routes/NotFoundPage.js';
-import { OverviewPage } from '../routes/OverviewPage.js';
-import { PurchaseDetailPage } from '../routes/PurchaseDetailPage.js';
-import { PurchasesPage } from '../routes/PurchasesPage.js';
-import { SettingsPage } from '../routes/SettingsPage.js';
 
 export const router = createBrowserRouter([
   {
@@ -22,23 +7,92 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <Navigate to="/overview" replace /> },
-      { path: 'overview', element: <OverviewPage /> },
-      { path: 'mandates', element: <MandatesPage /> },
-      { path: 'mandates/new', element: <NewMandatePage /> },
-      { path: 'mandates/:id', element: <MandateDetailPage /> },
-      { path: 'activity', element: <ActivityPage /> },
-      { path: 'purchases', element: <PurchasesPage /> },
-      { path: 'purchases/:id', element: <PurchaseDetailPage /> },
-      { path: 'settings', element: <SettingsPage /> },
-      { path: 'approvals/:id', element: <ApprovalPage /> },
-      { path: 'disputes', element: <DisputesListPage /> },
-      { path: 'disputes/new', element: <NewDisputePage /> },
-      { path: 'disputes/:id', element: <DisputePage /> },
-      { path: 'agent', element: <AgentPage /> },
-      { path: 'merchant', element: <MerchantPage /> },
-      { path: 'auditor', element: <AuditorPage /> },
-      { path: 'demo-control', element: <DemoControlPage /> },
-      { path: '*', element: <NotFoundPage /> },
+      {
+        path: 'overview',
+        lazy: async () => ({ Component: (await import('../routes/OverviewPage.js')).OverviewPage }),
+      },
+      {
+        path: 'mandates',
+        lazy: async () => ({ Component: (await import('../routes/MandatesPage.js')).MandatesPage }),
+      },
+      {
+        path: 'mandates/new',
+        lazy: async () => ({
+          Component: (await import('../routes/NewMandatePage.js')).NewMandatePage,
+        }),
+      },
+      {
+        path: 'mandates/:id',
+        lazy: async () => ({
+          Component: (await import('../routes/MandateDetailPage.js')).MandateDetailPage,
+        }),
+      },
+      {
+        path: 'activity',
+        lazy: async () => ({ Component: (await import('../routes/ActivityPage.js')).ActivityPage }),
+      },
+      {
+        path: 'purchases',
+        lazy: async () => ({
+          Component: (await import('../routes/PurchasesPage.js')).PurchasesPage,
+        }),
+      },
+      {
+        path: 'purchases/:id',
+        lazy: async () => ({
+          Component: (await import('../routes/PurchaseDetailPage.js')).PurchaseDetailPage,
+        }),
+      },
+      {
+        path: 'settings',
+        lazy: async () => ({ Component: (await import('../routes/SettingsPage.js')).SettingsPage }),
+      },
+      {
+        path: 'approvals/:id',
+        lazy: async () => ({
+          Component: (await import('../routes/ApprovalPage.js')).ApprovalPage,
+        }),
+      },
+      {
+        path: 'disputes',
+        lazy: async () => ({
+          Component: (await import('../routes/DisputePages.js')).DisputesListPage,
+        }),
+      },
+      {
+        path: 'disputes/new',
+        lazy: async () => ({
+          Component: (await import('../routes/DisputePages.js')).NewDisputePage,
+        }),
+      },
+      {
+        path: 'disputes/:id',
+        lazy: async () => ({
+          Component: (await import('../routes/DisputePages.js')).DisputePage,
+        }),
+      },
+      {
+        path: 'agent',
+        lazy: async () => ({ Component: (await import('../routes/AgentPage.js')).AgentPage }),
+      },
+      {
+        path: 'merchant',
+        lazy: async () => ({ Component: (await import('../routes/MerchantPage.js')).MerchantPage }),
+      },
+      {
+        path: 'auditor',
+        lazy: async () => ({ Component: (await import('../routes/AuditorPage.js')).AuditorPage }),
+      },
+      {
+        path: 'demo-control',
+        lazy: async () => ({
+          Component: (await import('../routes/DemoControlPage.js')).DemoControlPage,
+        }),
+      },
+      {
+        path: '*',
+        lazy: async () => ({ Component: (await import('../routes/NotFoundPage.js')).NotFoundPage }),
+      },
     ],
   },
 ]);
