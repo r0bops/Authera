@@ -15,6 +15,8 @@ export interface ReserveUsageInput {
   amountMinor: number;
   /** Server clock used for the validity predicate (demo clock aware). */
   now: Date;
+  /** A consumed checkout-scoped human approval lifts the amount caps for this exact purchase. */
+  approvedOverLimit?: boolean;
   actorId?: string | null;
 }
 
@@ -42,7 +44,7 @@ export async function reserveUsage(
       AND status = 'ACTIVE'
       AND valid_from <= ${nowIso}::timestamptz
       AND valid_until > ${nowIso}::timestamptz
-      AND consumed_minor + reserved_minor + ${input.amountMinor} <= max_total_minor
+      AND (${input.approvedOverLimit === true} OR consumed_minor + reserved_minor + ${input.amountMinor} <= max_total_minor)
       AND consumed_count + reserved_count + 1 <= max_fulfillments
     RETURNING mandate_id, version
   `);
@@ -106,7 +108,10 @@ async function diagnoseReservationFailure(
   if (input.now >= runtime.validUntil) return 'MANDATE_EXPIRED';
   if (runtime.consumedCount + runtime.reservedCount + 1 > runtime.maxFulfillments)
     return 'USAGE_EXHAUSTED';
-  if (runtime.consumedMinor + runtime.reservedMinor + input.amountMinor > runtime.maxTotalMinor)
+  if (
+    !input.approvedOverLimit &&
+    runtime.consumedMinor + runtime.reservedMinor + input.amountMinor > runtime.maxTotalMinor
+  )
     return 'AMOUNT_EXCEEDED';
   return 'RESERVATION_CONFLICT';
 }

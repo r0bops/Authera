@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
-import type { ReadinessCheck } from '@agentcerta/contracts';
+import type { PurchaseAttemptResponse, ReadinessCheck } from '@agentcerta/contracts';
 import type { Database } from '@agentcerta/db';
 import type { KeyMaterial } from '@agentcerta/domain';
 import type { Clock } from './clock.js';
@@ -14,11 +14,19 @@ import { csrfGuard } from './middleware/csrf.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { sessionMiddleware } from './middleware/session.js';
 import { agentPingRoutes } from './routes/agent/ping.js';
+import { checkoutRoutes } from './routes/gateway/checkout.js';
+import { flightRoutes } from './routes/gateway/flights.js';
+import { purchaseAttemptRoutes } from './routes/gateway/purchase-attempts.js';
 import { healthRoutes } from './routes/health.js';
+import { consoleReadRoutes } from './routes/human/executions.js';
 import { discoveryRoutes } from './routes/public/discovery.js';
 import { humanMandateRoutes } from './routes/human/mandates.js';
 import { meRoutes } from './routes/human/me.js';
 import { databaseAgentIdentityStore } from './services/agent-identity.js';
+import { CheckoutService } from './services/checkout-service.js';
+import { ExecutionViews } from './services/execution-views.js';
+import { MandateGateway, type ReservedExecution } from './services/gateway.js';
+import { databaseGatewayStore } from './services/gateway-store.js';
 import { MandateService } from './services/mandate-service.js';
 import { MandateSigner } from './services/mandate-signer.js';
 
@@ -39,6 +47,8 @@ export interface AppDependencies {
   services?: AppServices;
   /** Absolute path of the compiled SPA. When omitted, no static files are served. */
   webDistDir?: string;
+  /** Payment hook after a committed reservation (Phase 6). */
+  onReserved?: (reserved: ReservedExecution) => Promise<Partial<PurchaseAttemptResponse>>;
 }
 
 export type App = Hono<AppEnv>;
@@ -85,20 +95,43 @@ export function createApp(deps: AppDependencies): App {
     // Public discovery (agent key directory + profiles).
     app.route('/', discoveryRoutes({ db, keys, config: deps.config, clock }));
 
-    // Signed agent lane: identity is verified here; authority is decided later by the gateway.
+    // Signed agent lane: identity is verified here; authority is decided by the gateway.
     const identity = databaseAgentIdentityStore(db);
+    const checkout = new CheckoutService({ db, clock });
+    const gateway = new MandateGateway({
+      store: databaseGatewayStore(db),
+      clock,
+      logger: deps.logger,
+      ...(deps.onReserved ? { onReserved: deps.onReserved } : {}),
+    });
     app.use('/api/agent/*', agentSignature({ store: identity, clock, tag: AGENT_TAGS.browse }));
     app.route('/api/agent', agentPingRoutes());
+    app.use('/api/flights', agentSignature({ store: identity, clock, tag: AGENT_TAGS.browse }));
+    app.route('/api/flights', flightRoutes({ checkout }));
+    app.use('/ucp/*', agentSignature({ store: identity, clock, tag: AGENT_TAGS.browse }));
+    app.route('/ucp/v1', checkoutRoutes({ checkout }));
+    app.use(
+      '/api/purchase-attempts',
+      agentSignature({ store: identity, clock, tag: AGENT_TAGS.payment }),
+    );
+    app.route('/api/purchase-attempts', purchaseAttemptRoutes({ gateway }));
 
-    // Human lane: cookie session + CSRF.
-    app.use('/api/me', sessionMiddleware(sessionDeps));
-    app.use('/api/me', csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
-    app.use('/api/mandates/*', sessionMiddleware(sessionDeps));
-    app.use('/api/mandates/*', csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
-    app.use('/api/mandates', sessionMiddleware(sessionDeps));
-    app.use('/api/mandates', csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
+    // Human lane: cookie session + CSRF on every console route.
+    const views = new ExecutionViews({ db, clock });
+    for (const path of [
+      '/api/me',
+      '/api/mandates',
+      '/api/mandates/*',
+      '/api/executions/*',
+      '/api/verification/*',
+      '/api/offers',
+    ]) {
+      app.use(path, sessionMiddleware(sessionDeps));
+      app.use(path, csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
+    }
     app.route('/api/me', meRoutes(sessionDeps));
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
+    app.route('/api', consoleReadRoutes({ views, checkout }));
   }
 
   if (deps.webDistDir) {
