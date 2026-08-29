@@ -18,6 +18,7 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
-    "@agentcerta/contracts": "workspace:*"
+    "@agentcerta/contracts": "workspace:*",
+    "@agentcerta/domain": "workspace:*"
   }
 }

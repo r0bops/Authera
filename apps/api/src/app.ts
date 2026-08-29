@@ -9,12 +9,16 @@ import { fail, type AppEnv } from './http/envelope.js';
 import { ApiProblem } from './http/problem.js';
 import { mountSpa } from './http/static.js';
 import type { Logger } from './logger.js';
+import { AGENT_TAGS, agentSignature } from './middleware/agent-signature.js';
 import { csrfGuard } from './middleware/csrf.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { sessionMiddleware } from './middleware/session.js';
+import { agentPingRoutes } from './routes/agent/ping.js';
 import { healthRoutes } from './routes/health.js';
+import { discoveryRoutes } from './routes/public/discovery.js';
 import { humanMandateRoutes } from './routes/human/mandates.js';
 import { meRoutes } from './routes/human/me.js';
+import { databaseAgentIdentityStore } from './services/agent-identity.js';
 import { MandateService } from './services/mandate-service.js';
 import { MandateSigner } from './services/mandate-signer.js';
 
@@ -78,8 +82,21 @@ export function createApp(deps: AppDependencies): App {
       logger: deps.logger,
     });
 
-    app.use('/api/*', sessionMiddleware(sessionDeps));
-    app.use('/api/*', csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
+    // Public discovery (agent key directory + profiles).
+    app.route('/', discoveryRoutes({ db, keys, config: deps.config, clock }));
+
+    // Signed agent lane: identity is verified here; authority is decided later by the gateway.
+    const identity = databaseAgentIdentityStore(db);
+    app.use('/api/agent/*', agentSignature({ store: identity, clock, tag: AGENT_TAGS.browse }));
+    app.route('/api/agent', agentPingRoutes());
+
+    // Human lane: cookie session + CSRF.
+    app.use('/api/me', sessionMiddleware(sessionDeps));
+    app.use('/api/me', csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
+    app.use('/api/mandates/*', sessionMiddleware(sessionDeps));
+    app.use('/api/mandates/*', csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
+    app.use('/api/mandates', sessionMiddleware(sessionDeps));
+    app.use('/api/mandates', csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
     app.route('/api/me', meRoutes(sessionDeps));
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
   }

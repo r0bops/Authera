@@ -9,4 +9,5 @@ export * from './policy/index.js';
 export * from './state-machines/index.js';
 export * from './crypto/canonical.js';
 export * from './crypto/keys.js';
+export * from './crypto/http-signatures.js';
 export * from './evidence/summaries.js';

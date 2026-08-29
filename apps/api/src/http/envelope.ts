@@ -4,11 +4,13 @@ import type { RequestIdVariables } from 'hono/request-id';
 import type { ApiResult } from '@agentcerta/contracts';
 import type { SessionRow, UserRow } from '@agentcerta/db';
 import type { Logger } from '../logger.js';
+import type { VerifiedAgentRequest } from '../middleware/agent-signature.js';
 
 export interface AppVariables extends RequestIdVariables {
   logger: Logger;
   user?: UserRow;
   session?: SessionRow;
+  agentRequest?: VerifiedAgentRequest;
 }
 
 export type AppEnv = { Variables: AppVariables };
