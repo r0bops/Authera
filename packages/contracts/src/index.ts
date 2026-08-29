@@ -9,3 +9,4 @@ export * from './payment.js';
 export * from './audit.js';
 export * from './human.js';
 export * from './gateway.js';
+export * from './demo.js';

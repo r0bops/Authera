@@ -21,6 +21,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/domain/package.json packages/domain/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/purchasing-agent/package.json packages/purchasing-agent/package.json
 COPY packages/test-support/package.json packages/test-support/package.json
 
 # ---------- build: full install, compile web + api ----------

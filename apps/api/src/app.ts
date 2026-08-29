@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
 import type { ReadinessCheck } from '@agentcerta/contracts';
-import type { Database } from '@agentcerta/db';
+import type { Database, SeedInput } from '@agentcerta/db';
 import type { KeyMaterial } from '@agentcerta/domain';
 import type { Clock } from './clock.js';
 import type { AppConfig } from './config.js';
@@ -14,6 +14,7 @@ import { csrfGuard } from './middleware/csrf.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { sessionMiddleware } from './middleware/session.js';
 import { agentPingRoutes } from './routes/agent/ping.js';
+import { demoRoutes } from './routes/demo/demo.js';
 import { checkoutRoutes } from './routes/gateway/checkout.js';
 import { flightRoutes } from './routes/gateway/flights.js';
 import { purchaseAttemptRoutes } from './routes/gateway/purchase-attempts.js';
@@ -24,6 +25,7 @@ import { mockWebhookRoutes, providerWebhookRoutes } from './routes/webhooks/webh
 import { humanMandateRoutes } from './routes/human/mandates.js';
 import { meRoutes } from './routes/human/me.js';
 import { databaseAgentIdentityStore } from './services/agent-identity.js';
+import { AgentRunner } from './services/agent-runner.js';
 import { CheckoutService } from './services/checkout-service.js';
 import { ExecutionViews } from './services/execution-views.js';
 import { MandateGateway } from './services/gateway.js';
@@ -41,6 +43,8 @@ export interface AppServices {
   clock: Clock;
   /** Selected by PAYMENT_MODE; the mock is the P0 reference implementation. */
   paymentProcessor: PaymentProcessor;
+  /** Seed input used by demo reset (public keys + base URL). */
+  seed: SeedInput;
 }
 
 export interface AppDependencies {
@@ -88,7 +92,7 @@ export function createApp(deps: AppDependencies): App {
   );
 
   if (deps.services) {
-    const { db, keys, clock, paymentProcessor } = deps.services;
+    const { db, keys, clock, paymentProcessor, seed } = deps.services;
     const sessionDeps = { db, config: deps.config, clock };
     const mandates = new MandateService({
       db,
@@ -146,6 +150,22 @@ export function createApp(deps: AppDependencies): App {
     app.route('/api/me', meRoutes(sessionDeps));
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
     app.route('/api', consoleReadRoutes({ views, checkout }));
+
+    // Demo controls (DEMO_MODE only). The runner talks to this very app over signed HTTP.
+    if (deps.config.demo.enabled) {
+      const runner = new AgentRunner({
+        db,
+        keys,
+        clock,
+        config: deps.config,
+        logger: deps.logger,
+        fetch: (request) => Promise.resolve(app.fetch(request)),
+      });
+      app.route(
+        '/api/demo',
+        demoRoutes({ db, config: deps.config, clock, runner, processor: paymentProcessor, seed }),
+      );
+    }
 
     // Provider webhooks: raw-body verification inside the adapter. The mock webhook is a demo
     // control (human session) and exists only when the mock processor is active in demo mode.

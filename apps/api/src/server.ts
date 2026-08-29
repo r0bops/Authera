@@ -65,15 +65,16 @@ async function main(): Promise<void> {
     logger.warn(
       'signing keys derived from DEMO_RESET_SECRET (demo mode); set explicit *_PRIVATE_JWK for real deployments',
     );
+  const seed = {
+    publicBaseUrl: config.publicBaseUrl,
+    keys: {
+      trustedSurface: { kid: keys.trustedSurface.kid, publicJwk: keys.trustedSurface.publicJwk },
+      merchant: { kid: keys.merchant.kid, publicJwk: keys.merchant.publicJwk },
+      agent: { thumbprint: keys.agent.thumbprint, publicJwk: keys.agent.publicJwk },
+    },
+  };
   if (config.demo.enabled) {
-    await seedDemo(db, {
-      publicBaseUrl: config.publicBaseUrl,
-      keys: {
-        trustedSurface: { kid: keys.trustedSurface.kid, publicJwk: keys.trustedSurface.publicJwk },
-        merchant: { kid: keys.merchant.kid, publicJwk: keys.merchant.publicJwk },
-        agent: { thumbprint: keys.agent.thumbprint, publicJwk: keys.agent.publicJwk },
-      },
-    });
+    await seedDemo(db, seed);
     logger.info('demo scenario seeded');
   }
 
@@ -93,7 +94,7 @@ async function main(): Promise<void> {
     logger,
     checkDatabase: () => checkDatabaseReady(pool),
     checkMigrations: () => checkMigrationsApplied(pool),
-    services: { db, keys, clock, paymentProcessor },
+    services: { db, keys, clock, paymentProcessor, seed },
     ...(webDistDir ? { webDistDir } : {}),
   });
 

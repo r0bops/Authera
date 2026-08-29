@@ -33,6 +33,7 @@ export class AgentHttpClient {
     keyPair?: KeyPair;
     created?: Date;
     expires?: Date;
+    signal?: AbortSignal;
   }): Request {
     const now = input.created ?? this.options.clock.now();
     const keyPair = input.keyPair ?? this.options.keyPair;
@@ -57,6 +58,7 @@ export class AgentHttpClient {
     return new Request(url, {
       method: input.method,
       headers: { ...headers, ...signed },
+      signal: input.signal,
       ...(input.body === undefined ? {} : { body: bodyText }),
     });
   }
