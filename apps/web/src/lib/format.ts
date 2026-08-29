@@ -70,6 +70,11 @@ export function shortHash(value: string | null | undefined): string {
   return `${prefix}:${hex.slice(0, 10)}…${hex.slice(-6)}`;
 }
 
+export function friendlyAgentName(displayName: string | null | undefined): string {
+  if (!displayName) return 'Your agent';
+  return displayName.split(/\s+[—–-]\s+/)[0]?.trim() || displayName;
+}
+
 export function endOfMonthIso(now: Date = new Date()): string {
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59));
   return end.toISOString();

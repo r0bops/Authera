@@ -5,6 +5,7 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { AlertTriangle, CheckCircle2, Info, Loader2, XCircle } from 'lucide-react';
 import { cn } from '../../lib/cn.js';
 
@@ -42,6 +43,29 @@ export function Badge({
 
 type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost';
 
+export function buttonStyles({
+  variant = 'primary',
+  size = 'md',
+  className,
+}: {
+  variant?: ButtonVariant;
+  size?: 'sm' | 'md';
+  className?: string;
+} = {}) {
+  const variants: Record<ButtonVariant, string> = {
+    primary: 'bg-cobalt text-white hover:bg-cobalt-strong border-transparent',
+    secondary: 'bg-surface text-ink border-line-strong hover:bg-surface-muted',
+    destructive: 'bg-coral text-white hover:brightness-95 border-transparent',
+    ghost: 'bg-transparent text-cobalt border-transparent hover:bg-cobalt-soft',
+  };
+  return cn(
+    'inline-flex items-center justify-center gap-1.5 rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt',
+    size === 'sm' ? 'min-h-10 px-2.5 text-[12.5px]' : 'min-h-10 px-3.5 text-[13.5px]',
+    variants[variant],
+    className,
+  );
+}
+
 export function Button({
   variant = 'primary',
   size = 'md',
@@ -54,20 +78,13 @@ export function Button({
   size?: 'sm' | 'md';
   loading?: boolean;
 }) {
-  const variants: Record<ButtonVariant, string> = {
-    primary: 'bg-cobalt text-white hover:bg-cobalt-strong border-transparent',
-    secondary: 'bg-surface text-ink border-line-strong hover:bg-surface-muted',
-    destructive: 'bg-coral text-white hover:brightness-95 border-transparent',
-    ghost: 'bg-transparent text-cobalt border-transparent hover:bg-cobalt-soft',
-  };
   return (
     <button
       {...props}
       disabled={props.disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center gap-1.5 rounded-md border font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt',
-        size === 'sm' ? 'h-7 px-2.5 text-[12.5px]' : 'h-9 px-3.5 text-[13.5px]',
-        variants[variant],
+        buttonStyles({ variant, size }),
+        'disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
     >
@@ -126,7 +143,7 @@ export function Label({
 }
 
 const fieldClass =
-  'h-9 w-full rounded-md border border-line-strong bg-surface px-2.5 text-[13.5px] text-ink placeholder:text-ink-faint focus:border-cobalt focus:outline-none focus:ring-2 focus:ring-cobalt/20 disabled:bg-surface-muted';
+  'min-h-10 w-full rounded-md border border-line-strong bg-surface px-2.5 text-[13.5px] text-ink placeholder:text-ink-muted focus:border-cobalt focus:outline-none focus:ring-2 focus:ring-cobalt/30 disabled:bg-surface-muted';
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(fieldClass, className)} />;
@@ -360,23 +377,58 @@ export function Dialog({
 }) {
   if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-ink/45 p-6"
-      role="presentation"
-      onClick={onClose}
+    <OpenDialog onClose={onClose} title={title} footer={footer} wide={wide}>
+      {children}
+    </OpenDialog>
+  );
+}
+
+function OpenDialog({
+  onClose,
+  title,
+  children,
+  footer,
+  wide,
+}: {
+  onClose: () => void;
+  title: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  wide?: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const returnFocus = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    returnFocus.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = ref.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => returnFocus.current?.focus();
+  }, []);
+
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      className={cn(
+        'm-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto rounded-md border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/45',
+        wide ? 'max-w-3xl' : 'max-w-xl',
+      )}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={typeof title === 'string' ? title : undefined}
-        className={cn(
-          'max-h-[90vh] w-full overflow-y-auto rounded-md border border-line bg-surface shadow-xl',
-          wide ? 'max-w-3xl' : 'max-w-xl',
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full" onClick={(e) => e.stopPropagation()}>
         <header className="border-b border-line px-5 py-3.5">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
+          <h2 id={titleId} className="text-[15px] font-semibold">
+            {title}
+          </h2>
         </header>
         <div className="px-5 py-4">{children}</div>
         {footer ? (
@@ -385,7 +437,7 @@ export function Dialog({
           </footer>
         ) : null}
       </div>
-    </div>
+    </dialog>
   );
 }
 
@@ -401,7 +453,7 @@ export function PageHeader({
   meta?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-4">
+    <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <h1 className="text-[20px] font-semibold tracking-tight text-ink">{title}</h1>
@@ -411,7 +463,11 @@ export function PageHeader({
           <p className="mt-0.5 max-w-3xl text-[13px] text-ink-muted">{description}</p>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -19,7 +19,7 @@ import {
 } from '../components/ui/primitives.js';
 import { cn } from '../lib/cn.js';
 import { AIRPORTS, airportLabel } from '../lib/airports.js';
-import { endOfMonthIso, formatMoney, inputToMinor } from '../lib/format.js';
+import { endOfMonthIso, formatMoney, friendlyAgentName, inputToMinor } from '../lib/format.js';
 
 const FormSchema = z
   .object({
@@ -102,6 +102,7 @@ export function NewMandatePage() {
   });
   const values = useWatch({ control: form.control }) as FormInput;
   const paymentMethods = me.data?.paymentMethods ?? [];
+  const agentName = friendlyAgentName(me.data?.agents[0]?.displayName);
   const allMerchants = me.data?.merchants ?? [];
   const merchants = allMerchants.filter((m) =>
     values.category === 'goods' ? m.slug !== 'duffel' : m.slug === 'duffel',
@@ -194,7 +195,7 @@ export function NewMandatePage() {
     <>
       <PageHeader
         title="Plan a purchase"
-        description="Describe what you need once. Aria will search and can only buy inside the rules you approve."
+        description={`Describe what you need once. ${agentName} will search and can only buy inside the rules you approve.`}
       />
       <ol className="mb-4 grid grid-cols-3 gap-2 text-[12px] sm:flex sm:items-center sm:text-[12.5px]">
         {STEPS.map((label, i) => (
@@ -468,7 +469,7 @@ export function NewMandatePage() {
                     label: 'Agent',
                     value: (
                       <span className="inline-flex items-center gap-2">
-                        {me.data?.agents[0]?.displayName ?? 'Purchasing agent'}
+                        {agentName}
                         <Badge tone="verified">Verified</Badge>
                       </span>
                     ),
@@ -585,8 +586,8 @@ export function NewMandatePage() {
             <details className="mt-3 border-t border-line pt-3 text-[12px]">
               <summary className="min-h-10 font-medium text-cobalt">Proof & details</summary>
               <p className="mt-1 text-ink-muted">
-                Authera signs this authorization and binds it to Aria’s verified key. Every later
-                purchase is checked against the signed rules and current revocation state.
+                Authera signs this authorization and binds it to {agentName}’s verified key. Every
+                later purchase is checked against the signed rules and current revocation state.
               </p>
             </details>
           </Card>

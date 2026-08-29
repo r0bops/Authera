@@ -1,18 +1,18 @@
-import { Check, Plane, X } from 'lucide-react';
+import { Check, Package, Plane, X } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { usePurchase } from '../api/hooks.js';
 import { Checklist, DecisionBadge, Timeline } from '../components/status.js';
 import {
   Alert,
-  Button,
   Card,
   ErrorState,
   KeyValue,
   Mono,
   PageHeader,
   Skeleton,
+  buttonStyles,
 } from '../components/ui/primitives.js';
-import { formatDateTime, formatMoney, shortId } from '../lib/format.js';
+import { formatDateTime, formatMoney, friendlyAgentName } from '../lib/format.js';
 import { offerHeadline } from '../lib/intent.js';
 
 export function PurchaseDetailPage() {
@@ -29,13 +29,16 @@ export function PurchaseDetailPage() {
       ? { currency: paid.currency, minor: max.minor - paid.minor }
       : null;
   const succeeded = execution.state === 'SUCCEEDED';
+  const OfferIcon = offer?.kind === 'goods' ? Package : Plane;
 
   return (
     <>
       <PageHeader
         title={
           succeeded
-            ? 'Flight purchased'
+            ? offer?.kind === 'goods'
+              ? 'Purchase complete'
+              : 'Flight purchased'
             : execution.state === 'PAYMENT_PENDING'
               ? 'Payment pending'
               : execution.state === 'FAILED'
@@ -47,47 +50,48 @@ export function PurchaseDetailPage() {
             decision={execution.decision}
             state={execution.state}
             reasonCode={execution.reasonCode}
+            showReasonCode={false}
           />
         }
         description={execution.explanation ?? undefined}
         actions={
-          <>
-            <Link to={`/audit?executionId=${execution.id}`}>
-              <Button variant="secondary">Inspect decision record</Button>
-            </Link>
-            <Link to={`/dashboard/disputes/new?executionId=${execution.id}`}>
-              <Button variant="ghost">Report a problem</Button>
-            </Link>
-          </>
+          <Link
+            to={`/dashboard/disputes/new?executionId=${execution.id}`}
+            className={buttonStyles({ variant: 'secondary' })}
+          >
+            Report a problem
+          </Link>
         }
       />
       {execution.state === 'FAILED' ? (
         <div className="mb-4">
           <Alert tone="destructive" title="No money moved">
-            {execution.payment?.failureReason ?? 'The processor declined the payment'}; the mandate
-            allowance was released.
+            {execution.payment?.failureReason ?? 'The processor declined the payment'}; your plan’s
+            allowance was restored.
           </Alert>
         </div>
       ) : null}
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-8 flex flex-col gap-4">
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="flex flex-col gap-4 lg:col-span-8">
           <section className="rounded-md border border-line bg-surface">
-            <div className="flex items-center justify-between border-b border-dashed border-line-strong px-5 py-4">
+            <div className="flex flex-col gap-4 border-b border-dashed border-line-strong px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div className="flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-md bg-cobalt-soft text-cobalt">
-                  <Plane className="h-5 w-5" aria-hidden />
+                  <OfferIcon className="h-5 w-5" aria-hidden />
                 </span>
                 <div>
                   <p className="text-[15px] font-semibold">
                     {offer ? offerHeadline(offer) : 'Purchase'}
                   </p>
                   <p className="text-[12.5px] text-ink-muted">
-                    Merchant: {offer?.merchantName ?? '—'} · Passenger: Marta Ledezma
+                    Purchased from {offer?.merchantName ?? '—'}
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="tabular text-[22px] font-semibold text-ink">{formatMoney(paid)}</p>
+                <p className="tabular whitespace-nowrap text-[22px] font-semibold text-ink">
+                  {formatMoney(paid)}
+                </p>
                 {max ? (
                   <p className="text-[12px] text-ink-muted">
                     authorized up to {formatMoney(max)}
@@ -96,14 +100,27 @@ export function PurchaseDetailPage() {
                 ) : null}
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-4 px-5 py-4">
-              <Segment label="From" value={offer?.origin ?? '—'} />
-              <Segment label="To" value={offer?.destination ?? '—'} />
-              <Segment
-                label="Departs"
-                value={offer?.departureAt ? offer.departureAt.slice(0, 16).replace('T', ' ') : '—'}
-              />
-              <Segment label="Cabin" value={offer?.cabin ?? '—'} />
+            <div className="grid grid-cols-2 gap-4 px-4 py-4 sm:grid-cols-4 sm:px-5">
+              {offer?.kind === 'goods' ? (
+                <>
+                  <Segment label="Quantity" value={String(offer.quantity)} />
+                  <Segment label="Category" value="Product" />
+                  <Segment label="Search" value={offer.searchQuery ?? '—'} />
+                  <Segment label="Purchased" value={formatDateTime(execution.createdAt)} />
+                </>
+              ) : (
+                <>
+                  <Segment label="From" value={offer?.origin ?? '—'} />
+                  <Segment label="To" value={offer?.destination ?? '—'} />
+                  <Segment
+                    label="Departs"
+                    value={
+                      offer?.departureAt ? offer.departureAt.slice(0, 16).replace('T', ' ') : '—'
+                    }
+                  />
+                  <Segment label="Cabin" value={offer?.cabin ?? '—'} />
+                </>
+              )}
             </div>
             <div className="border-t border-line px-5 py-3">
               <KeyValue
@@ -113,24 +130,19 @@ export function PurchaseDetailPage() {
                     label: 'Payment',
                     value: `${mandate?.paymentMethodLabel ?? '—'} · ${execution.payment?.state ?? 'no payment'}`,
                   },
-                  {
-                    label: 'Provider reference',
-                    value: execution.payment?.providerPaymentId ?? '—',
-                    mono: true,
-                  },
-                  { label: 'Authorized at', value: formatDateTime(execution.createdAt) },
+                  { label: 'Purchased at', value: formatDateTime(execution.createdAt) },
                   {
                     label: 'Decision',
                     value:
                       execution.reasonCode === 'ALLOW_CHECKOUT_APPROVAL'
                         ? 'Approved by you for this exact checkout'
-                        : 'Automatically approved — matched every condition in your mandate',
+                        : 'Automatically approved — matched every condition in your plan',
                   },
                 ]}
               />
             </div>
           </section>
-          <Card title="Mandate used">
+          <Card title="Plan used">
             {mandate ? (
               <>
                 <p className="text-[13.5px]">{mandate.summary}</p>
@@ -139,28 +151,28 @@ export function PurchaseDetailPage() {
                   dense
                   items={[
                     {
-                      label: 'Mandate',
+                      label: 'Plan',
                       value: (
                         <Link
                           className="text-cobalt hover:underline"
                           to={`/dashboard/mandates/${mandate.id}`}
                         >
-                          {shortId(mandate.id, 18)}
+                          Open purchase plan
                         </Link>
                       ),
                     },
                     { label: 'Version', value: `v${mandate.version} · ${mandate.status}` },
-                    { label: 'Agent', value: mandate.agentDisplayName },
+                    { label: 'Agent', value: friendlyAgentName(mandate.agentDisplayName) },
                   ]}
                 />
               </>
             ) : (
-              <p className="text-[13px] text-ink-muted">Mandate not available.</p>
+              <p className="text-[13px] text-ink-muted">Purchase plan not available.</p>
             )}
           </Card>
           <Card
-            title="Technical evidence"
-            description="Collapsed by default — the receipt above is the human-readable record"
+            title="Proof & details"
+            description="The receipt above is the readable record. Technical evidence stays available here."
           >
             <details>
               <summary className="text-[12.5px] font-medium text-cobalt">
@@ -180,6 +192,11 @@ export function PurchaseDetailPage() {
                   { label: 'Evidence id', value: execution.evidenceId, mono: true },
                   { label: 'Checkout', value: execution.checkoutId ?? '—', mono: true },
                   { label: 'Reservation', value: execution.reservationState ?? '—' },
+                  {
+                    label: 'Provider reference',
+                    value: execution.payment?.providerPaymentId ?? '—',
+                    mono: true,
+                  },
                 ]}
               />
             </details>
@@ -191,8 +208,8 @@ export function PurchaseDetailPage() {
             </details>
           </Card>
         </div>
-        <aside className="col-span-4">
-          <Card title="Verification" className="sticky top-5">
+        <aside className="lg:col-span-4">
+          <Card title="Why Authera allowed it" className="lg:sticky lg:top-5">
             <ul className="divide-y divide-line">
               {verification.map((v) => (
                 <li key={v.label} className="flex items-start gap-2 py-2 text-[13px]">
@@ -208,9 +225,10 @@ export function PurchaseDetailPage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-[11.5px] text-ink-faint">
-              Evidence id <Mono>{execution.evidenceId}</Mono>
-            </p>
+            <details className="mt-3 border-t border-line pt-3 text-[11.5px]">
+              <summary className="min-h-10 font-medium text-cobalt">Show evidence id</summary>
+              <Mono className="mt-1 block break-all">{execution.evidenceId}</Mono>
+            </details>
           </Card>
         </aside>
       </div>

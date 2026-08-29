@@ -7,7 +7,7 @@ import {
   PageHeader,
   Skeleton,
 } from '../components/ui/primitives.js';
-import { formatDateTime, shortId } from '../lib/format.js';
+import { formatDateTime, friendlyAgentName, shortId } from '../lib/format.js';
 
 export function SettingsPage() {
   const me = useMe();
@@ -18,10 +18,10 @@ export function SettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        description="Your identity, the agents allowed to act for you, and the payment references they may use."
+        description="Your account, saved payment methods, connected providers, and the agent allowed to act for you."
       />
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-6 flex flex-col gap-4">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="flex flex-col gap-4">
           <Card title="Account">
             <KeyValue
               items={[
@@ -31,7 +31,7 @@ export function SettingsPage() {
                 {
                   label: 'Mode',
                   value: data.demoMode ? (
-                    <Badge tone="info">Demo mode — seeded session, mock payments</Badge>
+                    <Badge tone="info">Demo mode</Badge>
                   ) : (
                     <Badge>Production</Badge>
                   ),
@@ -39,66 +39,63 @@ export function SettingsPage() {
               ]}
             />
           </Card>
-          <Card
-            title="Payment methods"
-            description="Tokenized at the provider; only opaque references are stored here"
-          >
+          <Card title="Payment methods" description="Aria never receives your raw card details.">
             <ul className="divide-y divide-line">
               {data.paymentMethods.map((pm) => (
                 <li key={pm.id} className="flex items-center justify-between py-2 text-[13px]">
                   <span>
                     {pm.brand} •••• {pm.last4}
                   </span>
-                  <span className="font-mono text-[11.5px] text-ink-faint">
-                    {shortId(pm.id, 14)}
-                  </span>
+                  <Badge tone="verified">Ready</Badge>
                 </li>
               ))}
             </ul>
           </Card>
         </div>
-        <div className="col-span-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           <Card
-            title="Purchasing agents"
-            description="Each agent signs its requests with an Ed25519 key registered here"
+            title="Your purchasing agent"
+            description="Only this verified agent can use your purchase plans."
           >
             <ul className="divide-y divide-line">
               {data.agents.map((agent) => (
                 <li key={agent.id} className="py-2 text-[13px]">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">{agent.displayName}</span>
+                    <span className="font-medium">{friendlyAgentName(agent.displayName)}</span>
                     <Badge tone={agent.status === 'ACTIVE' ? 'verified' : 'destructive'}>
-                      {agent.status}
+                      {agent.status === 'ACTIVE' ? 'Active' : 'Stopped'}
                     </Badge>
                   </div>
-                  <p className="font-mono text-[11.5px] text-ink-faint">
-                    key {agent.keyThumbprint ?? 'none'}
-                  </p>
-                  <p className="mt-0.5 text-[12px] text-ink-muted">
-                    Profile:{' '}
-                    <a
-                      className="text-cobalt hover:underline"
-                      href={`/agents/${agent.id}/profile`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      /agents/{shortId(agent.id)}/profile
-                    </a>{' '}
-                    · key directory:{' '}
-                    <a
-                      className="text-cobalt hover:underline"
-                      href="/.well-known/http-message-signatures-directory"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      /.well-known/…
-                    </a>
-                  </p>
+                  <details className="mt-1 text-[12px]">
+                    <summary className="min-h-10 font-medium text-cobalt">Proof & details</summary>
+                    <p className="font-mono text-[11.5px] break-all text-ink-muted">
+                      key {agent.keyThumbprint ?? 'none'}
+                    </p>
+                    <p className="mt-1 text-ink-muted">
+                      <a
+                        className="text-cobalt hover:underline"
+                        href={`/agents/${agent.id}/profile`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Agent profile {shortId(agent.id)}
+                      </a>{' '}
+                      ·{' '}
+                      <a
+                        className="text-cobalt hover:underline"
+                        href="/.well-known/http-message-signatures-directory"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Key directory
+                      </a>
+                    </p>
+                  </details>
                 </li>
               ))}
             </ul>
           </Card>
-          <Card title="Merchants accepting agent purchases">
+          <Card title="Connected providers">
             <ul className="divide-y divide-line text-[13px]">
               {data.merchants.map((m) => (
                 <li key={m.id} className="flex items-center justify-between py-2">
@@ -109,7 +106,7 @@ export function SettingsPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    UCP discovery
+                    Connection details
                   </a>
                 </li>
               ))}

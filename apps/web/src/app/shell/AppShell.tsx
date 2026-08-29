@@ -1,8 +1,8 @@
 import {
   Activity,
   Bot,
-  FileSignature,
-  LayoutDashboard,
+  House,
+  ListChecks,
   ReceiptText,
   Settings,
   ShieldCheck,
@@ -14,12 +14,13 @@ import { NavLink, Outlet } from 'react-router';
 import { useMandates, useMe } from '../../api/hooks.js';
 import { Badge } from '../../components/ui/primitives.js';
 import { cn } from '../../lib/cn.js';
+import { friendlyAgentName } from '../../lib/format.js';
 
 export type AppPerspective = 'client' | 'agent' | 'merchant' | 'auditor' | 'demo';
 
 const CLIENT_NAV = [
-  { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/dashboard/mandates', label: 'Mandates', icon: FileSignature },
+  { to: '/dashboard', label: 'Home', icon: House, end: true },
+  { to: '/dashboard/mandates', label: 'Plans', icon: ListChecks },
   { to: '/dashboard/activity', label: 'Activity', icon: Activity },
   { to: '/dashboard/purchases', label: 'Purchases', icon: ReceiptText },
   { to: '/dashboard/settings', label: 'Settings', icon: Settings },
@@ -27,9 +28,9 @@ const CLIENT_NAV = [
 
 const PERSPECTIVE_CONFIG = {
   client: {
-    section: 'Marta',
+    section: 'Your account',
     nav: CLIENT_NAV,
-    footer: 'Your agent, inside the limits you set',
+    footer: 'Aria can only spend inside the rules you set',
   },
   agent: {
     section: 'Purchasing agent',
@@ -55,7 +56,7 @@ const PERSPECTIVE_CONFIG = {
   AppPerspective,
   {
     section: string;
-    nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; end?: boolean }>;
+    nav: Array<{ to: string; label: string; icon: typeof House; end?: boolean }>;
     footer: string;
   }
 >;
@@ -68,7 +69,7 @@ function NavItem({
 }: {
   to: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  icon: typeof House;
   end?: boolean;
 }) {
   return (
@@ -77,7 +78,7 @@ function NavItem({
       end={end}
       className={({ isActive }) =>
         cn(
-          'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-cobalt focus-visible:ring-offset-2 focus-visible:outline-none',
+          'flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[10.5px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-cobalt focus-visible:ring-offset-2 focus-visible:outline-none md:min-h-10 md:flex-row md:justify-start md:gap-2.5 md:px-2.5 md:text-[13px]',
           isActive
             ? 'bg-cobalt-soft text-cobalt'
             : 'text-ink-muted hover:bg-surface-muted hover:text-ink',
@@ -85,7 +86,7 @@ function NavItem({
       }
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden />
-      <span>{label}</span>
+      <span className="max-w-full truncate">{label}</span>
     </NavLink>
   );
 }
@@ -99,10 +100,15 @@ export function AppShell({
 }) {
   const me = useMe();
   const mandates = useMandates();
-  const active = mandates.data?.find((mandate) => mandate.status === 'ACTIVE');
+  const active = mandates.data?.find(
+    (mandate) => mandate.status === 'ACTIVE' && mandate.usage.remainingCount > 0,
+  );
+  const completed = mandates.data?.find(
+    (mandate) => mandate.status === 'ACTIVE' && mandate.usage.remainingCount === 0,
+  );
   const config = PERSPECTIVE_CONFIG[perspective];
   const humanName = me.data?.user.displayName ?? 'Marta Ledezma';
-  const agentName = me.data?.agents[0]?.displayName ?? 'Purchasing agent';
+  const agentName = friendlyAgentName(me.data?.agents[0]?.displayName);
   const identity =
     perspective === 'client'
       ? humanName
@@ -121,37 +127,42 @@ export function AppShell({
     .toUpperCase();
 
   return (
-    <div className="grid min-h-screen grid-cols-[208px_1fr]">
-      <aside className="flex flex-col border-r border-line bg-surface">
+    <div className="grid min-h-screen grid-cols-1 md:grid-cols-[208px_1fr]">
+      <aside className="flex min-w-0 flex-col border-b border-line bg-surface md:border-r md:border-b-0">
         <div className="flex h-12 items-center gap-2 border-b border-line px-4">
           <span className="h-2.5 w-2.5 rounded-sm bg-cobalt" aria-hidden />
           <span className="text-[14px] font-semibold tracking-tight">Authera</span>
         </div>
         <nav
-          className="flex flex-1 flex-col gap-0.5 p-2.5"
+          className={cn(
+            'grid flex-1 gap-0.5 p-2 md:flex md:flex-col md:p-2.5',
+            config.nav.length === 5 ? 'grid-cols-5' : 'grid-cols-1',
+          )}
           aria-label={`${config.section} navigation`}
         >
-          <p className="px-2.5 pt-1 pb-1.5 text-[10.5px] font-semibold tracking-wider text-ink-faint uppercase">
+          <p className="hidden px-2.5 pt-1 pb-1.5 text-[10.5px] font-semibold tracking-wider text-ink-faint uppercase md:block">
             {config.section}
           </p>
           {config.nav.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
         </nav>
-        <div className="border-t border-line px-4 py-3 text-[11.5px] text-ink-faint">
+        <div className="hidden border-t border-line px-4 py-3 text-[11.5px] text-ink-faint md:block">
           {config.footer}
         </div>
       </aside>
       <div className="flex min-w-0 flex-col">
-        <header className="flex h-12 items-center justify-between gap-4 border-b border-line bg-surface px-5">
+        <header className="flex min-h-12 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2 md:px-5 md:py-0">
           <div className="flex items-center gap-2 text-[13px]">
             {perspective === 'client' ? (
               <>
-                <span className="text-ink-muted">Agent</span>
+                <span className="text-ink-muted">{agentName}</span>
                 {active ? (
                   <Badge tone="verified">Watching prices</Badge>
+                ) : completed ? (
+                  <Badge tone="verified">Plan complete</Badge>
                 ) : (
-                  <Badge tone="neutral">Idle — no active mandate</Badge>
+                  <Badge tone="neutral">Ready for a new plan</Badge>
                 )}
               </>
             ) : (
@@ -165,11 +176,11 @@ export function AppShell({
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cobalt-soft text-[11.5px] font-semibold text-cobalt">
                 {initials || '··'}
               </span>
-              <span className="text-[13px] font-medium">{identity}</span>
+              <span className="hidden text-[13px] font-medium sm:inline">{identity}</span>
             </div>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-5">
+        <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 py-4 sm:px-5 md:px-6 md:py-5">
           {children ?? <Outlet />}
         </main>
       </div>

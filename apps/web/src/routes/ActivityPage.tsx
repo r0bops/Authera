@@ -19,12 +19,12 @@ export function ActivityPage() {
   return (
     <>
       <PageHeader
-        title="Activity"
-        description="Every purchase attempt the gateway processed, allowed or not, and the full event stream behind it."
+        title="Agent activity"
+        description="What Aria tried, what Authera decided, and why. Nothing blocked here reached payment."
       />
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-7">
-          <Card title="Purchase attempts">
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-7">
+          <Card title="Purchase checks">
             {executions.isError ? (
               <ErrorState error={executions.error} retry={() => void executions.refetch()} />
             ) : null}
@@ -54,6 +54,7 @@ export function ActivityPage() {
                           decision={e.decision}
                           state={e.state}
                           reasonCode={e.reasonCode}
+                          showReasonCode={false}
                         />
                         {e.explanation ? (
                           <p className="mt-0.5 text-[12px] text-ink-muted">{e.explanation}</p>
@@ -62,10 +63,10 @@ export function ActivityPage() {
                       <Td>
                         {e.mandateId ? (
                           <Link
-                            className="font-mono text-[12px] text-cobalt hover:underline"
+                            className="text-[12.5px] font-medium text-cobalt hover:underline"
                             to={`/dashboard/mandates/${e.mandateId}`}
                           >
-                            {shortId(e.mandateId)}
+                            View plan
                           </Link>
                         ) : (
                           '—'
@@ -78,12 +79,12 @@ export function ActivityPage() {
             ) : null}
           </Card>
         </div>
-        <div className="col-span-5">
-          <Card title="Event stream">
+        <div className="lg:col-span-5">
+          <Card title="What happened">
             {events.isPending ? (
               <Skeleton className="h-24" />
             ) : (
-              <Timeline events={events.data ?? []} limit={40} />
+              <Timeline events={events.data ?? []} limit={40} showLinks={false} plainLanguage />
             )}
           </Card>
         </div>

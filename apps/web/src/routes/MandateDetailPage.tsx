@@ -12,6 +12,7 @@ import { OffersTable, PriceWatchChart } from '../components/price-watch.js';
 import { DecisionBadge, MandateStatusBadge, Timeline } from '../components/status.js';
 import {
   Alert,
+  Badge,
   Button,
   Card,
   Dialog,
@@ -27,10 +28,12 @@ import {
   Td,
   Textarea,
   Th,
+  buttonStyles,
 } from '../components/ui/primitives.js';
 import {
   formatDateTime,
   formatMoney,
+  friendlyAgentName,
   inputToMinor,
   minorToInput,
   shortHash,
@@ -58,6 +61,8 @@ export function MandateDetailPage() {
   if (mandate.isPending || !mandate.data) return <Skeleton className="h-64" />;
   const m = mandate.data;
   const limits = m.policy.limits;
+  const agentName = friendlyAgentName(m.agent.displayName);
+  const isComplete = m.status === 'ACTIVE' && m.usage.remainingCount === 0;
   const inProgress =
     executions.data?.filter((e) => e.state === 'RESERVED' || e.state === 'PAYMENT_PENDING') ?? [];
 
@@ -72,27 +77,48 @@ export function MandateDetailPage() {
     <>
       <PageHeader
         title={intentLabel(m.policy.intent)}
-        meta={<MandateStatusBadge status={m.status} />}
+        meta={
+          isComplete ? (
+            <Badge tone="verified">Plan complete</Badge>
+          ) : (
+            <MandateStatusBadge status={m.status} plainLanguage />
+          )
+        }
         description={m.summary}
         actions={
-          <>
-            <Button variant="secondary" onClick={openRevise} disabled={m.status !== 'ACTIVE'}>
-              Change plan
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setRevokeOpen(true)}
-              disabled={m.status !== 'ACTIVE'}
-            >
-              Stop Aria
-            </Button>
-          </>
+          isComplete ? (
+            <Link to="/dashboard/mandates/new" className={buttonStyles()}>
+              Plan another purchase
+            </Link>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={openRevise} disabled={m.status !== 'ACTIVE'}>
+                Change plan
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setRevokeOpen(true)}
+                disabled={m.status !== 'ACTIVE'}
+              >
+                Stop {agentName}
+              </Button>
+            </>
+          )
         }
       />
+      {isComplete ? (
+        <div className="mb-4">
+          <Alert tone="verified" title="Purchase complete">
+            This plan has no uses left and cannot authorize another purchase. Its rules and proof
+            remain available below.
+          </Alert>
+        </div>
+      ) : null}
       {m.status === 'REVOKED' ? (
         <div className="mb-4">
           <Alert tone="destructive" title="Plan stopped">
-            Aria cannot start another purchase with this plan. Stopped {formatDateTime(m.revokedAt)}
+            {agentName} cannot start another purchase with this plan. Stopped{' '}
+            {formatDateTime(m.revokedAt)}
             {m.revokeReason ? ` — ${m.revokeReason}` : ''}. Remaining allowance (
             {formatMoney({ currency: limits.currency, minor: m.usage.remainingMinor })}) is no
             longer available.
@@ -102,8 +128,8 @@ export function MandateDetailPage() {
       {m.status === 'EXPIRED' ? (
         <div className="mb-4">
           <Alert tone="attention" title="Plan expired">
-            This plan ended {formatDateTime(m.policy.validUntil)}. Create a new one to keep
-            watching prices.
+            This plan ended {formatDateTime(m.policy.validUntil)}. Create a new one to keep watching
+            prices.
           </Alert>
         </div>
       ) : null}
@@ -171,31 +197,56 @@ export function MandateDetailPage() {
               ]}
             />
           </Card>
-          <Card title="Price watch" description="Real provider offers compared with your limit.">
-            {offers.isPending ? (
-              <Skeleton className="h-[180px]" />
-            ) : (
-              <PriceWatchChart offers={offers.data ?? []} mandate={m} />
-            )}
-          </Card>
-          <Card
-            title="Offers compared"
-            description="Every offer is checked against the rules you approved."
-          >
-            {offers.isPending ? (
-              <Skeleton className="h-24" />
-            ) : (
-              <OffersTable
-                offers={(offers.data ?? []).filter((o) => offerInScope(o, m.policy.intent))}
-                mandate={m}
-              />
-            )}
-          </Card>
+          <details className="group rounded-md border border-line bg-surface">
+            <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-3 px-4 py-3 font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt">
+              <span>See prices and offers {agentName} compared</span>
+              <span className="text-[12px] font-normal text-ink-muted group-open:hidden">
+                Optional detail
+              </span>
+            </summary>
+            <div className="space-y-5 border-t border-line px-4 py-4">
+              <section aria-labelledby="price-history-heading">
+                <h2 id="price-history-heading" className="text-[14px] font-semibold text-ink">
+                  Price history
+                </h2>
+                <p className="mt-0.5 text-[12.5px] text-ink-muted">
+                  Real provider offers compared with your limit.
+                </p>
+                <div className="mt-3">
+                  {offers.isPending ? (
+                    <Skeleton className="h-[180px]" />
+                  ) : (
+                    <PriceWatchChart offers={offers.data ?? []} mandate={m} />
+                  )}
+                </div>
+              </section>
+              <section className="border-t border-line pt-4" aria-labelledby="offers-heading">
+                <h2 id="offers-heading" className="text-[14px] font-semibold text-ink">
+                  Offers compared
+                </h2>
+                <p className="mt-0.5 text-[12.5px] text-ink-muted">
+                  Every offer is checked against the rules you approved.
+                </p>
+                <div className="mt-3">
+                  {offers.isError ? (
+                    <ErrorState error={offers.error} retry={() => void offers.refetch()} />
+                  ) : offers.isPending ? (
+                    <Skeleton className="h-24" />
+                  ) : (
+                    <OffersTable
+                      offers={(offers.data ?? []).filter((o) => offerInScope(o, m.policy.intent))}
+                      mandate={m}
+                    />
+                  )}
+                </div>
+              </section>
+            </div>
+          </details>
           <Card title="Purchase checks">
             {executions.isPending ? <Skeleton className="h-16" /> : null}
             {executions.data && executions.data.length === 0 ? (
               <p className="text-[13px] text-ink-muted">
-                Aria has not requested a purchase with this plan yet.
+                {agentName} has not requested a purchase with this plan yet.
               </p>
             ) : null}
             {executions.data && executions.data.length > 0 ? (
@@ -243,7 +294,7 @@ export function MandateDetailPage() {
               </Table>
             ) : null}
           </Card>
-          <Card title="What Aria has done">
+          <Card title={`What ${agentName} has done`}>
             {events.isPending ? (
               <Skeleton className="h-24" />
             ) : (
@@ -256,7 +307,7 @@ export function MandateDetailPage() {
             <KeyValue
               dense
               items={[
-                { label: 'Agent', value: m.agent.displayName },
+                { label: 'Agent', value: agentName },
                 {
                   label: 'Protection',
                   value: 'Requests from any other agent are blocked',
@@ -281,7 +332,7 @@ export function MandateDetailPage() {
               ]}
             />
             <p className="mt-2 text-[12px] text-ink-faint">
-              Your card details are never shared with Aria.
+              Your card details are never shared with {agentName}.
             </p>
             <details className="mt-2 text-[12px]">
               <summary className="min-h-10 font-medium text-cobalt">Show payment reference</summary>
@@ -295,7 +346,11 @@ export function MandateDetailPage() {
                   <span>
                     v{v.version} · {formatDateTime(v.createdAt)}
                   </span>
-                  <MandateStatusBadge status={v.status} />
+                  {v.version === m.version && isComplete ? (
+                    <Badge tone="verified">Used</Badge>
+                  ) : (
+                    <MandateStatusBadge status={v.status} plainLanguage />
+                  )}
                 </li>
               ))}
             </ul>
@@ -349,14 +404,14 @@ export function MandateDetailPage() {
                   .then(() => setRevokeOpen(false));
               }}
             >
-              Stop Aria now
+              Stop {agentName} now
             </Button>
           </>
         }
       >
         <p className="text-[13.5px]">
-          Aria will stop monitoring this plan. Every new purchase attempt using it will be blocked
-          immediately.
+          {agentName} will stop monitoring this plan. Every new purchase attempt using it will be
+          blocked immediately.
         </p>
         <KeyValue
           className="mt-3"
@@ -366,7 +421,7 @@ export function MandateDetailPage() {
               label: 'Plan',
               value: `${intentTitle(m.policy.intent)}, max ${formatMoney({ currency: limits.currency, minor: limits.maxPerPurchaseMinor })}`,
             },
-            { label: 'Agent', value: m.agent.displayName },
+            { label: 'Agent', value: agentName },
             {
               label: 'In progress',
               value:
@@ -455,7 +510,7 @@ export function MandateDetailPage() {
           </div>
         </div>
         <p className="mt-3 text-[12.5px] text-ink-muted">
-          Your previous rules stay in the evidence record. Aria will use only the new plan.
+          Your previous rules stay in the evidence record. {agentName} will use only the new plan.
         </p>
         {revise.isError ? (
           <div className="mt-3">

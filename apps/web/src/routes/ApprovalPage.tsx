@@ -32,12 +32,20 @@ export function ApprovalPage() {
       : a.state === 'PENDING'
         ? 'attention'
         : 'destructive';
+  const stateLabel = {
+    PENDING: 'Waiting for you',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
+    EXPIRED: 'Expired',
+    CONSUMED: 'Approved and used',
+    REVOKED: 'Cancelled',
+  }[a.state];
 
   return (
     <>
       <PageHeader
         title="Aria needs your decision"
-        meta={<Badge tone={tone}>{a.state}</Badge>}
+        meta={<Badge tone={tone}>{stateLabel}</Badge>}
         description="This offer is outside your plan, so Aria stopped before paying. Approving applies only to this exact offer and does not raise your standing limit."
       />
       <div className="grid gap-4 lg:grid-cols-12">
@@ -126,9 +134,7 @@ export function ApprovalPage() {
                 If the cart changes in any way, the approval no longer applies and the purchase is
                 blocked.
               </li>
-              <li>
-                Your standing limit of {formatMoney(a.limit)} stays unchanged.
-              </li>
+              <li>Your standing limit of {formatMoney(a.limit)} stays unchanged.</li>
               <li>
                 The offer is expected to remain available until {formatDateTime(a.expiresAt)}.
               </li>
@@ -202,7 +208,7 @@ export function ApprovalPage() {
                       ? 'Approved and used'
                       : a.state === 'APPROVED'
                         ? 'Approved — waiting for the agent'
-                        : a.state
+                        : stateLabel
                   }
                 >
                   {a.decidedAt ? `Decided ${formatDateTime(a.decidedAt)}.` : null}{' '}

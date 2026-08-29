@@ -97,7 +97,7 @@ export function useVerification(id: string | undefined) {
 }
 
 export function useAuditEvents(
-  filter: { mandateId?: string; executionId?: string; limit?: number } = {},
+  filter: { mandateId?: string; executionId?: string; limit?: number; enabled?: boolean } = {},
 ) {
   const interval = usePollInterval();
   const search = new URLSearchParams({
@@ -108,6 +108,7 @@ export function useAuditEvents(
   return useQuery({
     queryKey: [...keys.audit(filter), filter.limit ?? 300],
     queryFn: () => api<AuditEvent[]>(`/api/audit/events?${search.toString()}`),
+    enabled: filter.enabled ?? true,
     refetchInterval: interval,
   });
 }

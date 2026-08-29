@@ -18,7 +18,7 @@ export function PurchasesPage() {
     <>
       <PageHeader
         title="Purchases"
-        description="Every purchase your agent completed or attempted to pay for, with the mandate it used and the evidence behind it."
+        description="Receipts for purchases Aria completed, with the plan and proof behind each one."
       />
       {purchases.isError ? (
         <ErrorState error={purchases.error} retry={() => void purchases.refetch()} />
@@ -26,8 +26,7 @@ export function PurchasesPage() {
       {purchases.isPending ? <Skeleton className="h-32" /> : null}
       {purchases.data && purchases.data.length === 0 ? (
         <EmptyState title="No purchases yet">
-          When the agent finds an eligible offer and the gateway allows it, the receipt appears
-          here.
+          When Aria finds an eligible offer and Authera allows it, the receipt appears here.
         </EmptyState>
       ) : null}
       {purchases.data && purchases.data.length > 0 ? (
@@ -35,7 +34,7 @@ export function PurchasesPage() {
           <thead>
             <tr>
               <Th>When</Th>
-              <Th>Flight</Th>
+              <Th>Purchase</Th>
               <Th className="text-right">Paid</Th>
               <Th>Status</Th>
               <Th>Payment</Th>

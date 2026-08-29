@@ -46,79 +46,79 @@ export function MandatesPage() {
       ) : null}
       {mandates.data && mandates.data.length > 0 ? (
         <>
-        <Table className="hidden md:block">
-          <thead>
-            <tr>
-              <Th>What Aria may buy</Th>
-              <Th>Status</Th>
-              <Th>Price limit</Th>
-              <Th>Bought</Th>
-              <Th>Valid until</Th>
-              <Th>Version</Th>
-              <Th>Agent</Th>
-              <Th />
-            </tr>
-          </thead>
-          <tbody>
-            {mandates.data.map((m) => (
-              <tr key={m.id}>
-                <Td>
-                  <span className="font-medium">{intentTitle(m.policy.intent)}</span>
-                  <span className="ml-1.5 text-ink-faint">
-                    {m.policy.intent.type === 'flight' ? m.policy.intent.cabin : 'product'}
-                  </span>
-                </Td>
-                <Td>
-                  <MandateStatusBadge status={m.status} />
-                </Td>
-                <Td className="tabular">
-                  {formatMoney({
-                    currency: m.policy.limits.currency,
-                    minor: m.policy.limits.maxPerPurchaseMinor,
-                  })}
-                </Td>
-                <Td className="tabular">
-                  {m.usage.consumedCount} / {m.policy.limits.maxFulfillments}
-                </Td>
-                <Td>{formatDate(m.policy.validUntil)}</Td>
-                <Td className="tabular">v{m.version}</Td>
-                <Td>{m.agent.displayName}</Td>
-                <Td>
-                  <Link
-                    className="text-[12.5px] font-medium text-cobalt hover:underline"
-                    to={`/dashboard/mandates/${m.id}`}
-                  >
-                    View plan
-                  </Link>
-                </Td>
+          <Table className="hidden md:block">
+            <thead>
+              <tr>
+                <Th>What Aria may buy</Th>
+                <Th>Status</Th>
+                <Th>Price limit</Th>
+                <Th>Bought</Th>
+                <Th>Valid until</Th>
+                <Th>Version</Th>
+                <Th>Agent</Th>
+                <Th />
               </tr>
+            </thead>
+            <tbody>
+              {mandates.data.map((m) => (
+                <tr key={m.id}>
+                  <Td>
+                    <span className="font-medium">{intentTitle(m.policy.intent)}</span>
+                    <span className="ml-1.5 text-ink-faint">
+                      {m.policy.intent.type === 'flight' ? m.policy.intent.cabin : 'product'}
+                    </span>
+                  </Td>
+                  <Td>
+                    <MandateStatusBadge status={m.status} plainLanguage />
+                  </Td>
+                  <Td className="tabular">
+                    {formatMoney({
+                      currency: m.policy.limits.currency,
+                      minor: m.policy.limits.maxPerPurchaseMinor,
+                    })}
+                  </Td>
+                  <Td className="tabular">
+                    {m.usage.consumedCount} / {m.policy.limits.maxFulfillments}
+                  </Td>
+                  <Td>{formatDate(m.policy.validUntil)}</Td>
+                  <Td className="tabular">v{m.version}</Td>
+                  <Td>{m.agent.displayName}</Td>
+                  <Td>
+                    <Link
+                      className="text-[12.5px] font-medium text-cobalt hover:underline"
+                      to={`/dashboard/mandates/${m.id}`}
+                    >
+                      View plan
+                    </Link>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          <div className="space-y-2 md:hidden">
+            {mandates.data.map((m) => (
+              <Link
+                key={m.id}
+                to={`/dashboard/mandates/${m.id}`}
+                className="block rounded-md border border-line bg-surface px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="font-medium text-ink">{intentTitle(m.policy.intent)}</span>
+                  <MandateStatusBadge status={m.status} plainLanguage />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-ink-muted">
+                  <span>
+                    Limit{' '}
+                    {formatMoney({
+                      currency: m.policy.limits.currency,
+                      minor: m.policy.limits.maxPerPurchaseMinor,
+                    })}
+                  </span>
+                  <span>Ends {formatDate(m.policy.validUntil)}</span>
+                </div>
+              </Link>
             ))}
-          </tbody>
-        </Table>
-        <div className="space-y-2 md:hidden">
-          {mandates.data.map((m) => (
-            <Link
-              key={m.id}
-              to={`/dashboard/mandates/${m.id}`}
-              className="block rounded-md border border-line bg-surface px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span className="font-medium text-ink">{intentTitle(m.policy.intent)}</span>
-                <MandateStatusBadge status={m.status} />
-              </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-ink-muted">
-                <span>
-                  Limit{' '}
-                  {formatMoney({
-                    currency: m.policy.limits.currency,
-                    minor: m.policy.limits.maxPerPurchaseMinor,
-                  })}
-                </span>
-                <span>Ends {formatDate(m.policy.validUntil)}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+          </div>
         </>
       ) : null}
     </>
