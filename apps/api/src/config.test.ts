@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testEnv } from '@agentcerta/test-support';
+import { testEnv } from '@authera/test-support';
 import { ConfigError, loadConfig } from './config.js';
 
 function expectConfigError(source: Record<string, string | undefined>): ConfigError {

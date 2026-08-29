@@ -1,4 +1,4 @@
-import type { MandatePolicyV1, PolicyInput } from '@agentcerta/contracts';
+import type { MandatePolicyV1, PolicyInput } from '@authera/contracts';
 
 /** Deterministic identifiers shared by fixtures, seeds, and tests. */
 export const FIXTURE_IDS = {
@@ -16,7 +16,7 @@ export const FIXTURE_NOW = '2026-08-30T12:00:00.000Z';
 
 export function mandatePolicyFixture(overrides: Partial<MandatePolicyV1> = {}): MandatePolicyV1 {
   return {
-    schema: 'agentcerta.mandate.v1',
+    schema: 'authera.mandate.v1',
     mandateId: FIXTURE_IDS.mandateId,
     version: 1,
     humanId: FIXTURE_IDS.humanId,

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { CurrencySchema, MinorUnitsSchema } from './money.js';
 
-export const MANDATE_SCHEMA_ID = 'agentcerta.mandate.v1' as const;
+export const MANDATE_SCHEMA_ID = 'authera.mandate.v1' as const;
 
 export const IataCodeSchema = z
   .string()

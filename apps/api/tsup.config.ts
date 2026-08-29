@@ -12,5 +12,5 @@ export default defineConfig({
   dts: false,
   // Workspace packages ship TypeScript source, so they are bundled into the server.
   // Third-party runtime dependencies stay external and are installed in the image.
-  noExternal: [/^@agentcerta\//],
+  noExternal: [/^@authera\//],
 });

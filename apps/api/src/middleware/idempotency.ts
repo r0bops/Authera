@@ -1,12 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
-import { IDEMPOTENCY_KEY_HEADER } from '@agentcerta/contracts';
-import {
-  abandonIdempotent,
-  beginIdempotent,
-  completeIdempotent,
-  type Database,
-} from '@agentcerta/db';
-import { hashCanonical } from '@agentcerta/domain';
+import { IDEMPOTENCY_KEY_HEADER } from '@authera/contracts';
+import { abandonIdempotent, beginIdempotent, completeIdempotent, type Database } from '@authera/db';
+import { hashCanonical } from '@authera/domain';
 import type { AppEnv } from '../http/envelope.js';
 import { ApiProblem } from '../http/problem.js';
 

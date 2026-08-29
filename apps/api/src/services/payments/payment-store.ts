@@ -1,4 +1,4 @@
-import type { PaymentEvent, PaymentProvider, PaymentState } from '@agentcerta/contracts';
+import type { PaymentEvent, PaymentProvider, PaymentState } from '@authera/contracts';
 import {
   appendAuditEvent,
   createPayment,
@@ -12,7 +12,7 @@ import {
   type AppendAuditEventInput,
   type Database,
   type SettleExecutionResult,
-} from '@agentcerta/db';
+} from '@authera/db';
 
 export interface PaymentRecord {
   id: string;
@@ -182,7 +182,7 @@ export function databasePaymentStore(db: Database): PaymentStore {
     },
     markWebhook: (id, state) => markWebhookProcessed(db, id, state),
     async getExecutionContext(executionId) {
-      const { getExecution } = await import('@agentcerta/db');
+      const { getExecution } = await import('@authera/db');
       const row = await getExecution(db, executionId);
       return row
         ? {

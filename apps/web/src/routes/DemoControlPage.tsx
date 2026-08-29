@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import type { DemoAttemptResult, DemoDirectAttemptResult } from '@agentcerta/contracts';
+import type { DemoAttemptResult, DemoDirectAttemptResult } from '@authera/contracts';
 import {
   useDemoAttempt,
   useDemoDirect,

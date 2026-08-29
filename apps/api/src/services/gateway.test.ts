@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Checkout, CheckoutCart, Offer, PurchaseAttemptResponse } from '@agentcerta/contracts';
-import { hashCanonical, loadKeyMaterial } from '@agentcerta/domain';
-import { FIXTURE_IDS, mandatePolicyFixture } from '@agentcerta/test-support';
+import type { Checkout, CheckoutCart, Offer, PurchaseAttemptResponse } from '@authera/contracts';
+import { hashCanonical, loadKeyMaterial } from '@authera/domain';
+import { FIXTURE_IDS, mandatePolicyFixture } from '@authera/test-support';
 import { fixedClock } from '../clock.js';
 import type { ApiProblem } from '../http/problem.js';
 import { createLogger } from '../logger.js';
@@ -42,7 +42,7 @@ function offer(id: string, minor: number, overrides: Partial<Offer> = {}): Offer
 
 function checkoutFor(o: Offer): Checkout {
   const cart: CheckoutCart = {
-    schema: 'agentcerta.cart.v1',
+    schema: 'authera.cart.v1',
     merchantId: o.merchantId,
     offerId: o.id,
     lineItems: [{ offerId: o.id, description: o.flightNumber, quantity: 1, unitPrice: o.total }],

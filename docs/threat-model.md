@@ -1,4 +1,4 @@
-# AgentCerta Threat Model
+# Authera Threat Model
 
 Scope: the merchant-side mandate gateway that lets an AI purchasing agent buy on a human's behalf. This is a hackathon prototype with a credible production path; items marked **P2** are deliberately out of scope for the event build.
 
@@ -21,7 +21,7 @@ flowchart LR
     Browser[Marta's browser]
     Provider[Payment provider webhooks]
   end
-  subgraph Trusted[AgentCerta process]
+  subgraph Trusted[Authera process]
     Sig[Signature middleware]
     TS[Trusted surface: mandate signer]
     GW[Mandate Gateway + pure policy engine]

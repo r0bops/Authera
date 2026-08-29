@@ -4,8 +4,8 @@ import {
   REASON_CODES,
   type PolicyInput,
   type ReasonCode,
-} from '@agentcerta/contracts';
-import { FIXTURE_IDS, FIXTURE_NOW, policyInputFixture } from '@agentcerta/test-support';
+} from '@authera/contracts';
+import { FIXTURE_IDS, FIXTURE_NOW, policyInputFixture } from '@authera/test-support';
 import { evaluatePolicy } from './evaluate.js';
 
 const OTHER_KEY = 'thumb-other-agent';
@@ -157,7 +157,7 @@ type Case = { name: string; input: () => unknown; reason: ReasonCode; check?: st
 const BLOCK_CASES: Case[] = [
   {
     name: 'unknown mandate schema',
-    input: () => policyInputFixture({ mandate: { schema: 'agentcerta.mandate.v9' as never } }),
+    input: () => policyInputFixture({ mandate: { schema: 'authera.mandate.v9' as never } }),
     reason: 'MANDATE_INVALID',
     check: 'MANDATE_SCHEMA',
   },
@@ -401,7 +401,7 @@ describe('evaluatePolicy — block paths (table)', () => {
       [],
       {},
       { mandate: null },
-      { mandate: { schema: 'agentcerta.mandate.v1' } },
+      { mandate: { schema: 'authera.mandate.v1' } },
     ]) {
       const verdict = evaluatePolicy(garbage);
       expect(verdict.decision).toBe('BLOCK');

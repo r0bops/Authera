@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono';
-import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@agentcerta/contracts';
+import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@authera/contracts';
 import type { AppEnv } from '../http/envelope.js';
 import { ApiProblem } from '../http/problem.js';
 

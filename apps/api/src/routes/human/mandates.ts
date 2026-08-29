@@ -3,8 +3,8 @@ import {
   CreateMandateRequestSchema,
   ReviseMandateRequestSchema,
   RevokeMandateRequestSchema,
-} from '@agentcerta/contracts';
-import type { Database } from '@agentcerta/db';
+} from '@authera/contracts';
+import type { Database } from '@authera/db';
 import { ok, type AppEnv } from '../../http/envelope.js';
 import { ApiProblem, formatZodIssues } from '../../http/problem.js';
 import { idempotent } from '../../middleware/idempotency.js';

@@ -1,12 +1,12 @@
 import type { MiddlewareHandler } from 'hono';
-import type { ReasonCode } from '@agentcerta/contracts';
-import { contentDigest, verifyRequestSignature, type SignatureFailure } from '@agentcerta/domain';
+import type { ReasonCode } from '@authera/contracts';
+import { contentDigest, verifyRequestSignature, type SignatureFailure } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import type { AppEnv } from '../http/envelope.js';
 import { ApiProblem } from '../http/problem.js';
 import type { AgentIdentityStore, ResolvedAgentKey } from '../services/agent-identity.js';
 
-export const AGENT_TAGS = { browse: 'agentcerta:browse', payment: 'agentcerta:payment' } as const;
+export const AGENT_TAGS = { browse: 'authera:browse', payment: 'authera:payment' } as const;
 const MAX_BODY_BYTES = 64 * 1024;
 const NONCE_TTL_MS = 10 * 60 * 1000;
 

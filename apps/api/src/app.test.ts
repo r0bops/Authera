@@ -2,8 +2,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { testEnv } from '@agentcerta/test-support';
-import type { ReadinessCheck } from '@agentcerta/contracts';
+import { testEnv } from '@authera/test-support';
+import type { ReadinessCheck } from '@authera/contracts';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
@@ -119,7 +119,7 @@ describe('static SPA serving', () => {
   let distDir: string;
 
   beforeAll(() => {
-    distDir = mkdtempSync(join(tmpdir(), 'agentcerta-web-dist-'));
+    distDir = mkdtempSync(join(tmpdir(), 'authera-web-dist-'));
     mkdirSync(join(distDir, 'assets'));
     writeFileSync(join(distDir, 'index.html'), '<!doctype html><div id="root"></div>');
     writeFileSync(join(distDir, 'assets', 'app.js'), 'console.log("spa")');

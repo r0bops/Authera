@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { MandatePolicyV1 } from '@agentcerta/contracts';
+import type { MandatePolicyV1 } from '@authera/contracts';
 import {
   appendAuditEvent,
   beginIdempotent,
@@ -23,9 +23,9 @@ import {
   seedDemo,
   settleExecution,
   verifyAuditChain,
-} from '@agentcerta/db';
-import { hashCanonical } from '@agentcerta/domain';
-import { mandatePolicyFixture } from '@agentcerta/test-support';
+} from '@authera/db';
+import { hashCanonical } from '@authera/domain';
+import { mandatePolicyFixture } from '@authera/test-support';
 import { startTestPostgres, type TestPostgres } from './helpers/postgres.js';
 
 const NOW = new Date('2026-08-30T12:00:00.000Z');
@@ -413,7 +413,7 @@ describe('PostgreSQL state and concurrency', () => {
       offerId: SEED_OFFERS[0]!.id,
       merchantId: SEED_IDS.vuelaya,
       cart: {
-        schema: 'agentcerta.cart.v1',
+        schema: 'authera.cart.v1',
         merchantId: SEED_IDS.vuelaya,
         offerId: SEED_OFFERS[0]!.id,
         lineItems: [

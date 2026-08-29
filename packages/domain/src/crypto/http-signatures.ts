@@ -9,7 +9,7 @@ import {
 import type { Ed25519PrivateJwk, Ed25519PublicJwk } from './keys.js';
 
 /**
- * RFC 9421 HTTP Message Signatures (Ed25519) with the Web Bot Auth profile used by AgentCerta.
+ * RFC 9421 HTTP Message Signatures (Ed25519) with the Web Bot Auth profile used by Authera.
  *
  * In-house rather than the `web-bot-auth` SDK because that SDK's `signatureHeaders` fixes the
  * covered components to `@authority`, while the gateway requires

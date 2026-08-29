@@ -6,10 +6,10 @@ import type {
   FlightOfferView,
   FlightSearchQuery,
   Offer,
-} from '@agentcerta/contracts';
-import { UCP_PINNED_VERSION } from '@agentcerta/contracts';
-import { createCheckout, getCheckout, getOffer, listOffers, type Database } from '@agentcerta/db';
-import { formatMoney, hashCanonical } from '@agentcerta/domain';
+} from '@authera/contracts';
+import { UCP_PINNED_VERSION } from '@authera/contracts';
+import { createCheckout, getCheckout, getOffer, listOffers, type Database } from '@authera/db';
+import { formatMoney, hashCanonical } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 
@@ -57,7 +57,7 @@ export class CheckoutService {
       throw ApiProblem.conflict('OFFER_NOT_AVAILABLE', 'The offer is no longer available');
     }
     const cart: CheckoutCart = {
-      schema: 'agentcerta.cart.v1',
+      schema: 'authera.cart.v1',
       merchantId: offer.merchantId,
       offerId: offer.id,
       lineItems: [

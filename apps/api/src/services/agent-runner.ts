@@ -3,21 +3,16 @@ import type {
   DemoAttemptResult,
   DemoDirectAttemptResult,
   PurchaseAttemptResponse,
-} from '@agentcerta/contracts';
-import { CheckoutSessionSchema, PurchaseAttemptResponseSchema } from '@agentcerta/contracts';
-import { getAgentById, getMandate, SEED_IDS, type Database } from '@agentcerta/db';
-import {
-  ed25519FromSeed,
-  seedFromSecret,
-  type KeyMaterial,
-  type KeyPair,
-} from '@agentcerta/domain';
+} from '@authera/contracts';
+import { CheckoutSessionSchema, PurchaseAttemptResponseSchema } from '@authera/contracts';
+import { getAgentById, getMandate, SEED_IDS, type Database } from '@authera/db';
+import { ed25519FromSeed, seedFromSecret, type KeyMaterial, type KeyPair } from '@authera/domain';
 import {
   AgentHttpClientTransport,
   HttpPurchasingAgentGateway,
   PurchasingAgentService,
   type PurchasingTask,
-} from '@agentcerta/purchasing-agent';
+} from '@authera/purchasing-agent';
 import type { Clock } from '../clock.js';
 import type { AppConfig } from '../config.js';
 import { ApiProblem } from '../http/problem.js';
@@ -45,7 +40,7 @@ export interface AgentRunnerDependencies {
 }
 
 /**
- * Runs the purchasing agent (scripted or OpenAI, from `@agentcerta/purchasing-agent`) and the
+ * Runs the purchasing agent (scripted or OpenAI, from `@authera/purchasing-agent`) and the
  * demo attempt variants (direct, impersonated, replayed, concurrent). All of them speak to the
  * gateway over signed HTTP; none can bypass verification or create a successful execution.
  */
@@ -56,7 +51,7 @@ export class AgentRunner {
   constructor(private readonly deps: AgentRunnerDependencies) {
     // An unregistered key that advertises the real agent's key id: a forged identity.
     this.impostor = ed25519FromSeed(
-      seedFromSecret(deps.config.demo.resetSecret ?? 'agentcerta-impostor', 'impostor'),
+      seedFromSecret(deps.config.demo.resetSecret ?? 'authera-impostor', 'impostor'),
       'impostor',
     );
   }

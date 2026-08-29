@@ -7,7 +7,7 @@ export interface Envelope<T> {
   requestId: string;
 }
 
-const CSRF = { 'X-Requested-With': 'AgentCerta' };
+const CSRF = { 'X-Requested-With': 'Authera' };
 
 /** Same-origin mutation with the CSRF header and a fresh Idempotency-Key, like the console does. */
 export async function post<T>(

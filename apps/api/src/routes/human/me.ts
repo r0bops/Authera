@@ -1,11 +1,6 @@
 import { Hono } from 'hono';
-import type { MeResponse } from '@agentcerta/contracts';
-import {
-  listAgentKeys,
-  listAgentsForUser,
-  listMerchants,
-  listPaymentMethods,
-} from '@agentcerta/db';
+import type { MeResponse } from '@authera/contracts';
+import { listAgentKeys, listAgentsForUser, listMerchants, listPaymentMethods } from '@authera/db';
 import { ok, type AppEnv } from '../../http/envelope.js';
 import { ensureHuman, type SessionDependencies } from '../../middleware/session.js';
 

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import type { AppendAuditEventInput } from '@agentcerta/db';
-import { loadKeyMaterial } from '@agentcerta/domain';
-import { signedRequest } from '@agentcerta/test-support';
+import type { AppendAuditEventInput } from '@authera/db';
+import { loadKeyMaterial } from '@authera/domain';
+import { signedRequest } from '@authera/test-support';
 import { fixedClock } from '../clock.js';
 import { fail, ok, type AppEnv } from '../http/envelope.js';
 import { ApiProblem } from '../http/problem.js';

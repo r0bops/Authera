@@ -11,19 +11,19 @@ importers:
 
   .:
     devDependencies:
-      '@agentcerta/api':
+      '@authera/api':
         specifier: workspace:*
         version: link:apps/api
-      '@agentcerta/contracts':
+      '@authera/contracts':
         specifier: workspace:*
         version: link:packages/contracts
-      '@agentcerta/db':
+      '@authera/db':
         specifier: workspace:*
         version: link:packages/db
-      '@agentcerta/domain':
+      '@authera/domain':
         specifier: workspace:*
         version: link:packages/domain
-      '@agentcerta/test-support':
+      '@authera/test-support':
         specifier: workspace:*
         version: link:packages/test-support
       '@eslint/js':
@@ -65,16 +65,16 @@ importers:
 
   apps/api:
     dependencies:
-      '@agentcerta/contracts':
+      '@authera/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@agentcerta/db':
+      '@authera/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@agentcerta/domain':
+      '@authera/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@agentcerta/purchasing-agent':
+      '@authera/purchasing-agent':
         specifier: workspace:*
         version: link:../../packages/purchasing-agent
       '@hono/node-server':
@@ -108,7 +108,7 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
-      '@agentcerta/test-support':
+      '@authera/test-support':
         specifier: workspace:*
         version: link:../../packages/test-support
       '@types/node':
@@ -132,7 +132,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@agentcerta/contracts':
+      '@authera/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@hookform/resolvers':
@@ -200,10 +200,10 @@ importers:
 
   packages/db:
     dependencies:
-      '@agentcerta/contracts':
+      '@authera/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@agentcerta/domain':
+      '@authera/domain':
         specifier: workspace:*
         version: link:../domain
       drizzle-orm:
@@ -231,7 +231,7 @@ importers:
 
   packages/domain:
     dependencies:
-      '@agentcerta/contracts':
+      '@authera/contracts':
         specifier: workspace:*
         version: link:../contracts
       canonicalize:
@@ -250,7 +250,7 @@ importers:
 
   packages/purchasing-agent:
     dependencies:
-      '@agentcerta/contracts':
+      '@authera/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@openai/agents':
@@ -266,10 +266,10 @@ importers:
 
   packages/test-support:
     dependencies:
-      '@agentcerta/contracts':
+      '@authera/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@agentcerta/domain':
+      '@authera/domain':
         specifier: workspace:*
         version: link:../domain
     devDependencies:

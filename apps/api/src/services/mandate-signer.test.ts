@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { loadKeyMaterial } from '@agentcerta/domain';
-import { mandatePolicyFixture } from '@agentcerta/test-support';
+import { loadKeyMaterial } from '@authera/domain';
+import { mandatePolicyFixture } from '@authera/test-support';
 import { MandateSigner, verifyMandateJws } from './mandate-signer.js';
 
 const keys = loadKeyMaterial({ demoSecret: 'signer-test-secret' });

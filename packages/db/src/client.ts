@@ -1,6 +1,6 @@
 import pg from 'pg';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { ReadinessCheck } from '@agentcerta/contracts';
+import type { ReadinessCheck } from '@authera/contracts';
 import * as schema from './schema.js';
 
 const { Pool } = pg;

@@ -1,8 +1,8 @@
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { RequestIdVariables } from 'hono/request-id';
-import type { ApiResult } from '@agentcerta/contracts';
-import type { SessionRow, UserRow } from '@agentcerta/db';
+import type { ApiResult } from '@authera/contracts';
+import type { SessionRow, UserRow } from '@authera/db';
 import type { Logger } from '../logger.js';
 import type { VerifiedAgentRequest } from '../middleware/agent-signature.js';
 

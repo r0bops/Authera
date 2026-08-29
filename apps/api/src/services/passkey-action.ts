@@ -4,7 +4,7 @@ import {
   type AuthenticationResponseJSON,
   type WebAuthnCredential,
 } from '@simplewebauthn/server';
-import { hashCanonical } from '@agentcerta/domain';
+import { hashCanonical } from '@authera/domain';
 
 const ACTION_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 

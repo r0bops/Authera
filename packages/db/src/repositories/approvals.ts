@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import type { ApprovalState, ReasonCode } from '@agentcerta/contracts';
-import { approvalMachine, transition } from '@agentcerta/domain';
+import type { ApprovalState, ReasonCode } from '@authera/contracts';
+import { approvalMachine, transition } from '@authera/domain';
 import type { DbExecutor } from '../client.js';
 import { approvalRequests, mandates } from '../schema.js';
 import { appendAuditEvent } from './audit.js';

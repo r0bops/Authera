@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { AuditQuerySchema, ExecutionListQuerySchema } from '@agentcerta/contracts';
-import { listAuditEvents, listMandatesForUser, type Database } from '@agentcerta/db';
+import { AuditQuerySchema, ExecutionListQuerySchema } from '@authera/contracts';
+import { listAuditEvents, listMandatesForUser, type Database } from '@authera/db';
 import type { Clock } from '../../clock.js';
 import { ok, type AppEnv } from '../../http/envelope.js';
 import { ApiProblem, formatZodIssues } from '../../http/problem.js';

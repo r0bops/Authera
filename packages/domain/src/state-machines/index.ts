@@ -4,7 +4,7 @@ import type {
   MandateState,
   PaymentState,
   ReservationState,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 
 export class IllegalTransitionError extends Error {
   constructor(

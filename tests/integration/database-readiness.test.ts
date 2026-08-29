@@ -1,10 +1,10 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from '@agentcerta/api/app';
-import { loadConfig } from '@agentcerta/api/config';
-import { createLogger } from '@agentcerta/api/logger';
-import { checkDatabaseReady, createPool, type DatabasePool } from '@agentcerta/db';
-import { testEnv } from '@agentcerta/test-support';
+import { createApp } from '@authera/api/app';
+import { loadConfig } from '@authera/api/config';
+import { createLogger } from '@authera/api/logger';
+import { checkDatabaseReady, createPool, type DatabasePool } from '@authera/db';
+import { testEnv } from '@authera/test-support';
 
 const POSTGRES_IMAGE = 'postgres:18-alpine';
 const logger = createLogger({ level: 'silent' });
@@ -41,7 +41,7 @@ describe('database readiness against real PostgreSQL', () => {
   });
 
   it('reports not ready and /health/ready answers 503 when nothing listens', async () => {
-    const deadPool = createPool('postgres://agentcerta:agentcerta@127.0.0.1:1/agentcerta', {
+    const deadPool = createPool('postgres://authera:authera@127.0.0.1:1/authera', {
       connectionTimeoutMillis: 1_000,
     });
     try {

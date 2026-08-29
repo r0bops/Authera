@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AUDIT_EVENT_TYPES, REASON_CODES } from '@agentcerta/contracts';
+import { AUDIT_EVENT_TYPES, REASON_CODES } from '@authera/contracts';
 import { describeAuditEvent, describeReason } from './summaries.js';
 
 describe('summaries', () => {

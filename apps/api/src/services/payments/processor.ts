@@ -1,4 +1,4 @@
-import type { Money, PaymentEvent, PaymentProvider } from '@agentcerta/contracts';
+import type { Money, PaymentEvent, PaymentProvider } from '@authera/contracts';
 
 export interface CheckoutSessionInput {
   executionId: string;

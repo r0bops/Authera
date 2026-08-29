@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
-import type { ExecutionState, PaymentState, ReasonCode } from '@agentcerta/contracts';
-import { settleReservation as settleCounters } from '@agentcerta/domain';
+import type { ExecutionState, PaymentState, ReasonCode } from '@authera/contracts';
+import { settleReservation as settleCounters } from '@authera/domain';
 import type { Database, DbExecutor } from '../client.js';
 import { executions, mandateRuntime, payments, reservations } from '../schema.js';
 import { appendAuditEvent } from './audit.js';

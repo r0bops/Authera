@@ -4,10 +4,10 @@ import type {
   MandatePolicyV1,
   Offer,
   ReasonCode,
-} from '@agentcerta/contracts';
-import type { AppendAuditEventInput, MandateAggregate, ReserveUsageResult } from '@agentcerta/db';
-import type { Ed25519PublicJwk } from '@agentcerta/domain';
-import { executionMachine, transition } from '@agentcerta/domain';
+} from '@authera/contracts';
+import type { AppendAuditEventInput, MandateAggregate, ReserveUsageResult } from '@authera/db';
+import type { Ed25519PublicJwk } from '@authera/domain';
+import { executionMachine, transition } from '@authera/domain';
 import type {
   ApprovalRecord,
   ExecutionPatchInput,

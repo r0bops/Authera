@@ -1,6 +1,6 @@
-import type { PaymentEvent, PaymentState } from '@agentcerta/contracts';
-import type { AppendAuditEventInput, SettleExecutionResult } from '@agentcerta/db';
-import { settleReservation, type RuntimeCounters } from '@agentcerta/domain';
+import type { PaymentEvent, PaymentState } from '@authera/contracts';
+import type { AppendAuditEventInput, SettleExecutionResult } from '@authera/db';
+import { settleReservation, type RuntimeCounters } from '@authera/domain';
 import type { PaymentRecord, PaymentStore } from '../services/payments/payment-store.js';
 
 export interface MemoryExecution {

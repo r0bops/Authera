@@ -1,4 +1,4 @@
-import { loadKeyMaterial, type KeyMaterial } from '@agentcerta/domain';
+import { loadKeyMaterial, type KeyMaterial } from '@authera/domain';
 import type { SeedInput } from './seed.js';
 
 /** Build seed input from environment variables (used by the seed and reset CLIs). */

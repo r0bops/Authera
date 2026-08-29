@@ -4,7 +4,7 @@ import {
   PurchaseAttemptResponseSchema,
   type FlightOfferView,
   type PurchaseAttemptResponse,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import { z } from 'zod';
 import {
   FlightSearchResultSchema,
@@ -29,7 +29,7 @@ export interface PurchasingAgentGateway {
 export type SignedGatewayRequest = Readonly<{
   method: 'GET' | 'POST';
   path: string;
-  tag: 'agentcerta:browse' | 'agentcerta:payment';
+  tag: 'authera:browse' | 'authera:payment';
   query?: Readonly<Record<string, string>>;
   body?: unknown;
   signal?: AbortSignal;
@@ -94,7 +94,7 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
     const response = await this.transport.request({
       method: 'GET',
       path: '/api/flights',
-      tag: 'agentcerta:browse',
+      tag: 'authera:browse',
       query: {
         origin: input.origin,
         destination: input.destination,
@@ -117,7 +117,7 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
     const response = await this.transport.request({
       method: 'POST',
       path: '/api/purchase-attempts',
-      tag: 'agentcerta:payment',
+      tag: 'authera:payment',
       body: { executionId: this.executionId(), ...input },
       signal: options.signal,
     });
@@ -131,7 +131,7 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
     const response = await this.transport.request({
       method: 'POST',
       path: '/ucp/v1/checkout-sessions',
-      tag: 'agentcerta:browse',
+      tag: 'authera:browse',
       body: { offerId: offer.id },
       signal,
     });

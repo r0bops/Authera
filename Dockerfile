@@ -34,7 +34,7 @@ RUN pnpm build
 # ---------- prod-deps: runtime dependencies of the API only ----------
 FROM manifests AS prod-deps
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod --filter @agentcerta/api...
+    pnpm install --frozen-lockfile --prod --filter @authera/api...
 
 # ---------- runtime ----------
 FROM ${NODE_IMAGE} AS runtime

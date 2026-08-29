@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { desc, eq, sql } from 'drizzle-orm';
-import type { PaymentProvider, PaymentState } from '@agentcerta/contracts';
-import { paymentMachine, transition } from '@agentcerta/domain';
+import type { PaymentProvider, PaymentState } from '@authera/contracts';
+import { paymentMachine, transition } from '@authera/domain';
 import { isUniqueViolation, type DbExecutor } from '../client.js';
 import { payments, webhookEvents } from '../schema.js';
 

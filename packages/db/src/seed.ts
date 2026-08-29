@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import type { Ed25519PublicJwk } from '@agentcerta/domain';
+import type { Ed25519PublicJwk } from '@authera/domain';
 import type { Database, DbExecutor } from './client.js';
 import {
   agentKeys,

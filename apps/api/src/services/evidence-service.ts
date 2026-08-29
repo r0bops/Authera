@@ -5,7 +5,7 @@ import type {
   Money,
   PolicyCheck,
   ReasonCode,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import {
   getAgentById,
   getAgentKeyById,
@@ -24,9 +24,9 @@ import {
   verifyAuditChain,
   type Database,
   type DisputeRow,
-} from '@agentcerta/db';
+} from '@authera/db';
 import { and, eq } from 'drizzle-orm';
-import { describeReason, hashCanonical, type Ed25519PublicJwk } from '@agentcerta/domain';
+import { describeReason, hashCanonical, type Ed25519PublicJwk } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 import { toOfferView } from './checkout-service.js';
@@ -111,7 +111,7 @@ export class EvidenceService {
     const approvalRow = approval ?? consumedApproval;
 
     const body: Omit<EvidenceBundle, 'bundleHash'> = {
-      schema: 'agentcerta.evidence.v1',
+      schema: 'authera.evidence.v1',
       evidenceId: execution.evidenceId,
       executionId,
       generatedAt: now.toISOString(),

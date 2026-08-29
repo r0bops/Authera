@@ -1,4 +1,4 @@
-import type { DisputeReason, DisputeView, EvidenceBundle } from '@agentcerta/contracts';
+import type { DisputeReason, DisputeView, EvidenceBundle } from '@authera/contracts';
 import {
   createDispute,
   getDispute,
@@ -7,8 +7,8 @@ import {
   resolveDispute,
   type Database,
   type UserRow,
-} from '@agentcerta/db';
-import { resolveDisputeFromEvidence } from '@agentcerta/domain';
+} from '@authera/db';
+import { resolveDisputeFromEvidence } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 import type { Logger } from '../logger.js';
@@ -33,7 +33,7 @@ export class DisputeService {
     input: { executionId: string; reason: DisputeReason; description?: string },
   ): Promise<DisputeView> {
     const { db } = this.deps;
-    const { getExecution } = await import('@agentcerta/db');
+    const { getExecution } = await import('@authera/db');
     const execution = await getExecution(db, input.executionId);
     if (!execution) throw ApiProblem.notFound('execution');
     if (execution.mandateId) {

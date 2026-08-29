@@ -1,17 +1,17 @@
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: agentcerta-postgres
+    container_name: authera-postgres
     environment:
-      POSTGRES_USER: agentcerta
-      POSTGRES_PASSWORD: agentcerta
-      POSTGRES_DB: agentcerta
+      POSTGRES_USER: authera
+      POSTGRES_PASSWORD: authera
+      POSTGRES_DB: authera
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
     volumes:
-      - agentcerta-pgdata:/var/lib/postgresql
+      - authera-pgdata:/var/lib/postgresql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U agentcerta -d agentcerta']
+      test: ['CMD-SHELL', 'pg_isready -U authera -d authera']
       interval: 5s
       timeout: 3s
       retries: 12
@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: agentcerta-app
+    container_name: authera-app
     depends_on:
       postgres:
         condition: service_healthy
@@ -30,7 +30,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: '3000'
-      DATABASE_URL: postgres://agentcerta:agentcerta@postgres:5432/agentcerta
+      DATABASE_URL: postgres://authera:authera@postgres:5432/authera
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Local-only defaults so `docker compose up` works out of the box. Override for any
@@ -50,4 +50,4 @@ services:
       start_period: 5s
 
 volumes:
-  agentcerta-pgdata:
+  authera-pgdata:

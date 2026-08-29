@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
-import { PolicyVerdictSchema, type PolicyInput } from '@agentcerta/contracts';
-import { policyInputFixture } from '@agentcerta/test-support';
+import { PolicyVerdictSchema, type PolicyInput } from '@authera/contracts';
+import { policyInputFixture } from '@authera/test-support';
 import { evaluatePolicy } from './evaluate.js';
 
 const amountArb = fc.integer({ min: 0, max: 60_000 });

@@ -1,4 +1,4 @@
-import { MoneySchema, type Currency, type Money } from '@agentcerta/contracts';
+import { MoneySchema, type Currency, type Money } from '@authera/contracts';
 
 export class MoneyError extends Error {
   constructor(message: string) {

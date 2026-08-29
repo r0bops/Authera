@@ -7,7 +7,7 @@ import {
   type PolicyInput,
   type PolicyVerdict,
   type ReasonCode,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import { equalMoney } from '../money/index.js';
 
 /**
@@ -54,12 +54,12 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
       check(
         'INPUT_SCHEMA',
         false,
-        'strict agentcerta PolicyInput',
+        'strict authera PolicyInput',
         parsed.error.issues.map(formatIssue),
       );
       return block('INTERNAL_FAIL_CLOSED');
     }
-    check('INPUT_SCHEMA', true, 'strict agentcerta PolicyInput', 'valid');
+    check('INPUT_SCHEMA', true, 'strict authera PolicyInput', 'valid');
     const input: PolicyInput = parsed.data;
     const { agent, mandate, runtime, merchant, offer, checkout, checkoutScopedApproval } = input;
     const nowMs = Date.parse(input.now);

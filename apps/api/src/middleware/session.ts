@@ -9,13 +9,13 @@ import {
   type Database,
   type SessionRow,
   type UserRow,
-} from '@agentcerta/db';
+} from '@authera/db';
 import type { Clock } from '../clock.js';
 import type { AppConfig } from '../config.js';
 import type { AppContext, AppEnv } from '../http/envelope.js';
 import { ApiProblem } from '../http/problem.js';
 
-export const SESSION_COOKIE = 'agentcerta_session';
+export const SESSION_COOKIE = 'authera_session';
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 export interface SessionDependencies {

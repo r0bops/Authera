@@ -1,4 +1,4 @@
-import type { PaymentEvent, PurchaseAttemptResponse } from '@agentcerta/contracts';
+import type { PaymentEvent, PurchaseAttemptResponse } from '@authera/contracts';
 import type { Clock } from '../../clock.js';
 import type { Logger } from '../../logger.js';
 import type { ReservedExecution } from '../gateway.js';
@@ -53,7 +53,7 @@ export class PaymentService {
         },
         merchantId: reserved.checkoutId,
         paymentMethodRef: reserved.paymentMethodRef,
-        description: `AgentCerta execution ${reserved.executionId}`,
+        description: `Authera execution ${reserved.executionId}`,
       });
     } catch (error) {
       // Provider timeout/outage: leave a recoverable PENDING state, never a guessed success.

@@ -7,7 +7,7 @@ import type {
   PolicyCheck,
   ReasonCode,
   VerificationView,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import {
   getAgentById,
   getAgentKeyById,
@@ -19,8 +19,8 @@ import {
   listAuditEvents,
   type Database,
   type PaymentRow,
-} from '@agentcerta/db';
-import { describeReason, hashCanonical } from '@agentcerta/domain';
+} from '@authera/db';
+import { describeReason, hashCanonical } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 import { effectiveRuntimeStatus } from './mandate-service.js';
@@ -180,15 +180,15 @@ export class ExecutionViews {
 // Lists and receipts (console read models)
 // ---------------------------------------------------------------------------
 
-import type { ExecutionSummary, PurchaseReceipt } from '@agentcerta/contracts';
+import type { ExecutionSummary, PurchaseReceipt } from '@authera/contracts';
 import {
   getMandate,
   getOffer,
   getPaymentMethodById,
   listExecutions,
   listMerchants,
-} from '@agentcerta/db';
-import { describeMandatePolicy } from '@agentcerta/domain';
+} from '@authera/db';
+import { describeMandatePolicy } from '@authera/domain';
 import { offerSummary } from './checkout-service.js';
 
 export async function listExecutionSummaries(
@@ -238,7 +238,7 @@ export async function purchaseReceipt(
     : undefined;
   let mandate: PurchaseReceipt['mandate'] = null;
   if (aggregate) {
-    const { getAgentById } = await import('@agentcerta/db');
+    const { getAgentById } = await import('@authera/db');
     const agent = await getAgentById(deps.db, aggregate.mandate.agentId);
     const paymentMethod = await getPaymentMethodById(deps.db, aggregate.policy.paymentMethodRef);
     const merchants = (await listMerchants(deps.db)).filter((m) =>

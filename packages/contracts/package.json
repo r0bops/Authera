@@ -1,9 +1,9 @@
 {
-  "name": "@agentcerta/contracts",
+  "name": "@authera/contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Shared external shapes and Zod schemas for AgentCerta APIs",
+  "description": "Shared external shapes and Zod schemas for Authera APIs",
   "exports": {
     ".": {
       "types": "./src/index.ts",

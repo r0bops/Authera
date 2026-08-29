@@ -3,9 +3,9 @@ import {
   ApprovalDecisionRequestSchema,
   CreateDisputeRequestSchema,
   EvidenceRoleSchema,
-} from '@agentcerta/contracts';
-import { verifyAuditChain, type Database } from '@agentcerta/db';
-import { canonicalJson } from '@agentcerta/domain';
+} from '@authera/contracts';
+import { verifyAuditChain, type Database } from '@authera/db';
+import { canonicalJson } from '@authera/domain';
 import { ok, type AppEnv } from '../../http/envelope.js';
 import { ApiProblem, formatZodIssues } from '../../http/problem.js';
 import { idempotent } from '../../middleware/idempotency.js';
@@ -95,7 +95,7 @@ export function ugliesRoutes(deps: {
     const bundle = await deps.evidence.bundle(executionId, 'auditor');
     return c.body(canonicalJson(bundle), 200, {
       'content-type': 'application/json; charset=utf-8',
-      'content-disposition': `attachment; filename="agentcerta-evidence-${executionId}.json"`,
+      'content-disposition': `attachment; filename="authera-evidence-${executionId}.json"`,
       'cache-control': 'no-store',
     });
   });

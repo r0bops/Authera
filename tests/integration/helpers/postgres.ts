@@ -7,8 +7,8 @@ import {
   type Database,
   type DatabasePool,
   type SeedInput,
-} from '@agentcerta/db';
-import { loadKeyMaterial, type KeyMaterial } from '@agentcerta/domain';
+} from '@authera/db';
+import { loadKeyMaterial, type KeyMaterial } from '@authera/domain';
 
 export const POSTGRES_IMAGE = 'postgres:18-alpine';
 export const TEST_DEMO_SECRET = 'integration-test-demo-secret';

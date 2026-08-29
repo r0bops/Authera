@@ -46,7 +46,7 @@ export const NOT_READY_ERROR_CODE = 'NOT_READY';
 
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key';
 export const CSRF_HEADER = 'X-Requested-With';
-export const CSRF_HEADER_VALUE = 'AgentCerta';
+export const CSRF_HEADER_VALUE = 'Authera';
 
 export const MeResponseSchema = z.object({
   user: z.object({ id: z.uuid(), email: z.string(), displayName: z.string() }),

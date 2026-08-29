@@ -1,4 +1,4 @@
-import type { ApprovalView, Money } from '@agentcerta/contracts';
+import type { ApprovalView, Money } from '@authera/contracts';
 import {
   decideApproval,
   getApprovalRequest,
@@ -10,8 +10,8 @@ import {
   type ApprovalRow,
   type Database,
   type UserRow,
-} from '@agentcerta/db';
-import { describeMandatePolicy, describeReason } from '@agentcerta/domain';
+} from '@authera/db';
+import { describeMandatePolicy, describeReason } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 import type { Logger } from '../logger.js';

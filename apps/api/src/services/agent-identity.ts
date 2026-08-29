@@ -7,8 +7,8 @@ import {
   listAgentsForUser,
   type AppendAuditEventInput,
   type Database,
-} from '@agentcerta/db';
-import type { Ed25519PublicJwk } from '@agentcerta/domain';
+} from '@authera/db';
+import type { Ed25519PublicJwk } from '@authera/domain';
 
 export interface ResolvedAgentKey {
   agentId: string;

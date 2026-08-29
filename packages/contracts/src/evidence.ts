@@ -99,7 +99,7 @@ export const EvidenceRoleSchema = z.enum(['human', 'merchant', 'auditor']);
 export type EvidenceRole = z.infer<typeof EvidenceRoleSchema>;
 
 export const EvidenceBundleSchema = z.object({
-  schema: z.literal('agentcerta.evidence.v1'),
+  schema: z.literal('authera.evidence.v1'),
   evidenceId: z.string(),
   executionId: z.uuid(),
   generatedAt: z.iso.datetime(),

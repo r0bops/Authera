@@ -1,4 +1,4 @@
-# AgentCerta Demo Runbook (trial by fire)
+# Authera Demo Runbook (trial by fire)
 
 Five minutes, one screen, no developer tools. Everything below works offline with `PAYMENT_MODE=mock` and `OPENAI_MODE=scripted`.
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
-import type { CreateMandateRequest } from '@agentcerta/contracts';
+import type { CreateMandateRequest } from '@authera/contracts';
 import { useCreateMandate, useMe } from '../api/hooks.js';
 import {
   Alert,

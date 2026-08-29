@@ -1,6 +1,6 @@
 import { desc, eq, sql } from 'drizzle-orm';
-import type { Decision, ExecutionState, PolicyCheck, ReasonCode } from '@agentcerta/contracts';
-import { executionMachine, transition } from '@agentcerta/domain';
+import type { Decision, ExecutionState, PolicyCheck, ReasonCode } from '@authera/contracts';
+import { executionMachine, transition } from '@authera/domain';
 import { isUniqueViolation, type DbExecutor } from '../client.js';
 import { executions } from '../schema.js';
 

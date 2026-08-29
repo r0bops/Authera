@@ -4,7 +4,7 @@ import type {
   DisputeResolution,
   PolicyCheck,
   ReasonCode,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 
 /** The facts the resolver needs — all derived from stored evidence, never from an LLM. */
 export interface DisputeEvidence {

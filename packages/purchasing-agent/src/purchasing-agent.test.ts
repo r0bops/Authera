@@ -1,4 +1,4 @@
-import type { PurchaseAttemptResponse } from '@agentcerta/contracts';
+import type { PurchaseAttemptResponse } from '@authera/contracts';
 import { ScriptedModel, functionCall } from '@openai/agents/testing';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -244,9 +244,9 @@ describe('mode selection and offline fallback', () => {
       result: { outcome: 'PURCHASE_REQUESTED', executedMode: 'scripted' },
     });
     expect(calls.map(({ path, tag }) => ({ path: path.split('?')[0], tag }))).toEqual([
-      { path: '/api/flights', tag: 'agentcerta:browse' },
-      { path: '/ucp/v1/checkout-sessions', tag: 'agentcerta:browse' },
-      { path: '/api/purchase-attempts', tag: 'agentcerta:payment' },
+      { path: '/api/flights', tag: 'authera:browse' },
+      { path: '/ucp/v1/checkout-sessions', tag: 'authera:browse' },
+      { path: '/api/purchase-attempts', tag: 'authera:payment' },
     ]);
     expect(calls[2]?.body).toEqual({
       executionId: ID.execution,
@@ -309,7 +309,7 @@ describe('signed gateway adapter and operational guardrails', () => {
     await transport.request({
       method: 'GET',
       path: '/api/flights',
-      tag: 'agentcerta:browse',
+      tag: 'authera:browse',
       query: { to: '2026-09-30', origin: 'CCS' },
     });
 
@@ -317,7 +317,7 @@ describe('signed gateway adapter and operational guardrails', () => {
       {
         method: 'GET',
         path: '/api/flights?origin=CCS&to=2026-09-30',
-        tag: 'agentcerta:browse',
+        tag: 'authera:browse',
       },
     ]);
   });
@@ -334,7 +334,7 @@ describe('signed gateway adapter and operational guardrails', () => {
       transport.request({
         method: 'POST',
         path: '/api/purchase-attempts',
-        tag: 'agentcerta:payment',
+        tag: 'authera:payment',
       }),
     ).rejects.toEqual(
       expect.objectContaining({
@@ -364,7 +364,7 @@ describe('signed gateway adapter and operational guardrails', () => {
       {
         method: 'GET',
         path: '/api/flights',
-        tag: 'agentcerta:browse',
+        tag: 'authera:browse',
         query: {
           origin: 'CCS',
           destination: 'COR',
@@ -376,7 +376,7 @@ describe('signed gateway adapter and operational guardrails', () => {
       {
         method: 'POST',
         path: '/ucp/v1/checkout-sessions',
-        tag: 'agentcerta:browse',
+        tag: 'authera:browse',
         body: { offerId: ID.offer130 },
         signal: undefined,
       },
@@ -417,7 +417,7 @@ describe('signed gateway adapter and operational guardrails', () => {
       {
         method: 'POST',
         path: '/api/purchase-attempts',
-        tag: 'agentcerta:payment',
+        tag: 'authera:payment',
         body: {
           executionId: ID.execution,
           mandateId: ID.mandate,
@@ -499,7 +499,7 @@ function checkoutSession(offerId: string, checkoutId: string, totalMinor: number
     offerId,
     status: 'OPEN',
     cart: {
-      schema: 'agentcerta.cart.v1',
+      schema: 'authera.cart.v1',
       merchantId: offerView.merchantId,
       offerId,
       lineItems: [{ offerId, description: offerView.summary, quantity: 1, unitPrice: total }],

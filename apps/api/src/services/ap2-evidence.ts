@@ -7,12 +7,12 @@ import {
   type Ap2AlignedEvidenceEnvelope,
   type Ap2AlignedEvidencePayload,
   type EvidenceBundle,
-} from '@agentcerta/contracts';
-import type { KeyPair } from '@agentcerta/domain';
+} from '@authera/contracts';
+import type { KeyPair } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 
-const AP2_EVIDENCE_TYPE = 'agentcerta-ap2-aligned+jwt';
+const AP2_EVIDENCE_TYPE = 'authera-ap2-aligned+jwt';
 const UCP_CHECKOUT_TYPE = 'ucp-checkout+jwt';
 
 export interface EvidenceBundleProvider {
@@ -63,7 +63,7 @@ export class Ap2EvidenceService {
       cart_hash: bundle.checkout.cartHash,
     })
       .setProtectedHeader({ alg: 'EdDSA', kid: this.deps.merchantKey.kid, typ: UCP_CHECKOUT_TYPE })
-      .setIssuer('agentcerta:merchant:vuelaya')
+      .setIssuer('authera:merchant:vuelaya')
       .setAudience('ap2:shopping-agent')
       .setSubject(bundle.checkout.id)
       .setJti(randomUUID())
@@ -83,7 +83,7 @@ export class Ap2EvidenceService {
         }
       : null;
     const payload: Ap2AlignedEvidencePayload = {
-      schema: 'agentcerta.ap2-aligned-evidence.v1',
+      schema: 'authera.ap2-aligned-evidence.v1',
       alignment: {
         protocol: 'AP2',
         version: AP2_ALIGNED_VERSION,
@@ -123,7 +123,7 @@ export class Ap2EvidenceService {
     };
     const jws = await new SignJWT(payload)
       .setProtectedHeader({ alg: 'EdDSA', kid: this.deps.merchantKey.kid, typ: AP2_EVIDENCE_TYPE })
-      .setIssuer('agentcerta:merchant:vuelaya')
+      .setIssuer('authera:merchant:vuelaya')
       .setAudience('ap2:dispute-evidence')
       .setSubject(bundle.executionId)
       .setIssuedAt(Math.floor(now.getTime() / 1000))

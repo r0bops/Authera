@@ -56,9 +56,7 @@ export function ed25519FromPrivateJwk(jwk: Ed25519PrivateJwk, kidPrefix: string)
 
 /** Derive a purpose-specific 32-byte seed from a shared secret (HKDF-like, SHA-256). */
 export function seedFromSecret(secret: string, purpose: string): Uint8Array {
-  return new Uint8Array(
-    createHash('sha256').update(`agentcerta-key:${purpose}:${secret}`).digest(),
-  );
+  return new Uint8Array(createHash('sha256').update(`authera-key:${purpose}:${secret}`).digest());
 }
 
 export function publicJwkOf(pair: KeyPair): Ed25519PublicJwk {

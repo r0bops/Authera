@@ -1,4 +1,4 @@
-# AgentCerta Architecture
+# Authera Architecture
 
 ## System overview
 
@@ -26,7 +26,7 @@ Authority lives in exactly two places: the **pure policy engine** (deterministic
 ```mermaid
 sequenceDiagram
   participant Agent
-  participant API as AgentCerta API
+  participant API as Authera API
   participant DB as PostgreSQL
   participant Pay as PaymentProcessor
 

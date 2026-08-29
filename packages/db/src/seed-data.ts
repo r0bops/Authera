@@ -1,4 +1,4 @@
-import type { Cabin, Currency } from '@agentcerta/contracts';
+import type { Cabin, Currency } from '@authera/contracts';
 
 /**
  * Deterministic demo scenario (spec §3 P0): Marta, VuelaYa, one purchasing agent, one

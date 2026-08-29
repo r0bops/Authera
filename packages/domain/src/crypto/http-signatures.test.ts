@@ -31,7 +31,7 @@ function signed(
   const headers = signRequest(request, {
     privateJwk: keys.agent.privateJwk,
     keyid: keys.agent.thumbprint,
-    tag: 'agentcerta:payment',
+    tag: 'authera:payment',
     nonce: 'nonce-1',
     created: NOW,
     expires: new Date(NOW.getTime() + 120_000),
@@ -51,7 +51,7 @@ const verify = (
   verifyRequestSignature(req, {
     resolvePublicJwk: resolve,
     now: NOW,
-    requiredTag: 'agentcerta:payment',
+    requiredTag: 'authera:payment',
     ...opts,
   });
 
@@ -107,7 +107,7 @@ describe('RFC 9421 request signatures', () => {
     expect(
       await verify(signed({ components: ['@method', '@authority', '@path', 'content-digest'] })),
     ).toMatchObject({ ok: false, reason: 'missing_component' });
-    expect(await verify(signed({ tag: 'agentcerta:browse' }))).toMatchObject({
+    expect(await verify(signed({ tag: 'authera:browse' }))).toMatchObject({
       ok: false,
       reason: 'tag_mismatch',
     });
@@ -135,7 +135,7 @@ describe('RFC 9421 request signatures', () => {
 
   it('signs an empty body (GET) with a valid digest', async () => {
     const req = signed(
-      { tag: 'agentcerta:browse' },
+      { tag: 'authera:browse' },
       {
         method: 'GET',
         url: 'http://localhost:3000/api/flights?origin=CCS',
@@ -143,6 +143,6 @@ describe('RFC 9421 request signatures', () => {
         body: new Uint8Array(),
       },
     );
-    expect((await verify(req, { requiredTag: 'agentcerta:browse' })).ok).toBe(true);
+    expect((await verify(req, { requiredTag: 'authera:browse' })).ok).toBe(true);
   });
 });

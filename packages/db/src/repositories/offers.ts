@@ -7,7 +7,7 @@ import type {
   Currency,
   Offer,
   OfferStatus,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import type { DbExecutor } from '../client.js';
 import { checkouts, offers } from '../schema.js';
 

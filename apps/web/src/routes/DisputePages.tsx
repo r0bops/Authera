@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import type { DisputeReason } from '@agentcerta/contracts';
+import type { DisputeReason } from '@authera/contracts';
 import { useDispute, useDisputes, useEvidence, useOpenDispute, usePurchase } from '../api/hooks.js';
 import {
   Alert,

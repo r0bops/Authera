@@ -1,4 +1,4 @@
-import { PurchaseAttemptResponseSchema } from '@agentcerta/contracts';
+import { PurchaseAttemptResponseSchema } from '@authera/contracts';
 import { z } from 'zod';
 
 export const SearchFlightsInputSchema = z.strictObject({

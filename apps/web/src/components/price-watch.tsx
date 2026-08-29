@@ -1,4 +1,4 @@
-import type { FlightOfferView, MandateView } from '@agentcerta/contracts';
+import type { FlightOfferView, MandateView } from '@authera/contracts';
 import { formatMoney } from '../lib/format.js';
 import { Badge, Table, Td, Th } from './ui/primitives.js';
 

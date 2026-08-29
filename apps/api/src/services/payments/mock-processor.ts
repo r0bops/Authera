@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { PaymentEvent, PaymentEventType } from '@agentcerta/contracts';
-import { PaymentEventSchema } from '@agentcerta/contracts';
+import type { PaymentEvent, PaymentEventType } from '@authera/contracts';
+import { PaymentEventSchema } from '@authera/contracts';
 import type { Clock } from '../../clock.js';
 import type {
   CheckoutSessionInput,

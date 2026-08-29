@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { PaymentEvent } from '@agentcerta/contracts';
+import type { PaymentEvent } from '@authera/contracts';
 import { fixedClock } from '../../clock.js';
 import { MockPaymentProcessor } from './mock-processor.js';
 

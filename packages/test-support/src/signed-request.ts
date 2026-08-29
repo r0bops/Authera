@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { signRequest, type KeyPair } from '@agentcerta/domain';
+import { signRequest, type KeyPair } from '@authera/domain';
 
 export interface SignedRequestOptions {
   keyPair: KeyPair;

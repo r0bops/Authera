@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import {
-  MandatePolicyV1Schema,
-  type MandatePolicyV1,
-  type MandateState,
-} from '@agentcerta/contracts';
+import { MandatePolicyV1Schema, type MandatePolicyV1, type MandateState } from '@authera/contracts';
 import type { Database, DbExecutor } from '../client.js';
 import { mandateRuntime, mandateVersions, mandates } from '../schema.js';
 import { appendAuditEvent } from './audit.js';

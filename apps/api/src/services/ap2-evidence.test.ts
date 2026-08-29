@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { decodeJwt, importJWK, jwtVerify } from 'jose';
 import { describe, expect, it } from 'vitest';
-import type { EvidenceBundle } from '@agentcerta/contracts';
-import { loadKeyMaterial } from '@agentcerta/domain';
+import type { EvidenceBundle } from '@authera/contracts';
+import { loadKeyMaterial } from '@authera/domain';
 import { fixedClock } from '../clock.js';
 import { Ap2EvidenceService } from './ap2-evidence.js';
 
@@ -32,7 +32,7 @@ function evidence(overrides: Partial<EvidenceBundle> = {}): EvidenceBundle {
       bound: true,
       cartHash: 'cart-hash',
       cart: {
-        schema: 'agentcerta.cart.v1',
+        schema: 'authera.cart.v1',
         merchantId: '00000000-0000-4000-8000-000000000004',
         offerId: '00000000-0000-4000-8000-000000000005',
         lineItems: [
@@ -83,9 +83,9 @@ describe('AP2 v0.2-aligned evidence', () => {
     );
     await expect(
       jwtVerify(envelope.jws, publicKey, {
-        issuer: 'agentcerta:merchant:vuelaya',
+        issuer: 'authera:merchant:vuelaya',
         audience: 'ap2:dispute-evidence',
-        typ: 'agentcerta-ap2-aligned+jwt',
+        typ: 'authera-ap2-aligned+jwt',
       }),
     ).resolves.toBeDefined();
     expect(decodeJwt(envelope.jws).execution_id).toBe(EXECUTION_ID);

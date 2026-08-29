@@ -56,9 +56,9 @@ export default defineConfig(
                 'drizzle-orm',
                 'drizzle-orm/*',
                 'drizzle-kit',
-                '@agentcerta/db',
-                '@agentcerta/api',
-                '@agentcerta/web',
+                '@authera/db',
+                '@authera/api',
+                '@authera/web',
               ],
               message:
                 'packages/domain must stay pure: no HTTP, React, OpenAI, Yuno, or database imports.',

@@ -4,8 +4,8 @@ import {
   type PolicyInput,
   type PurchaseAttemptResponse,
   type ReasonCode,
-} from '@agentcerta/contracts';
-import { describeReason, evaluatePolicy, hashCanonical } from '@agentcerta/domain';
+} from '@authera/contracts';
+import { describeReason, evaluatePolicy, hashCanonical } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem, formatZodIssues } from '../http/problem.js';
 import type { Logger } from '../logger.js';

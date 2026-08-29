@@ -9,7 +9,7 @@ import {
   DemoReplayRequestSchema,
   DemoTimeRequestSchema,
   type DemoState,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import {
   getCheckout,
   insertOffer,
@@ -18,7 +18,7 @@ import {
   tamperCheckoutCart,
   type Database,
   type SeedInput,
-} from '@agentcerta/db';
+} from '@authera/db';
 import type { Clock } from '../../clock.js';
 import type { AppConfig } from '../../config.js';
 import { ok, type AppEnv } from '../../http/envelope.js';

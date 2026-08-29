@@ -11,7 +11,7 @@ function build() {
       ? c.json({ code: error.code }, error.status)
       : c.json({ code: 'X' }, 500),
   );
-  app.use('*', csrfGuard({ publicBaseUrl: 'https://agentcerta.example' }));
+  app.use('*', csrfGuard({ publicBaseUrl: 'https://authera.example' }));
   app.post('/api/x', (c) => c.json({ ok: true }));
   app.get('/api/x', (c) => c.json({ ok: true }));
   return app;
@@ -28,21 +28,21 @@ describe('csrfGuard', () => {
       (
         await build().request('/api/x', {
           method: 'POST',
-          headers: { 'X-Requested-With': 'AgentCerta' },
+          headers: { 'X-Requested-With': 'Authera' },
         })
       ).status,
     ).toBe(200);
   });
 
   it('accepts same-origin browsers and rejects cross-site ones', async () => {
-    const headers = { 'X-Requested-With': 'AgentCerta' };
+    const headers = { 'X-Requested-With': 'Authera' };
     expect(
       (
         await build().request('/api/x', {
           method: 'POST',
           headers: {
             ...headers,
-            origin: 'https://agentcerta.example',
+            origin: 'https://authera.example',
             'sec-fetch-site': 'same-origin',
           },
         })

@@ -16,7 +16,7 @@ export interface CreateLoggerOptions {
 export function createLogger(options: CreateLoggerOptions): Logger {
   return pino({
     level: options.level,
-    base: { service: 'agentcerta-api' },
+    base: { service: 'authera-api' },
     redact: {
       paths: [
         'req.headers.authorization',

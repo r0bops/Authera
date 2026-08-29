@@ -5,8 +5,8 @@ import type {
   MandateState,
   MandateView,
   ReviseMandateRequest,
-} from '@agentcerta/contracts';
-import { MandatePolicyV1Schema } from '@agentcerta/contracts';
+} from '@authera/contracts';
+import { MandatePolicyV1Schema } from '@authera/contracts';
 import {
   createMandate,
   getAgentById,
@@ -22,8 +22,8 @@ import {
   type Database,
   type MandateAggregate,
   type UserRow,
-} from '@agentcerta/db';
-import { describeMandatePolicy } from '@agentcerta/domain';
+} from '@authera/db';
+import { describeMandatePolicy } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem, formatZodIssues } from '../http/problem.js';
 import type { Logger } from '../logger.js';
@@ -70,7 +70,7 @@ export class MandateService {
     }
 
     const candidate = {
-      schema: 'agentcerta.mandate.v1' as const,
+      schema: 'authera.mandate.v1' as const,
       mandateId: randomUUID(),
       version: 1,
       humanId: user.id,
@@ -235,7 +235,7 @@ export class MandateService {
   }
 
   private async defaultAgentId(user: UserRow): Promise<string> {
-    const { listAgentsForUser } = await import('@agentcerta/db');
+    const { listAgentsForUser } = await import('@authera/db');
     const agents = (await listAgentsForUser(this.deps.db, user.id)).filter(
       (a) => a.status === 'ACTIVE',
     );

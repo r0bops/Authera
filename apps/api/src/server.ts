@@ -9,8 +9,8 @@ import {
   createPool,
   runMigrations,
   seedDemo,
-} from '@agentcerta/db';
-import { loadKeyMaterial } from '@agentcerta/domain';
+} from '@authera/db';
+import { loadKeyMaterial } from '@authera/domain';
 import { createApp } from './app.js';
 import { createClock } from './clock.js';
 import { ConfigError, loadConfig, type AppConfig } from './config.js';
@@ -108,7 +108,7 @@ async function main(): Promise<void> {
         demoMode: config.demo.enabled,
         staticDir: webDistDir ?? null,
       },
-      'AgentCerta API listening',
+      'Authera API listening',
     );
   });
 

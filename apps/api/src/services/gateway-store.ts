@@ -1,11 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  Decision,
-  ExecutionState,
-  Money,
-  PolicyCheck,
-  ReasonCode,
-} from '@agentcerta/contracts';
+import type { Decision, ExecutionState, Money, PolicyCheck, ReasonCode } from '@authera/contracts';
 import {
   consumeApproval,
   createApprovalRequest,
@@ -27,9 +21,9 @@ import {
   type ExecutionRow,
   type MandateAggregate,
   type ReserveUsageResult,
-} from '@agentcerta/db';
-import type { Checkout, Offer } from '@agentcerta/contracts';
-import type { Ed25519PublicJwk } from '@agentcerta/domain';
+} from '@authera/db';
+import type { Checkout, Offer } from '@authera/contracts';
+import type { Ed25519PublicJwk } from '@authera/domain';
 
 export interface ExecutionRecord {
   id: string;

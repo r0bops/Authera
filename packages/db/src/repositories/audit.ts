@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { asc, eq, sql } from 'drizzle-orm';
-import type { ActorType, AuditEvent, AuditEventType, ReasonCode } from '@agentcerta/contracts';
-import { describeAuditEvent, hashCanonical } from '@agentcerta/domain';
+import type { ActorType, AuditEvent, AuditEventType, ReasonCode } from '@authera/contracts';
+import { describeAuditEvent, hashCanonical } from '@authera/domain';
 import type { DbExecutor } from '../client.js';
 import { auditChainHeads, auditEvents } from '../schema.js';
 

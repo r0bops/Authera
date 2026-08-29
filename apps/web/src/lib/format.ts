@@ -1,4 +1,4 @@
-import type { Money } from '@agentcerta/contracts';
+import type { Money } from '@authera/contracts';
 
 export function formatMoney(value: Money | null | undefined): string {
   if (!value) return '—';

@@ -1,4 +1,4 @@
-import type { AuditEventType, Money, ReasonCode } from '@agentcerta/contracts';
+import type { AuditEventType, Money, ReasonCode } from '@authera/contracts';
 import { formatMoney } from '../money/index.js';
 
 /** Optional context that makes a reason sentence concrete. All fields are optional. */
@@ -28,7 +28,7 @@ const REASON_TEMPLATES: Record<ReasonCode, (ctx: ReasonContext) => string> = {
   SIGNATURE_INVALID: () => 'Blocked: the request signature did not verify.',
   REQUEST_EXPIRED: () => 'Blocked: the signed request was outside its validity window.',
   REPLAY_DETECTED: () => 'Blocked: this signed request was already used once.',
-  MANDATE_INVALID: () => 'Blocked: the mandate document is not a valid AgentCerta mandate.',
+  MANDATE_INVALID: () => 'Blocked: the mandate document is not a valid Authera mandate.',
   MANDATE_NOT_ACTIVE: () => 'Blocked: the mandate has not been activated.',
   MANDATE_NOT_YET_VALID: () => 'Blocked: the mandate is not valid yet.',
   MANDATE_EXPIRED: (ctx) =>

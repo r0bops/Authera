@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { UCP_PINNED_VERSION } from '@agentcerta/contracts';
-import { SEED_IDS, type Database } from '@agentcerta/db';
-import { signRequest, type KeyMaterial } from '@agentcerta/domain';
+import { UCP_PINNED_VERSION } from '@authera/contracts';
+import { SEED_IDS, type Database } from '@authera/db';
+import { signRequest, type KeyMaterial } from '@authera/domain';
 import type { Clock } from '../../clock.js';
 import type { AppConfig } from '../../config.js';
 import { fail, type AppEnv } from '../../http/envelope.js';
@@ -108,7 +108,7 @@ export function discoveryRoutes(deps: {
       status: entry.status,
       signature_agent: entry.profileUri,
       keys: entry.keys,
-      capabilities: ['agentcerta.mandate.v1', 'ucp.checkout'],
+      capabilities: ['authera.mandate.v1', 'ucp.checkout'],
       gateway: `${deps.config.publicBaseUrl}/api/purchase-attempts`,
     });
   });

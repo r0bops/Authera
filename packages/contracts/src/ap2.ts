@@ -44,7 +44,7 @@ export const Ap2PaymentEvidenceSchema = z.strictObject({
 });
 
 export const Ap2AlignedEvidencePayloadSchema = z.strictObject({
-  schema: z.literal('agentcerta.ap2-aligned-evidence.v1'),
+  schema: z.literal('authera.ap2-aligned-evidence.v1'),
   alignment: Ap2AlignmentSchema,
   evidence_id: z.string().min(1),
   execution_id: z.uuid(),

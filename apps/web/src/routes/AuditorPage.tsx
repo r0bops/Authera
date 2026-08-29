@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import type { AuditEvent } from '@agentcerta/contracts';
+import type { AuditEvent } from '@authera/contracts';
 import { useAuditEvents, useChainVerification, useMandates } from '../api/hooks.js';
 import { eventTone } from '../components/status.js';
 import {

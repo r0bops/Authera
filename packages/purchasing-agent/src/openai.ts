@@ -114,7 +114,7 @@ export async function runOpenAiPurchasingAgent(
   });
 
   const agent = new Agent({
-    name: 'AgentCerta purchasing agent',
+    name: 'Authera purchasing agent',
     instructions: [
       'You discover flights and may request one purchase, but you never authorize payments.',
       'Call search_flights first using the exact route and date range in the task.',
@@ -131,7 +131,7 @@ export async function runOpenAiPurchasingAgent(
   const runner = new Runner({
     tracingDisabled: true,
     traceIncludeSensitiveData: false,
-    workflowName: 'AgentCerta purchasing agent',
+    workflowName: 'Authera purchasing agent',
   });
 
   try {

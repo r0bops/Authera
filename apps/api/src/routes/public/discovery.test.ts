@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadKeyMaterial } from '@agentcerta/domain';
+import { loadKeyMaterial } from '@authera/domain';
 import { CapabilityDiscoverySchema, ServiceResponseSchema } from '../../integrations/ucp-sdk.js';
 import { buildUcpDiscoveryProfile, UCP_VERSION } from './discovery.js';
 

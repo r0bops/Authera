@@ -18,7 +18,7 @@ import type {
   PurchaseReceipt,
   ReviseMandateRequest,
   VerificationView,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import { api } from './client.js';
 
 export const keys = {
@@ -253,7 +253,7 @@ import type {
   CreateDisputeRequest,
   DisputeView,
   EvidenceBundle,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 
 export function useApprovals() {
   const interval = usePollInterval();

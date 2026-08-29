@@ -3,7 +3,7 @@ import {
   CSRF_HEADER_VALUE,
   IDEMPOTENCY_KEY_HEADER,
   type ApiResult,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 
 export class ApiError extends Error {
   constructor(

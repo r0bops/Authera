@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { CreateCheckoutSessionRequestSchema } from '@agentcerta/contracts';
+import { CreateCheckoutSessionRequestSchema } from '@authera/contracts';
 import { ok, type AppEnv } from '../../http/envelope.js';
 import { ApiProblem, formatZodIssues } from '../../http/problem.js';
 import type { CheckoutService } from '../../services/checkout-service.js';

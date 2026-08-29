@@ -74,7 +74,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <aside className="flex flex-col border-r border-line bg-surface">
         <div className="flex h-12 items-center gap-2 border-b border-line px-4">
           <span className="h-2.5 w-2.5 rounded-sm bg-cobalt" aria-hidden />
-          <span className="text-[14px] font-semibold tracking-tight">AgentCerta</span>
+          <span className="text-[14px] font-semibold tracking-tight">Authera</span>
         </div>
         <nav className="flex flex-1 flex-col gap-0.5 p-2.5">
           <p className="px-2.5 pt-1 pb-1.5 text-[10.5px] font-semibold tracking-wider text-ink-faint uppercase">

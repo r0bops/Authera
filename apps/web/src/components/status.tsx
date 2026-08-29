@@ -5,7 +5,7 @@ import type {
   MandateState,
   PolicyCheck,
   ReasonCode,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import { Check, X } from 'lucide-react';
 import { formatTime, shortHash, shortId } from '../lib/format.js';
 import { Badge, Table, Td, Th, type Tone } from './ui/primitives.js';

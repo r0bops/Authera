@@ -5,7 +5,7 @@ export default defineConfig({
   schema: './src/schema.ts',
   out: './migrations',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://agentcerta:agentcerta@localhost:5432/agentcerta',
+    url: process.env.DATABASE_URL ?? 'postgres://authera:authera@localhost:5432/authera',
   },
   strict: true,
   verbose: true,

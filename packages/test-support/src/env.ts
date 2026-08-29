@@ -8,7 +8,7 @@ export function testEnv(overrides: EnvSource = {}): EnvSource {
   return {
     NODE_ENV: 'test',
     PORT: '0',
-    DATABASE_URL: 'postgres://agentcerta:agentcerta@127.0.0.1:1/agentcerta_test',
+    DATABASE_URL: 'postgres://authera:authera@127.0.0.1:1/authera_test',
     PUBLIC_BASE_URL: 'http://localhost:3000',
     LOG_LEVEL: 'silent',
     SESSION_SECRET: 'test-session-secret-0123456789abcdef0123456789',

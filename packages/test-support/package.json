@@ -1,9 +1,9 @@
 {
-  "name": "@agentcerta/test-support",
+  "name": "@authera/test-support",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Test helpers for AgentCerta: env builders, clocks, factories, fakes",
+  "description": "Test helpers for Authera: env builders, clocks, factories, fakes",
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -18,7 +18,7 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
-    "@agentcerta/contracts": "workspace:*",
-    "@agentcerta/domain": "workspace:*"
+    "@authera/contracts": "workspace:*",
+    "@authera/domain": "workspace:*"
   }
 }

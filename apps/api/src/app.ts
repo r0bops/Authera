@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
-import type { ReadinessCheck } from '@agentcerta/contracts';
-import type { Database, SeedInput } from '@agentcerta/db';
-import type { KeyMaterial } from '@agentcerta/domain';
+import type { ReadinessCheck } from '@authera/contracts';
+import type { Database, SeedInput } from '@authera/db';
+import type { KeyMaterial } from '@authera/domain';
 import type { Clock } from './clock.js';
 import type { AppConfig } from './config.js';
 import { fail, type AppEnv } from './http/envelope.js';

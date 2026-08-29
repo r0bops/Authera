@@ -1,8 +1,8 @@
-# AgentCerta
+# Authera
 
 **The mandate gateway for agentic commerce.**
 
-Every payment system assumes the one pressing "pay" is a person. AgentCerta is what a merchant puts in front of its checkout when the buyer is an AI agent: a human signs a bounded **mandate**, the agent shops with a cryptographic identity and submits *identifiers only*, and a deterministic gateway decides — `ALLOW`, `BLOCK`, or `REQUIRE_HUMAN` — reserves the allowance atomically in PostgreSQL, and only then pays. Every party gets a readable record; disputes are settled from evidence, not from anyone's word.
+Every payment system assumes the one pressing "pay" is a person. Authera is what a merchant puts in front of its checkout when the buyer is an AI agent: a human signs a bounded **mandate**, the agent shops with a cryptographic identity and submits *identifiers only*, and a deterministic gateway decides — `ALLOW`, `BLOCK`, or `REQUIRE_HUMAN` — reserves the allowance atomically in PostgreSQL, and only then pays. Every party gets a readable record; disputes are settled from evidence, not from anyone's word.
 
 Built for **NextWave Hackathon 2026 — Challenge 1: Agentic Purchase Mandates** (Yuno × Nauta, supported by OpenAI).
 
@@ -12,7 +12,7 @@ Built for **NextWave Hackathon 2026 — Challenge 1: Agentic Purchase Mandates**
 
 ## The scenario
 
-Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Córdoba on VuelaYa for at most USD 150** before the end of the month, using a tokenized card. Aria watches prices. When a USD 130 offer appears, Aria requests the purchase; AgentCerta verifies Aria's signature, Marta's signed mandate, and the exact checkout, reserves the single allowed use, pays, and hands everyone a receipt. A USD 300 offer is blocked (or paused for Marta), a forged key is rejected, a replayed request is rejected, two racing attempts yield one purchase, and a live revocation stops the next attempt cold.
+Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Córdoba on VuelaYa for at most USD 150** before the end of the month, using a tokenized card. Aria watches prices. When a USD 130 offer appears, Aria requests the purchase; Authera verifies Aria's signature, Marta's signed mandate, and the exact checkout, reserves the single allowed use, pays, and hands everyone a receipt. A USD 300 offer is blocked (or paused for Marta), a forged key is rejected, a replayed request is rejected, two racing attempts yield one purchase, and a live revocation stops the next attempt cold.
 
 ## What the gateway guarantees
 

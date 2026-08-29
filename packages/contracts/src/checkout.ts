@@ -23,7 +23,7 @@ export const OfferSchema = z.strictObject({
 });
 export type Offer = z.infer<typeof OfferSchema>;
 
-export const CART_SCHEMA_ID = 'agentcerta.cart.v1' as const;
+export const CART_SCHEMA_ID = 'authera.cart.v1' as const;
 
 export const CartLineItemSchema = z.strictObject({
   offerId: z.uuid(),

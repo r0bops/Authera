@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { PaymentEvent, PaymentEventType } from '@agentcerta/contracts';
+import type { PaymentEvent, PaymentEventType } from '@authera/contracts';
 import { z } from 'zod';
 import type {
   CheckoutSessionInput,

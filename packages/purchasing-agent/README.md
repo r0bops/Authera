@@ -45,6 +45,6 @@ Mandate Gateway.
 ## Verification
 
 ```sh
-pnpm --filter @agentcerta/purchasing-agent typecheck
+pnpm --filter @authera/purchasing-agent typecheck
 pnpm exec vitest run --project unit packages/purchasing-agent/src/purchasing-agent.test.ts
 ```

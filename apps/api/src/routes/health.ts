@@ -5,7 +5,7 @@ import {
   type HealthLiveData,
   type HealthReadyData,
   type ReadinessCheck,
-} from '@agentcerta/contracts';
+} from '@authera/contracts';
 import { fail, ok, type AppEnv } from '../http/envelope.js';
 
 export interface HealthDependencies {
