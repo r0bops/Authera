@@ -49,7 +49,14 @@ function checkoutFor(o: Offer): Checkout {
     schema: 'authera.cart.v1',
     merchantId: o.merchantId,
     offerId: o.id,
-    lineItems: [{ offerId: o.id, description: o.flightNumber, quantity: 1, unitPrice: o.total }],
+    lineItems: [
+      {
+        offerId: o.id,
+        description: o.kind === 'goods' ? (o.title ?? 'Product') : (o.flightNumber ?? 'Flight'),
+        quantity: 1,
+        unitPrice: o.total,
+      },
+    ],
     total: o.total,
   };
   return {
