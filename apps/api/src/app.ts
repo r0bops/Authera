@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
-import type { PurchaseAttemptResponse, ReadinessCheck } from '@agentcerta/contracts';
+import type { ReadinessCheck } from '@agentcerta/contracts';
 import type { Database } from '@agentcerta/db';
 import type { KeyMaterial } from '@agentcerta/domain';
 import type { Clock } from './clock.js';
@@ -20,20 +20,27 @@ import { purchaseAttemptRoutes } from './routes/gateway/purchase-attempts.js';
 import { healthRoutes } from './routes/health.js';
 import { consoleReadRoutes } from './routes/human/executions.js';
 import { discoveryRoutes } from './routes/public/discovery.js';
+import { mockWebhookRoutes, providerWebhookRoutes } from './routes/webhooks/webhooks.js';
 import { humanMandateRoutes } from './routes/human/mandates.js';
 import { meRoutes } from './routes/human/me.js';
 import { databaseAgentIdentityStore } from './services/agent-identity.js';
 import { CheckoutService } from './services/checkout-service.js';
 import { ExecutionViews } from './services/execution-views.js';
-import { MandateGateway, type ReservedExecution } from './services/gateway.js';
+import { MandateGateway } from './services/gateway.js';
 import { databaseGatewayStore } from './services/gateway-store.js';
 import { MandateService } from './services/mandate-service.js';
+import { MockPaymentProcessor } from './services/payments/mock-processor.js';
+import { databasePaymentStore } from './services/payments/payment-store.js';
+import { PaymentService } from './services/payments/payment-service.js';
+import type { PaymentProcessor } from './services/payments/processor.js';
 import { MandateSigner } from './services/mandate-signer.js';
 
 export interface AppServices {
   db: Database;
   keys: KeyMaterial;
   clock: Clock;
+  /** Selected by PAYMENT_MODE; the mock is the P0 reference implementation. */
+  paymentProcessor: PaymentProcessor;
 }
 
 export interface AppDependencies {
@@ -47,8 +54,6 @@ export interface AppDependencies {
   services?: AppServices;
   /** Absolute path of the compiled SPA. When omitted, no static files are served. */
   webDistDir?: string;
-  /** Payment hook after a committed reservation (Phase 6). */
-  onReserved?: (reserved: ReservedExecution) => Promise<Partial<PurchaseAttemptResponse>>;
 }
 
 export type App = Hono<AppEnv>;
@@ -83,7 +88,7 @@ export function createApp(deps: AppDependencies): App {
   );
 
   if (deps.services) {
-    const { db, keys, clock } = deps.services;
+    const { db, keys, clock, paymentProcessor } = deps.services;
     const sessionDeps = { db, config: deps.config, clock };
     const mandates = new MandateService({
       db,
@@ -98,11 +103,20 @@ export function createApp(deps: AppDependencies): App {
     // Signed agent lane: identity is verified here; authority is decided by the gateway.
     const identity = databaseAgentIdentityStore(db);
     const checkout = new CheckoutService({ db, clock });
+    const payments = new PaymentService({
+      store: databasePaymentStore(db),
+      processor: paymentProcessor,
+      clock,
+      logger: deps.logger,
+    });
+    if (paymentProcessor instanceof MockPaymentProcessor)
+      paymentProcessor.onWebhook((event) => payments.handleWebhook(event));
     const gateway = new MandateGateway({
       store: databaseGatewayStore(db),
       clock,
       logger: deps.logger,
-      ...(deps.onReserved ? { onReserved: deps.onReserved } : {}),
+      // Payment runs only after a committed reservation; BLOCK/REQUIRE_HUMAN never reach it.
+      onReserved: (reserved) => payments.executeReserved(reserved),
     });
     app.use('/api/agent/*', agentSignature({ store: identity, clock, tag: AGENT_TAGS.browse }));
     app.route('/api/agent', agentPingRoutes());
@@ -132,6 +146,15 @@ export function createApp(deps: AppDependencies): App {
     app.route('/api/me', meRoutes(sessionDeps));
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
     app.route('/api', consoleReadRoutes({ views, checkout }));
+
+    // Provider webhooks: raw-body verification inside the adapter. The mock webhook is a demo
+    // control (human session) and exists only when the mock processor is active in demo mode.
+    app.route('/webhooks', providerWebhookRoutes({ processor: paymentProcessor, payments }));
+    if (deps.config.demo.enabled && paymentProcessor instanceof MockPaymentProcessor) {
+      app.use('/webhooks/mock/*', sessionMiddleware(sessionDeps));
+      app.use('/webhooks/mock/*', csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
+      app.route('/webhooks', mockWebhookRoutes({ processor: paymentProcessor, payments }));
+    }
   }
 
   if (deps.webDistDir) {
