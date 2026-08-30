@@ -93,7 +93,8 @@ export function consoleReadRoutes(deps: {
     ) {
       throw ApiProblem.conflict('RECEIPT_NOT_AVAILABLE', 'The payment has not completed');
     }
-    return c.html(stripeStyleReceiptHtml(receipt));
+    const user = c.get('user')!;
+    return c.html(stripeStyleReceiptHtml(receipt, { name: user.displayName, email: user.email }));
   });
 
   routes.get('/purchases/:id/booking-confirmation.html', async (c) => {

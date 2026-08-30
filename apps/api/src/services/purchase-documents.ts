@@ -59,7 +59,10 @@ function cardBrandMark(label: string): string {
  * date, method, one summary line, the processor reference. In Stripe test mode the PaymentIntent
  * id is the real one; with the mock processor the document says so.
  */
-export function stripeStyleReceiptHtml(receipt: PurchaseReceipt): string {
+export function stripeStyleReceiptHtml(
+  receipt: PurchaseReceipt,
+  payer: { name: string; email: string } = { name: 'Customer', email: '' },
+): string {
   const { execution, offer, mandate } = receipt;
   const payment = execution.payment;
   if (execution.state !== 'SUCCEEDED' || payment?.state !== 'SUCCEEDED') {
@@ -69,43 +72,60 @@ export function stripeStyleReceiptHtml(receipt: PurchaseReceipt): string {
   const method = mandate?.paymentMethodLabel ?? 'Card';
   const isStripe = payment.provider === 'stripe';
   const reference = payment.providerPaymentId ?? 'Unavailable';
-  const receiptNumber = `${execution.id.replace(/-/g, '').slice(0, 4).toUpperCase()}-${execution.id.replace(/-/g, '').slice(4, 8).toUpperCase()}`;
-  const processor = isStripe
-    ? 'Payment processed by Stripe (test mode)'
-    : `Payment processed by the ${escapeHtml(payment.provider)} processor (demo)`;
+  const compact = execution.id.replace(/-/g, '').toUpperCase();
+  const receiptNumber = `${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
+  const paidOn = formatDate(payment.updatedAt ?? execution.createdAt);
+  const memo = mandate
+    ? `Bought by ${mandate.agentDisplayName.split(' — ')[0]} under your mandate ${mandate.id.slice(0, 8)} v${mandate.version} (up to ${formatMoney(mandate.maxPerPurchase)} per purchase).`
+    : 'Thanks for your business!';
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt from Authera</title>
 <style>
-  :root{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#32325d;background:#f6f9fc}*{box-sizing:border-box}
-  body{margin:0;padding:40px 16px}.wrap{max-width:600px;margin:auto}
-  .card{background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(50,50,93,.08);padding:36px 40px}
-  .brand{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}.brand .name{font-weight:600;font-size:15px;color:#32325d}.brand .badge{font-size:11px;color:#6b7c93;border:1px solid #e6ebf1;border-radius:4px;padding:3px 8px}
-  h1{font-size:22px;font-weight:500;margin:0 0 4px}.amount{font-size:36px;font-weight:600;margin:6px 0 2px;color:#32325d}.paid{color:#6b7c93;font-size:14px;margin:0 0 28px}
-  .meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;border-top:1px solid #e6ebf1;border-bottom:1px solid #e6ebf1;padding:16px 0;margin-bottom:24px}
-  .meta div{font-size:13px}.meta span{display:block;color:#8898aa;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
-  h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8898aa;font-weight:600;margin:0 0 10px}
-  table{width:100%;border-collapse:collapse;font-size:14px}td{padding:10px 0;border-bottom:1px solid #f0f3f7;vertical-align:top}td:last-child{text-align:right;white-space:nowrap}
-  tr.total td{border-bottom:0;font-weight:600;padding-top:14px}
-  .muted{color:#8898aa;font-size:12px}.foot{margin-top:28px;color:#8898aa;font-size:12px;line-height:1.6}
-  .mark{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;padding:2px 5px;border-radius:3px;margin-right:6px;color:#fff;background:#1a1f71;vertical-align:1px}
-  @media print{body{background:#fff;padding:0}.card{box-shadow:none}}
-</style></head><body><div class="wrap"><div class="card">
-  <div class="brand"><span class="name">Authera</span><span class="badge">${isStripe ? 'Stripe · test mode' : 'Demo processor'}</span></div>
-  <h1>Receipt from Authera</h1>
-  <p class="amount">${escapeHtml(amount)}</p>
-  <p class="paid">Paid ${escapeHtml(formatDate(payment.updatedAt ?? execution.createdAt))}</p>
-  <div class="meta">
-    <div><span>Receipt number</span>${escapeHtml(receiptNumber)}</div>
-    <div><span>Payment method</span>${cardBrandMark(method)}${escapeHtml(method)}</div>
-    <div><span>Reference</span>${escapeHtml(reference)}</div>
+  :root{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1a1f36;background:#f6f8fa}*{box-sizing:border-box}
+  body{margin:0}.mail{max-width:640px;margin:0 auto;background:#fff}
+  .pre{padding:26px 36px 18px}.pre h1{font-size:20px;margin:0 0 8px}.pre p{margin:0;color:#4f566b;font-size:15px}.pre b{color:#1a1f36}
+  .band{background:#635bff;padding:44px 40px 48px}
+  .brand{display:flex;align-items:center;gap:14px;color:#fff;font-size:20px;font-weight:600;margin-bottom:40px}
+  .avatar{width:44px;height:44px;border-radius:50%;background:#fff;color:#635bff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px}
+  .card{background:#fff;border-radius:14px;padding:32px 36px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+  .card + .card{margin-top:26px}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  .lead{color:#4f566b;font-size:17px;margin:0 0 6px}.amount{font-size:44px;font-weight:600;margin:0 0 6px;letter-spacing:-.02em}.paid{color:#4f566b;font-size:16px;margin:0 0 22px}
+  .doc{width:88px;height:96px;border:1px solid #e3e8ee;border-radius:8px;background:#fafbfc;box-shadow:0 2px 6px rgba(0,0,0,.05);position:relative;flex:none}
+  .doc i{position:absolute;left:14px;height:6px;border-radius:3px;background:#dbe0e6}.doc i.a{top:18px;width:14px;height:14px;border-radius:50%}.doc i.b{top:22px;left:34px;width:28px}.doc i.c{top:44px;width:48px}.doc i.d{top:58px;width:56px}.doc i.e{top:72px;width:40px}
+  .rule{border-top:1px solid #e3e8ee;margin:0 0 20px}
+  .dl{display:inline-block;color:#4f566b;text-decoration:none;font-size:16px;margin-bottom:26px}.dl:before{content:"↓ ";color:#8792a2}
+  dl{display:grid;grid-template-columns:96px 1fr;row-gap:12px;margin:0 0 28px;font-size:16px}dt{color:#4f566b}dd{margin:0}
+  .cta{display:block;text-align:center;background:#0a2540;color:#fff;text-decoration:none;font-weight:600;font-size:17px;padding:16px;border-radius:6px}
+  .num{color:#4f566b;font-size:16px;margin:0 0 22px}
+  table{width:100%;border-collapse:collapse;font-size:17px}td{padding:14px 0;border-bottom:1px solid #e3e8ee;vertical-align:top}td:last-child{text-align:right;white-space:nowrap}.qty{display:block;color:#8792a2;font-size:14px;margin-top:4px}
+  tr.total td{border-bottom:1px solid #e3e8ee;font-weight:600}
+  .foot{color:#8792a2;font-size:15px;line-height:1.6;margin:22px 0 0}.foot a{color:#635bff;text-decoration:none}
+  .fine{padding:20px 36px 28px;color:#8792a2;font-size:12.5px;line-height:1.6}
+  @media print{.band{background:#635bff!important;-webkit-print-color-adjust:exact}.cta{display:none}}
+</style></head><body><div class="mail">
+  <div class="pre"><h1>Your receipt from Authera</h1><p><b>to:</b> ${escapeHtml(payer.email || payer.name)}</p></div>
+  <div class="band">
+    <div class="brand"><span class="avatar">A</span>Authera</div>
+    <div class="card">
+      <div class="head"><div><p class="lead">Receipt from Authera</p><p class="amount">${escapeHtml(amount)}</p><p class="paid">Paid ${escapeHtml(paidOn)}</p></div><div class="doc" aria-hidden="true"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i><i class="e"></i></div></div>
+      <div class="rule"></div>
+      <a class="dl" href="javascript:window.print()">Download receipt</a>
+      <dl><dt>To</dt><dd>${escapeHtml(payer.name)}</dd><dt>From</dt><dd>Authera${offer ? ` · ${escapeHtml(offer.merchantName)}` : ''}</dd><dt>Memo</dt><dd>${escapeHtml(memo)}</dd></dl>
+      <a class="cta" href="${escapeHtml(`/purchases/${execution.id}`)}">View this purchase in Authera</a>
+    </div>
+    <div class="card">
+      <p class="num">Receipt #${escapeHtml(receiptNumber)}</p>
+      <table><tbody>
+        <tr><td>${escapeHtml(offer?.summary ?? 'Purchase')}<span class="qty">Qty ${escapeHtml(String(offer?.quantity ?? 1))}</span></td><td>${escapeHtml(amount)}</td></tr>
+        <tr class="total"><td>Amount paid</td><td>${escapeHtml(amount)}</td></tr>
+        <tr><td>Payment method<span class="qty">${escapeHtml(method)} · ${isStripe ? 'Stripe (test mode)' : escapeHtml(payment.provider)} · ${escapeHtml(reference)}</span></td><td></td></tr>
+      </tbody></table>
+      <p class="foot">Questions? Open <a href="${escapeHtml(`/purchases/${execution.id}`)}">this purchase</a> in Authera to see the mandate, the agent's signed request and the gateway decision, or report a problem from there.</p>
+    </div>
   </div>
-  <h2>Summary</h2>
-  <table><tbody>
-    <tr><td>${escapeHtml(offer?.summary ?? 'Purchase')}<div class="muted">${escapeHtml(offer?.merchantName ?? 'Merchant')}${mandate ? ` · authorized under mandate ${escapeHtml(mandate.id.slice(0, 8))} v${mandate.version}` : ''}</div></td><td>${escapeHtml(amount)}</td></tr>
-    <tr class="total"><td>Amount paid</td><td>${escapeHtml(amount)}</td></tr>
-  </tbody></table>
-  <p class="foot">${processor}. Questions about this purchase? The mandate, the agent's signed request and the gateway decision are on record as evidence ${escapeHtml(execution.evidenceId)}. This receipt is rendered by Authera from the processor record; it is not a tax invoice.</p>
-</div></div></body></html>`;
+  <div class="fine">Rendered by Authera from the processor record (evidence ${escapeHtml(execution.evidenceId)}). Not a tax invoice.</div>
+</div></body></html>`;
 }
 
 export function bookingConfirmationHtml(receipt: PurchaseReceipt): string {
