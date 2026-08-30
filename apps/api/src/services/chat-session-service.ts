@@ -64,22 +64,26 @@ export class ChatSessionService {
     }
     const messages = await listChatMessages(this.deps.db, session.id);
     const draft = session.draft ? MandateChatDraftSchema.parse(session.draft) : null;
+    const transcript = messages.slice(-15).map<MandateChatMessage>((item) => ({
+      role: item.role as MandateChatMessage['role'],
+      content: item.content,
+    }));
+    transcript.push({ role: 'user', content: message });
     if (session.mandateId && draft) {
+      const result = await this.deps.chat.interpret(
+        { messages: transcript.slice(-16), draft },
+        { signedPlan: true, lifecycle },
+      );
       await appendChatTurn(this.deps.db, {
         sessionId: session.id,
         userId: user.id,
         title: titleFor(draft),
         draft,
         userMessage: message,
-        assistantMessage: activePlanReply(message),
+        assistantMessage: result.reply,
       });
       return this.get(user, id);
     }
-    const transcript = messages.slice(-15).map<MandateChatMessage>((item) => ({
-      role: item.role as MandateChatMessage['role'],
-      content: item.content,
-    }));
-    transcript.push({ role: 'user', content: message });
     const result = await this.deps.chat.interpret({
       messages: transcript.slice(-16),
       draft,
@@ -178,14 +182,4 @@ function titleFor(draft: MandateChatDraft): string {
   return draft.origin && draft.destination
     ? `${draft.origin} → ${draft.destination}`
     : 'New flight';
-}
-
-function activePlanReply(message: string): string {
-  if (/\b(change|edit|raise|lower|increase|decrease|instead|different)\b/i.test(message)) {
-    return 'The signed rules cannot change silently. Stop this plan first, then start a new trip and I will build the replacement with you.';
-  }
-  if (/\b(stop|revoke|cancel)\b/i.test(message)) {
-    return 'I can stop the plan, but only through the trusted confirmation shown in this chat. Nothing is revoked until you confirm it.';
-  }
-  return 'This plan is still active and watching verified flight providers. I have not changed any signed rule or claimed a flight was found; a verified booking will appear here when one completes.';
 }

@@ -9,6 +9,7 @@ import {
 } from '@authera/contracts';
 import type { Clock } from '../clock.js';
 import type { AgentConfig } from '../config.js';
+import { ApiProblem } from '../http/problem.js';
 import type { Logger } from '../logger.js';
 
 const EMPTY_DRAFT: MandateChatDraft = {
@@ -27,6 +28,11 @@ const EMPTY_DRAFT: MandateChatDraft = {
 };
 
 type MissingField = MandateChatResponse['missingFields'][number];
+
+export interface MandateChatContext {
+  signedPlan?: boolean;
+  lifecycle?: 'ACTIVE' | 'BOOKED' | 'REVOKED';
+}
 
 const CITY_CODES: ReadonlyArray<[RegExp, string]> = [
   [/\bcaracas\b/i, 'CCS'],
@@ -55,27 +61,37 @@ export class MandateChatService {
     },
   ) {}
 
-  async interpret(input: MandateChatRequest): Promise<MandateChatResponse> {
-    const scripted = scriptedMandateChat(input, this.deps.clock.now());
-    // Common, fully explicit requests stay instant and deterministic. OpenAI handles ambiguity
-    // and natural follow-ups, but is never required to authorize or execute the plan.
-    if (scripted.complete) return scripted;
+  async interpret(
+    input: MandateChatRequest,
+    context: MandateChatContext = {},
+  ): Promise<MandateChatResponse> {
+    const now = this.deps.clock.now();
+    const grounded = scriptedMandateChat(input, now);
+    const fallback = context.signedPlan
+      ? scriptedSignedPlanChat(input, grounded.draft, now)
+      : grounded;
     if (this.deps.agent.mode === 'openai') {
       try {
-        return await this.interpretWithOpenAi(input, scripted.draft);
+        return await this.interpretWithOpenAi(input, grounded.draft, context);
       } catch (error) {
         this.deps.logger.warn(
           { err: error instanceof Error ? error : new Error('unknown chat interpreter error') },
-          'OpenAI mandate draft failed; using the transparent scripted interpreter',
+          'OpenAI chat response failed',
+        );
+        throw new ApiProblem(
+          503,
+          'CHAT_MODEL_UNAVAILABLE',
+          'Aria could not reply right now. Please try again.',
         );
       }
     }
-    return scripted;
+    return fallback;
   }
 
   private async interpretWithOpenAi(
     input: MandateChatRequest,
     groundedDraft: MandateChatDraft,
+    context: MandateChatContext,
   ): Promise<MandateChatResponse> {
     if (this.deps.agent.mode !== 'openai') return scriptedMandateChat(input, this.deps.clock.now());
     setDefaultOpenAIKey(this.deps.agent.apiKey);
@@ -94,6 +110,7 @@ export class MandateChatService {
         'You help a person draft a bounded purchasing mandate in a conversational interface.',
         'You draft authority only. You never authorize, pay, book, claim that an offer exists, or claim that a purchase succeeded.',
         'This assistant supports economy flights only. Ask at most one concise follow-up question at a time.',
+        'Answer concise questions about trip planning, the current plan, Authera authorization, safety, payments, and the next action the person can take.',
         'Preserve confirmed values from the existing draft unless the user explicitly changes them.',
         'Never invent a budget, route, travel date, expiration, or purchase count.',
         'Safe defaults may be proposed and must remain visible for confirmation: one passenger, one purchase, zero date-flexibility days, USD for a dollar amount, and require_human outside the rules.',
@@ -102,7 +119,10 @@ export class MandateChatService {
         'validUntil is the mandate authorization expiry, not the flight departure date.',
         'Set complete true only when all fields required for the selected intent are present.',
         'For flights require origin, destination, departure range, passenger count, maximum price, currency, purchase count, mandate expiry, and outside-rules behavior.',
-        'If the user asks for anything other than a flight, explain that this assistant currently handles flights only and keep category null.',
+        'If the user asks to purchase a category other than a flight, explain that purchasing currently supports flights only and keep category null.',
+        context.signedPlan
+          ? 'The plan is already signed and immutable. Answer questions using its supplied draft and ACTIVE status. Never change its fields. If the user wants different rules, direct them to stop this plan and start a new trip. If they want to stop it, direct them to the trusted confirmation in the chat and state that nothing changes until they confirm.'
+          : 'The plan is not signed yet. Guide the person toward a complete draft they can review, without implying that authority already exists.',
         'Reply in the language used by the user. Keep the reply under 60 words.',
       ].join(' '),
     });
@@ -113,7 +133,15 @@ export class MandateChatService {
     });
     const result = await runner.run(
       agent,
-      JSON.stringify({ currentTime: now.toISOString(), ...input, draft: groundedDraft }),
+      JSON.stringify({
+        currentTime: now.toISOString(),
+        conversationContext: {
+          signedPlan: context.signedPlan ?? false,
+          lifecycle: context.lifecycle ?? null,
+        },
+        ...input,
+        draft: groundedDraft,
+      }),
       { maxTurns: 2, signal: AbortSignal.timeout(30_000) },
     );
     if (!result.finalOutput) throw new Error('OpenAI returned no mandate draft');
@@ -239,11 +267,30 @@ function finalizeResponse(
   const draft = normalizeDraft(proposedDraft, now);
   const missingFields = missingFor(draft);
   const complete = missingFields.length === 0;
-  const reply = complete
-    ? proposedReply ||
-      'I have enough information to prepare the plan. Review the exact rules before authorizing it.'
-    : questionFor(missingFields[0]!);
+  const reply =
+    proposedReply.trim() ||
+    (complete
+      ? 'I have enough information to prepare the plan. Review the exact rules before authorizing it.'
+      : questionFor(missingFields[0]!));
   return MandateChatResponseSchema.parse({ reply, draft, missingFields, complete, interpreter });
+}
+
+function scriptedSignedPlanChat(
+  input: MandateChatRequest,
+  draft: MandateChatDraft,
+  now: Date,
+): MandateChatResponse {
+  const message = input.messages.at(-1)?.content ?? '';
+  let reply =
+    'This plan is still active and watching verified flight providers. No signed rule has changed, and a verified booking will appear here when one completes.';
+  if (/\b(change|edit|raise|lower|increase|decrease|instead|different)\b/i.test(message)) {
+    reply =
+      'The signed rules cannot change silently. Stop this plan first, then start a new trip and I will build the replacement with you.';
+  } else if (/\b(stop|revoke|cancel)\b/i.test(message)) {
+    reply =
+      'I can stop the plan, but only through the trusted confirmation shown in this chat. Nothing is revoked until you confirm it.';
+  }
+  return finalizeResponse(reply, draft, 'scripted', now);
 }
 
 function normalizeDraft(draft: MandateChatDraft, now: Date): MandateChatDraft {
