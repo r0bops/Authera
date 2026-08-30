@@ -36,6 +36,7 @@ import {
   useLinkChatMandate,
   useMe,
   usePurchases,
+  useMandates,
   useRevokeChatMandate,
   useSendChatMessage,
 } from '../api/hooks.js';
@@ -49,6 +50,7 @@ import {
   Skeleton,
   buttonStyles,
 } from '../components/ui/primitives.js';
+import { TryCase } from '../components/try-case.js';
 import { cn } from '../lib/cn.js';
 import { formatDateTime, formatMoney, friendlyAgentName, formatDate } from '../lib/format.js';
 
@@ -65,6 +67,7 @@ export function ChatPage() {
   const revokeMandate = useRevokeChatMandate(chatId);
   const revision = useChatRevision(chatId);
   const approvals = useApprovals();
+  const mandates = useMandates();
   const [input, setInput] = useState('');
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
@@ -228,6 +231,10 @@ export function ChatPage() {
                 agentName={agentName}
                 onRevoke={() => setRevokeOpen(true)}
               />
+              {(() => {
+                const signedPlan = (mandates.data ?? []).find((m) => m.id === session.mandateId);
+                return signedPlan ? <TryCase plan={signedPlan} compact /> : null;
+              })()}
             </AgentBubble>
           ) : null}
 

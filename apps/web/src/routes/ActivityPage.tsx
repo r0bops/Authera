@@ -11,6 +11,7 @@ import {
   useRevokeMandate,
 } from '../api/hooks.js';
 import { MandateStatusBadge, Timeline } from '../components/status.js';
+import { TryCase } from '../components/try-case.js';
 import {
   Button,
   EmptyState,
@@ -380,6 +381,7 @@ function PlanCard({
           ) : null}
         </div>
       ) : null}
+      {selected ? <TryCase plan={plan} /> : null}
       {panel}
     </div>
   );
