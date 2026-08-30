@@ -27,7 +27,7 @@ Point at the detail page: status ACTIVE, agent key thumbprint, payment reference
 
 ## 3. Inject USD 130 and let the agent buy
 
-Demo control → Inject an offer: price **130.00**, CCS → COR, economy → **Inject**. Then **Run agent** (scripted). Last result shows `ALLOW · ALLOW_WITHIN_MANDATE` and `PURCHASED`. Return to Chat to show the provider-labelled offer, purchase record, and gateway activity in the same conversation.
+Demo control → Inject an offer: price **130.00**, CCS → COR, economy → **Inject**. Then **Run agent** (scripted). Last result shows `ALLOW · ALLOW_WITHIN_MANDATE` and `PURCHASED`. Keep the operational test in `/demo`; use Orders for the purchase record and Activity for gateway events. Chat remains a clean customer conversation and never exposes injection controls.
 
 Show, in order:
 - Merchant view (link in the result): identity ✓ → mandate ✓ → checklist all green → cart bound → reservation CONSUMED → payment SUCCEEDED.
@@ -54,7 +54,7 @@ Mandate detail → **Revoke** → confirm. Demo control → **Direct attempt** a
 
 ## 8. Escalation (optional, 1 minute)
 
-Create a mandate whose chat request says **Ask me before going outside those rules**. Inject **168.00** → Direct attempt → `REQUIRE_HUMAN`. Chat shows the pending approval → **Review and decide** → **Approve this purchase only** → Direct attempt with the *same checkout* (Demo control keeps the selected offer; use "Direct attempt" once more) → `ALLOW · ALLOW_CHECKOUT_APPROVAL`, purchased once. A second attempt is not allowed again; a changed cart is `CHECKOUT_HASH_MISMATCH`.
+Create a mandate whose chat request says **Ask me before going outside those rules**. Inject **168.00** → Direct attempt → `REQUIRE_HUMAN`. Open the exact approval URL from the Demo result → **Review and decide** → **Approve this purchase only** → Direct attempt with the *same checkout* (Demo control keeps the selected offer; use "Direct attempt" once more) → `ALLOW · ALLOW_CHECKOUT_APPROVAL`, purchased once. A second attempt is not allowed again; a changed cart is `CHECKOUT_HASH_MISMATCH`.
 
 ## 9. Dispute (optional)
 

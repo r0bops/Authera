@@ -54,7 +54,7 @@ The API runs migrations and seeds only the people and connections (Marta, Aria, 
 
 One deployment exposes separate route trees for each perspective while sharing the same event stream:
 
-- **Marta — `/dashboard`**: chat-first mandate drafting and provider-backed status, with a persistent bottom dock for Profile, Plans, Chat, Orders, and Activity. Structured confirmation, revoke/revise, approvals, receipts, and disputes remain trusted surfaces outside free-form chat.
+- **Marta — `/dashboard`**: a clean, flight-focused conversation with a persistent bottom dock for Profile, Plans, Chat, Orders, and Activity. Aria opens naturally and asks one question at a time; buttons appear only for consequential confirmation or change actions, and there is no mandate form inside chat. Chat starts fresh and never renders judge injections or operational controls. Signed confirmation, revoke/revise, approvals, receipts, and disputes remain trusted surfaces outside free-form chat.
 - **Agent — `/agent`**: price watch, offers considered, signed requests, gateway decisions.
 - **Merchant — `/verify`**: identity → mandate → constraint checklist → checkout binding → reservation/payment for any execution.
 - **Auditor — `/audit`**: filterable hash-chained ledger with live chain verification and evidence export.

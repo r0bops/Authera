@@ -4,8 +4,6 @@ import { scriptedMandateChat } from './mandate-chat.js';
 
 const emptyDraft: MandateChatDraft = {
   category: null,
-  query: null,
-  maxQuantity: null,
   origin: null,
   destination: null,
   departureDateFrom: null,
@@ -64,12 +62,29 @@ describe('scripted mandate chat fallback', () => {
 
   it('preserves the current draft and applies an explicit follow-up change', () => {
     const result = scriptedMandateChat(
-      request('Make the maximum $170.', { ...emptyDraft, category: 'goods', query: 'wool runner' }),
+      request('Make the maximum $170.', {
+        ...emptyDraft,
+        category: 'flight',
+        origin: 'CCS',
+        destination: 'COR',
+      }),
       new Date('2026-08-29T12:00:00.000Z'),
     );
 
-    expect(result.draft.query).toBe('wool runner');
+    expect(result.draft.origin).toBe('CCS');
+    expect(result.draft.destination).toBe('COR');
     expect(result.draft.maxPerPurchaseMinor).toBe(17_000);
     expect(result.missingFields).toContain('validUntil');
+  });
+
+  it('keeps non-flight requests outside the mandate draft', () => {
+    const result = scriptedMandateChat(
+      request('Buy me a pair of running shoes under $120.'),
+      new Date('2026-08-29T12:00:00.000Z'),
+    );
+
+    expect(result.complete).toBe(false);
+    expect(result.draft.category).toBeNull();
+    expect(result.reply).toContain('flights only');
   });
 });

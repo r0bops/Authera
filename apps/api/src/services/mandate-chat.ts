@@ -13,8 +13,6 @@ import type { Logger } from '../logger.js';
 
 const EMPTY_DRAFT: MandateChatDraft = {
   category: null,
-  query: null,
-  maxQuantity: null,
   origin: null,
   destination: null,
   departureDateFrom: null,
@@ -92,16 +90,16 @@ export class MandateChatService {
       instructions: [
         'You help a person draft a bounded purchasing mandate in a conversational interface.',
         'You draft authority only. You never authorize, pay, book, claim that an offer exists, or claim that a purchase succeeded.',
-        'Supported intents are economy flights and goods. Ask at most one concise follow-up question at a time.',
+        'This assistant supports economy flights only. Ask at most one concise follow-up question at a time.',
         'Preserve confirmed values from the existing draft unless the user explicitly changes them.',
-        'Never invent a budget, route, product, travel date, expiration, or purchase count.',
+        'Never invent a budget, route, travel date, expiration, or purchase count.',
         'Safe defaults may be proposed and must remain visible for confirmation: one passenger, one purchase, zero date-flexibility days, USD for a dollar amount, and require_human outside the rules.',
         'Resolve city names to IATA codes. Resolve relative dates against the supplied current ISO time.',
         'Money is integer minor units. The maximum is the complete total including taxes and fees.',
         'validUntil is the mandate authorization expiry, not the flight departure date.',
         'Set complete true only when all fields required for the selected intent are present.',
         'For flights require origin, destination, departure range, passenger count, maximum price, currency, purchase count, mandate expiry, and outside-rules behavior.',
-        'For goods require query, quantity, maximum price, currency, purchase count, mandate expiry, and outside-rules behavior.',
+        'If the user asks for anything other than a flight, explain that this assistant currently handles flights only and keep category null.',
         'Reply in the language used by the user. Keep the reply under 60 words.',
       ].join(' '),
     });
@@ -131,10 +129,6 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
 
   if (/\b(flight|fly|flying|airfare|ticket|vuelo|volar|pasaje)\b/i.test(text)) {
     draft.category = 'flight';
-  } else if (
-    /\b(product|item|shoes?|goods|order|producto|art[ií]culo|zapatos?|comprar)\b/i.test(text)
-  ) {
-    draft.category = 'goods';
   }
 
   const amount = latest.match(/(?:\$|usd\s*)\s*(\d+(?:[.,]\d{1,2})?)/i);
@@ -179,17 +173,6 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
     }
   }
 
-  if (draft.category === 'goods') {
-    draft.currency ??= 'USD';
-    draft.maxQuantity ??= 1;
-    draft.maxFulfillments ??= 1;
-    draft.escalation ??= 'require_human';
-    const quantity = latest.match(/\b(\d+)\s+(?:items?|units?|pairs?|art[ií]culos?|unidades?)\b/i);
-    if (quantity?.[1]) draft.maxQuantity = Number(quantity[1]);
-    const quoted = latest.match(/[“"]([^”"]{2,80})[”"]/);
-    if (quoted?.[1]) draft.query = quoted[1].trim();
-  }
-
   if (
     /\b(?:until|valid until|before|hasta|v[aá]lido hasta)\s+(?:the\s+)?end of (?:the )?month\b/i.test(
       latest,
@@ -232,32 +215,16 @@ function normalizeDraft(draft: MandateChatDraft, now: Date): MandateChatDraft {
     next.departureDateFrom = null;
     next.departureDateTo = null;
   }
-  if (next.category === 'flight') {
-    next.query = null;
-    next.maxQuantity = null;
-  } else if (next.category === 'goods') {
-    next.origin = null;
-    next.destination = null;
-    next.departureDateFrom = null;
-    next.departureDateTo = null;
-    next.dateFlexibilityDays = null;
-    next.passengerCount = null;
-  }
   return MandateChatDraftSchema.parse(next);
 }
 
 function missingFor(draft: MandateChatDraft): MissingField[] {
   if (!draft.category) return ['category'];
   const missing: MissingField[] = [];
-  if (draft.category === 'flight') {
-    if (!draft.origin) missing.push('origin');
-    if (!draft.destination) missing.push('destination');
-    if (!draft.departureDateFrom || !draft.departureDateTo) missing.push('departureDates');
-    if (!draft.passengerCount) missing.push('passengerCount');
-  } else {
-    if (!draft.query) missing.push('query');
-    if (!draft.maxQuantity) missing.push('maxQuantity');
-  }
+  if (!draft.origin) missing.push('origin');
+  if (!draft.destination) missing.push('destination');
+  if (!draft.departureDateFrom || !draft.departureDateTo) missing.push('departureDates');
+  if (!draft.passengerCount) missing.push('passengerCount');
   if (!draft.maxPerPurchaseMinor || !draft.currency) missing.push('maximumPrice');
   if (!draft.maxFulfillments) missing.push('purchaseCount');
   if (!draft.validUntil) missing.push('validUntil');
@@ -267,9 +234,7 @@ function missingFor(draft: MandateChatDraft): MissingField[] {
 
 function questionFor(field: MissingField): string {
   const questions: Record<MissingField, string> = {
-    category: 'What should I help you purchase: a flight or a product?',
-    query: 'What product should I look for?',
-    maxQuantity: 'What is the maximum quantity I may buy?',
+    category: 'I currently handle flights only. Which city or airport should you fly from and to?',
     origin: 'Which city or airport should the flight leave from?',
     destination: 'Where should the flight go?',
     departureDates: 'What departure date or date range should I search?',

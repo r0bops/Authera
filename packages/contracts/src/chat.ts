@@ -12,9 +12,7 @@ export type MandateChatMessage = z.infer<typeof MandateChatMessageSchema>;
  * The trusted surface only enables authorization once every field for the chosen intent exists.
  */
 export const MandateChatDraftSchema = z.strictObject({
-  category: z.enum(['flight', 'goods']).nullable(),
-  query: z.string().trim().min(2).max(80).nullable(),
-  maxQuantity: z.number().int().min(1).max(10).nullable(),
+  category: z.literal('flight').nullable(),
   origin: z
     .string()
     .regex(/^[A-Z]{3}$/)
@@ -47,8 +45,6 @@ export const MandateChatModelOutputSchema = z.strictObject({
   missingFields: z.array(
     z.enum([
       'category',
-      'query',
-      'maxQuantity',
       'origin',
       'destination',
       'departureDates',
