@@ -1,4 +1,8 @@
-import { effectiveFlightDateWindow, type MandatePolicyV1 } from '@authera/contracts';
+import {
+  departureTimeAllowed,
+  effectiveFlightDateWindow,
+  type MandatePolicyV1,
+} from '@authera/contracts';
 import { approvalTolerance } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import type { Logger } from '../logger.js';
@@ -193,8 +197,15 @@ export class PriceWatcher {
         approvalTolerance(cap).ceilingMinor,
         mandate.policy.limits.approvalCeilingMinor ?? 0,
       );
+      const intent = mandate.policy.intent;
       const available = offers
         .filter((o) => o.status === 'AVAILABLE' && o.total.minor <= reach)
+        .filter(
+          (o) =>
+            intent.type !== 'flight' ||
+            !o.departureAt ||
+            departureTimeAllowed(intent, o.departureAt),
+        )
         .sort((a, b) => a.total.minor - b.total.minor);
       const cheapest = available[0];
       if (!cheapest) continue;

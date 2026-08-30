@@ -1,7 +1,7 @@
 import { mandateChatSuggestions } from '@authera/contracts';
 import { describe, expect, it } from 'vitest';
 import type { MandateChatDraft, MandateChatRequest } from '@authera/contracts';
-import { scriptedMandateChat } from './mandate-chat.js';
+import { departureTimeWindow, scriptedMandateChat } from './mandate-chat.js';
 
 const emptyDraft: MandateChatDraft = {
   category: null,
@@ -10,6 +10,8 @@ const emptyDraft: MandateChatDraft = {
   departureDateFrom: null,
   departureDateTo: null,
   dateFlexibilityDays: null,
+  departureTimeFrom: null,
+  departureTimeTo: null,
   passengerCount: null,
   maxPerPurchaseMinor: null,
   currency: null,
@@ -39,6 +41,20 @@ describe('quick replies', () => {
       'Any date in the next 60 days',
     ]);
     expect(mandateChatSuggestions(result.draft, { signedPlan: true })).toHaveLength(3);
+  });
+});
+
+describe('departure-time window grounding', () => {
+  it('turns everyday phrases into an HH:mm window and ignores day-based phrases', () => {
+    expect(departureTimeWindow('Only morning flights please')).toEqual({
+      from: '05:00',
+      to: '11:59',
+    });
+    expect(departureTimeWindow('after 6 pm works best')).toEqual({ from: '18:00', to: '23:59' });
+    expect(departureTimeWindow('between 8 and 11 am')).toEqual({ from: '08:00', to: '11:00' });
+    expect(departureTimeWindow('before 10:30')).toEqual({ from: '00:00', to: '10:30' });
+    expect(departureTimeWindow('valid for the next 3 days')).toBeNull();
+    expect(departureTimeWindow('tomorrow morning is fine for the answer')).toBeNull();
   });
 });
 
@@ -125,6 +141,8 @@ describe('scripted mandate chat fallback', () => {
         departureDateFrom: '2026-08-31',
         departureDateTo: '2026-09-06',
         dateFlexibilityDays: 0,
+        departureTimeFrom: null,
+        departureTimeTo: null,
         passengerCount: 1,
         maxPerPurchaseMinor: 30_000,
         currency: 'USD',
@@ -168,6 +186,8 @@ describe('scripted mandate chat fallback', () => {
         departureDateFrom: '2026-09-10',
         departureDateTo: '2026-09-12',
         dateFlexibilityDays: 0,
+        departureTimeFrom: null,
+        departureTimeTo: null,
         passengerCount: 1,
         maxPerPurchaseMinor: 15_000,
         currency: 'USD',

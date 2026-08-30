@@ -18,6 +18,8 @@ const EMPTY_DRAFT: MandateChatDraft = {
   origin: null,
   destination: null,
   departureDateFrom: null,
+  departureTimeFrom: null,
+  departureTimeTo: null,
   departureDateTo: null,
   dateFlexibilityDays: null,
   passengerCount: null,
@@ -197,6 +199,7 @@ export function buildInstructions(context: MandateChatContext): string {
     '5. `state.missingFields` is computed by the system and is authoritative. Do not claim the plan is complete while it is non-empty.',
     '6. In `draft`, money is integer minor units (USD 150 = 15000), always the all-in total including taxes and fees. In the reply, write money only as the person would say it (USD 150.00); never mention cents, minor units or field names.',
     '7. `validUntil` is when the authorization expires, not a travel date. Resolve relative dates against `currentTime`.',
+    '7b. A departure-time preference is optional: only when the person says it ("mornings", "after 6 pm", "between 8 and 11 am"), set `departureTimeFrom`/`departureTimeTo` as HH:mm local time (morning 05:00–11:59, afternoon 12:00–17:59, evening/night 18:00–23:59). Never ask for it.',
     '8. Resolve city names to the city’s main IATA code (Caracas = CCS, Córdoba = COR, Bogotá = BOG, Medellín = MDE, Madrid = MAD, Miami = MIA). Never ask which airport of a city to use unless the person mentions airports themselves.',
     '9. Reply in the language the person is using. Under 45 words. Plain sentences: no markdown, no bullet lists, no headings.',
     '10. Never ask the person to confirm a value that is already in `draft`: the plan card shows every value and they can change it any time. Move straight to `state.nextField`.',
@@ -230,6 +233,8 @@ function describeDraft(draft: MandateChatDraft): string {
     parts.push(`route ${draft.origin ?? '?'} → ${draft.destination ?? '?'}`);
   if (draft.departureDateFrom && draft.departureDateTo)
     parts.push(`travel ${draft.departureDateFrom} to ${draft.departureDateTo}`);
+  if (draft.departureTimeFrom && draft.departureTimeTo)
+    parts.push(`departing ${draft.departureTimeFrom}–${draft.departureTimeTo}`);
   if (draft.passengerCount) parts.push(`${draft.passengerCount} traveller(s)`);
   if (draft.maxPerPurchaseMinor && draft.currency)
     parts.push(`max ${draft.currency} ${(draft.maxPerPurchaseMinor / 100).toFixed(2)} all-in`);
@@ -303,6 +308,11 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
     const endpoints = routeCodes(latest);
     if (endpoints.origin) draft.origin = endpoints.origin;
     if (endpoints.destination) draft.destination = endpoints.destination;
+    const timeWindow = departureTimeWindow(latest);
+    if (timeWindow) {
+      draft.departureTimeFrom = timeWindow.from;
+      draft.departureTimeTo = timeWindow.to;
+    }
     const dates = relativeDateRange(latest, now);
     const explicitlyChangesTravel =
       /\b(depart|departure|travel|fly|leave|salir|viajar|volar)\b/i.test(latest);
@@ -539,4 +549,42 @@ function endOfMonth(now: Date): Date {
 
 function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * "mornings", "after 6 pm", "before 10", "between 8 and 11 am" → an HH:mm window (local time at
+ * the origin). Deterministic; the model only ever refines what this already grounded.
+ */
+export function departureTimeWindow(text: string): { from: string; to: string } | null {
+  const t = text.toLowerCase();
+  const hhmm = (h: number, m = 0) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  const hour = (raw: string, ampm?: string): number => {
+    let h = Number(raw);
+    if (ampm === 'pm' && h < 12) h += 12;
+    if (ampm === 'am' && h === 12) h = 0;
+    return Math.min(23, Math.max(0, h));
+  };
+  const between = t.match(
+    /\b(?:between|entre)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:and|y|-|to)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/,
+  );
+  if (between) {
+    const late = between[6] ?? between[3];
+    const early = between[3] ?? between[6];
+    const from = hour(between[1]!, early);
+    const to = hour(between[4]!, late);
+    if (from <= to)
+      return { from: hhmm(from, Number(between[2] ?? 0)), to: hhmm(to, Number(between[5] ?? 0)) };
+  }
+  const after = t.match(/\b(?:after|despu[eé]s de|from)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+  if (after && !/\b(day|days|d[ií]as|week|month|mes)\b/.test(after[0]))
+    return { from: hhmm(hour(after[1]!, after[3]), Number(after[2] ?? 0)), to: '23:59' };
+  const before = t.match(/\b(?:before|antes de)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+  if (before)
+    return { from: '00:00', to: hhmm(hour(before[1]!, before[3]), Number(before[2] ?? 0)) };
+  if (/\b(morning|mornings|ma[ñn]ana|early)\b/.test(t) && !/\btomorrow\b/.test(t))
+    return { from: '05:00', to: '11:59' };
+  if (/\b(afternoon|afternoons|tarde)\b/.test(t)) return { from: '12:00', to: '17:59' };
+  if (/\b(evening|evenings|night|nights|noche|late)\b/.test(t))
+    return { from: '18:00', to: '23:59' };
+  return null;
 }

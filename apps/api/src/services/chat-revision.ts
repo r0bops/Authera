@@ -22,6 +22,8 @@ export function draftFromPolicy(policy: MandatePolicyV1): MandateChatDraft | nul
     departureDateFrom: policy.intent.departureDateFrom,
     departureDateTo: policy.intent.departureDateTo,
     dateFlexibilityDays: policy.intent.dateFlexibilityDays ?? 0,
+    departureTimeFrom: policy.intent.departureTimeFrom ?? null,
+    departureTimeTo: policy.intent.departureTimeTo ?? null,
     passengerCount: policy.intent.passengerCount,
     maxPerPurchaseMinor: policy.limits.maxPerPurchaseMinor,
     currency: policy.limits.currency,
@@ -46,6 +48,8 @@ export function pinSignedDraft(
     departureDateTo: proposed.departureDateTo ?? stored.departureDateTo,
     dateFlexibilityDays: proposed.dateFlexibilityDays ?? stored.dateFlexibilityDays,
     passengerCount: proposed.passengerCount ?? stored.passengerCount,
+    departureTimeFrom: proposed.departureTimeFrom ?? stored.departureTimeFrom,
+    departureTimeTo: proposed.departureTimeTo ?? stored.departureTimeTo,
     maxPerPurchaseMinor: proposed.maxPerPurchaseMinor ?? stored.maxPerPurchaseMinor,
     maxFulfillments: proposed.maxFulfillments ?? stored.maxFulfillments,
     validUntil: proposed.validUntil ?? stored.validUntil,
@@ -125,11 +129,15 @@ export function pendingRevisionFor(
     request.escalation = draft.escalation;
   }
   const flexibility = draft.dateFlexibilityDays ?? 0;
+  const timeChanged =
+    (draft.departureTimeFrom ?? null) !== (current.departureTimeFrom ?? null) ||
+    (draft.departureTimeTo ?? null) !== (current.departureTimeTo ?? null);
   const intentChanged =
     draft.departureDateFrom !== current.departureDateFrom ||
     draft.departureDateTo !== current.departureDateTo ||
     flexibility !== (current.dateFlexibilityDays ?? 0) ||
-    draft.passengerCount !== current.passengerCount;
+    draft.passengerCount !== current.passengerCount ||
+    timeChanged;
   if (
     draft.departureDateFrom !== current.departureDateFrom ||
     draft.departureDateTo !== current.departureDateTo
@@ -147,6 +155,17 @@ export function pendingRevisionFor(
       to: `${flexibility} day(s)`,
     });
   }
+  if (timeChanged) {
+    changes.push({
+      field: 'departureTime',
+      from: current.departureTimeFrom
+        ? `${current.departureTimeFrom}–${current.departureTimeTo}`
+        : 'any time',
+      to: draft.departureTimeFrom
+        ? `${draft.departureTimeFrom}–${draft.departureTimeTo}`
+        : 'any time',
+    });
+  }
   if (draft.passengerCount !== current.passengerCount) {
     changes.push({
       field: 'passengerCount',
@@ -161,6 +180,9 @@ export function pendingRevisionFor(
       departureDateTo: draft.departureDateTo,
       dateFlexibilityDays: flexibility,
       passengerCount: draft.passengerCount,
+      ...(draft.departureTimeFrom && draft.departureTimeTo
+        ? { departureTimeFrom: draft.departureTimeFrom, departureTimeTo: draft.departureTimeTo }
+        : { departureTimeFrom: undefined, departureTimeTo: undefined }),
     };
   }
   if (changes.length === 0) return null;
@@ -180,6 +202,7 @@ const LABELS: Record<ChatRevisionChange['field'], string> = {
   departureDates: 'departure dates',
   dateFlexibility: 'date flexibility',
   passengerCount: 'passengers',
+  departureTime: 'departure time',
 };
 
 function money(minor: number, currency: string): string {

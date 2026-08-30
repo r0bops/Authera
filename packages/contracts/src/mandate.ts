@@ -24,7 +24,26 @@ export const FlightIntentSchema = z
     /** Calendar days before/after the preferred window that may be searched and purchased. */
     dateFlexibilityDays: z.number().int().min(0).max(30).optional(),
     passengerCount: z.number().int().min(1).max(9),
+    /** Optional departure-time window, local time at the origin airport (HH:mm, inclusive). */
+    departureTimeFrom: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional(),
+    departureTimeTo: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional(),
   })
+  .refine(
+    (intent) =>
+      (intent.departureTimeFrom === undefined) === (intent.departureTimeTo === undefined) &&
+      (intent.departureTimeFrom === undefined ||
+        intent.departureTimeFrom <= intent.departureTimeTo!),
+    {
+      message: 'departureTimeFrom and departureTimeTo must be set together, from ≤ to',
+      path: ['departureTimeTo'],
+    },
+  )
   .refine((intent) => intent.departureDateFrom <= intent.departureDateTo, {
     message: 'departureDateFrom must not be after departureDateTo',
     path: ['departureDateTo'],
@@ -43,6 +62,18 @@ export function shiftIsoDate(date: string, days: number): string {
 }
 
 /** The date window both market discovery and deterministic policy enforcement must use. */
+/** Departure local time (HH:mm) of an offer whose `departureAt` carries the airport's wall time. */
+export function departureLocalTime(departureAtIso: string): string {
+  return departureAtIso.slice(11, 16);
+}
+
+/** True when the intent has no time window, or the offer departs inside it (inclusive). */
+export function departureTimeAllowed(intent: FlightIntent, departureAtIso: string): boolean {
+  if (!intent.departureTimeFrom || !intent.departureTimeTo) return true;
+  const hhmm = departureLocalTime(departureAtIso);
+  return hhmm >= intent.departureTimeFrom && hhmm <= intent.departureTimeTo;
+}
+
 export function effectiveFlightDateWindow(intent: FlightIntent): { from: string; to: string } {
   const flexibilityDays = intent.dateFlexibilityDays ?? 0;
   return {

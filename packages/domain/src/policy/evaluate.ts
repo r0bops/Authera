@@ -7,6 +7,8 @@ import {
   type PolicyInput,
   type PolicyVerdict,
   type ReasonCode,
+  departureLocalTime,
+  departureTimeAllowed,
   effectiveFlightDateWindow,
   normalizeQuery,
 } from '@authera/contracts';
@@ -159,6 +161,7 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
     //    hard constraints apply; only a flight's date window is approvable.
     const intent = mandate.intent;
     let dateOk = true;
+    let timeOk = true;
     if (!check('INTENT_KIND', offer.kind === intent.type, intent.type, offer.kind)) {
       return block('INTENT_MISMATCH');
     }
@@ -210,6 +213,15 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
         },
         departureDate,
       );
+      if (intent.departureTimeFrom && intent.departureTimeTo) {
+        timeOk = departureTimeAllowed(intent, offer.departureAt ?? '');
+        check(
+          'INTENT_TIME',
+          timeOk,
+          { from: intent.departureTimeFrom, to: intent.departureTimeTo },
+          departureLocalTime(offer.departureAt ?? ''),
+        );
+      }
     } else {
       // Goods: the offer must have been discovered under this mandate's exact query (the
       // server records the query at discovery time; the agent cannot relabel an offer).
@@ -252,10 +264,13 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
     const totalOk = projectedTotal <= mandate.limits.maxTotalMinor;
     check('AMOUNT_TOTAL', totalOk, mandate.limits.maxTotalMinor, projectedTotal);
 
-    const exceptions: Array<'AMOUNT_PER_PURCHASE' | 'AMOUNT_TOTAL' | 'DATE_WINDOW'> = [];
+    const exceptions: Array<
+      'AMOUNT_PER_PURCHASE' | 'AMOUNT_TOTAL' | 'DATE_WINDOW' | 'TIME_WINDOW'
+    > = [];
     if (!perPurchaseOk) exceptions.push('AMOUNT_PER_PURCHASE');
     if (!totalOk) exceptions.push('AMOUNT_TOTAL');
     if (!dateOk) exceptions.push('DATE_WINDOW');
+    if (!timeOk) exceptions.push('TIME_WINDOW');
 
     // 10. A checkout-scoped approval applies only to this exact checkout hash, while active.
     let approvalValid = false;

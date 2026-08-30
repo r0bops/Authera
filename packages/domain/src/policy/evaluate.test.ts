@@ -193,6 +193,25 @@ describe('evaluatePolicy — escalation', () => {
     expect(mid).toBeLessThan(10);
   });
 
+  it('keeps a departure-time window: outside it asks on an ask-plan and blocks on a block-plan', () => {
+    const mornings = { intent: { departureTimeFrom: '06:00', departureTimeTo: '12:00' } };
+    const late = { offer: { departureAt: '2026-09-15T23:10:00.000Z' } };
+    const inside = evaluatePolicy(policyInputFixture({ mandate: mornings }));
+    expect(inside.reasonCode).toBe('ALLOW_WITHIN_MANDATE');
+    expect(inside.checks.find((c) => c.code === 'INTENT_TIME')?.passed).toBe(true);
+    expect(
+      evaluatePolicy(
+        policyInputFixture({ ...late, mandate: { ...mornings, escalation: 'require_human' } }),
+      ),
+    ).toMatchObject({ decision: 'REQUIRE_HUMAN', reasonCode: 'REQUIRE_HUMAN_CONDITION' });
+    const blocked = evaluatePolicy(policyInputFixture({ ...late, mandate: mornings }));
+    expect(blocked).toMatchObject({ decision: 'BLOCK', reasonCode: 'INTENT_MISMATCH' });
+    expect(blocked.checks.find((c) => c.code === 'INTENT_TIME')).toMatchObject({
+      passed: false,
+      actual: '23:10',
+    });
+  });
+
   it('never escalates a usage-count exhaustion', () => {
     const verdict = evaluatePolicy(
       policyInputFixture({

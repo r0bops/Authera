@@ -113,34 +113,78 @@ export function bookingConfirmationHtml(receipt: PurchaseReceipt): string {
   if (execution.state !== 'SUCCEEDED' || offer?.kind !== 'flight' || booking?.state !== 'BOOKED') {
     throw new Error('confirmed flight booking required');
   }
+  const airline = offer.airline ?? offer.merchantName;
+  const flight = offer.flightNumber ?? '—';
+  const pnr = booking.bookingReference ?? '—';
   const tickets = booking.documents
     .map(
       (document) =>
         `<li>${escapeHtml(documentLabel(document.type))}${document.uniqueIdentifier ? ` · ${escapeHtml(document.uniqueIdentifier)}` : ''}</li>`,
     )
     .join('');
-  const rows: Array<[string, string]> = [
-    ['Booking reference', booking.bookingReference ?? 'Unavailable'],
-    ['Duffel order', booking.providerOrderId ?? 'Unavailable'],
-    ['Route', `${offer.origin ?? '—'} → ${offer.destination ?? '—'}`],
-    ['Airline', offer.airline ?? offer.merchantName],
-    ['Flight', offer.flightNumber ?? 'See airline itinerary'],
-    ['Departure', formatDate(offer.departureAt)],
-    ['Arrival', formatDate(offer.arrivalAt)],
-    ['Cabin', titleCase(offer.cabin ?? 'economy')],
-    ['Passengers', String(offer.passengerCount ?? 1)],
-    ['Amount', formatMoney(offer.total)],
-    ['Environment', booking.liveMode ? 'Live' : 'Duffel test mode'],
-  ];
-  return documentShell(
-    'Duffel booking confirmation',
-    `<header><p class="eyebrow">Authera · Duffel</p><h1>Booking confirmation</h1><p class="reference">${escapeHtml(booking.bookingReference ?? booking.providerOrderId ?? 'Confirmed')}</p></header>
-     <section class="route"><strong>${escapeHtml(offer.origin ?? '—')}</strong><span>→</span><strong>${escapeHtml(offer.destination ?? '—')}</strong></section>
-     ${table(rows)}
-     <section><h2>Booking documents</h2>${tickets ? `<ul>${tickets}</ul>` : '<p>No ticket identifiers were returned.</p>'}</section>
-     <aside><strong>Not a boarding pass.</strong> This document confirms the booking${booking.liveMode ? '' : ' in Duffel test mode'}. The airline issues a boarding pass only after check-in.</aside>
-     <footer>Execution ${escapeHtml(execution.id)} · Evidence ${escapeHtml(execution.evidenceId)}</footer>`,
-  );
+  const dep = splitDateTime(offer.departureAt);
+  const arr = splitDateTime(offer.arrivalAt);
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(airline)} · itinerary receipt</title>
+<style>
+  :root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#172033;background:#f3f5f9}*{box-sizing:border-box}body{margin:0;padding:32px 16px}
+  .page{max-width:720px;margin:auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(23,32,51,.08)}
+  .head{background:#0b1f4d;color:#fff;padding:26px 32px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  .head .airline{font-size:24px;font-weight:700;letter-spacing:-.01em}.head .sub{opacity:.8;font-size:13px;margin-top:4px}
+  .head .pnr{text-align:right}.head .pnr span{display:block;font-size:11px;opacity:.75;text-transform:uppercase;letter-spacing:.08em}.head .pnr strong{font-size:22px;font-family:ui-monospace,monospace;letter-spacing:.06em}
+  .badge{display:inline-block;font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.14);margin-top:8px}
+  .body{padding:28px 32px}
+  .leg{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;padding:20px;border:1px solid #e3e8f0;border-radius:10px;margin-bottom:22px}
+  .leg .code{font-size:34px;font-weight:700;line-height:1}.leg .time{font-size:16px;font-weight:600;margin-top:6px}.leg .date{font-size:12.5px;color:#5b6b85}
+  .leg .mid{text-align:center;color:#5b6b85;font-size:12px}.leg .mid .fl{font-weight:700;color:#0b1f4d;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 20px;margin-bottom:22px}.grid div span{display:block;font-size:11px;color:#8090a8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}.grid div{font-size:14px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#8090a8;margin:18px 0 8px}ul{margin:0;padding-left:18px;font-size:13.5px}code{font-family:ui-monospace,monospace}
+  .fare{display:flex;justify-content:space-between;border-top:1px solid #e3e8f0;padding-top:14px;font-size:15px}.fare strong{font-size:18px}
+  aside{margin-top:20px;background:#fff7e6;border:1px solid #f5d38a;border-radius:8px;padding:12px 14px;font-size:12.5px;color:#6b4d00}
+  footer{margin-top:18px;font-size:11.5px;color:#8090a8}
+  @media print{body{background:#fff;padding:0}.page{box-shadow:none}}
+</style></head><body><main class="page">
+  <header class="head">
+    <div><div class="airline">${escapeHtml(airline)}</div><div class="sub">Itinerary receipt · booked through Authera</div><span class="badge">${booking.liveMode ? 'Live booking' : 'Duffel test mode'}</span></div>
+    <div class="pnr"><span>Booking reference</span><strong>${escapeHtml(pnr)}</strong></div>
+  </header>
+  <section class="body">
+    <div class="leg">
+      <div><div class="code">${escapeHtml(offer.origin ?? '—')}</div><div class="time">${escapeHtml(dep.time)}</div><div class="date">${escapeHtml(dep.date)}</div></div>
+      <div class="mid"><div class="fl">${escapeHtml(flight)}</div>${escapeHtml(titleCase(offer.cabin ?? 'economy'))}<br/>→</div>
+      <div style="text-align:right"><div class="code">${escapeHtml(offer.destination ?? '—')}</div><div class="time">${escapeHtml(arr.time)}</div><div class="date">${escapeHtml(arr.date)}</div></div>
+    </div>
+    <div class="grid">
+      <div><span>Passengers</span>${escapeHtml(String(offer.passengerCount ?? 1))} adult${(offer.passengerCount ?? 1) === 1 ? '' : 's'}</div>
+      <div><span>Operated by</span>${escapeHtml(airline)}</div>
+      <div><span>Sold by</span>${escapeHtml(offer.merchantName)}</div>
+      <div><span>Duffel order</span><code>${escapeHtml(booking.providerOrderId ?? '—')}</code></div>
+      <div><span>Booked</span>${escapeHtml(formatDate(booking.updatedAt))}</div>
+      <div><span>Authera execution</span><code>${escapeHtml(execution.id.slice(0, 8))}</code></div>
+    </div>
+    <h2>Ticket documents</h2>
+    ${tickets ? `<ul>${tickets}</ul>` : '<p style="font-size:13.5px;margin:0">No ticket identifiers were returned by the airline yet.</p>'}
+    <h2>Fare</h2>
+    <div class="fare"><span>Total paid, all-in (taxes and fees included)</span><strong>${escapeHtml(formatMoney(offer.total))}</strong></div>
+    <aside><strong>Not a boarding pass.</strong> This document confirms the booking${booking.liveMode ? '' : ' in Duffel test mode — no real seat was issued'}. The airline issues boarding passes at check-in against the booking reference above.</aside>
+    <footer>Booking confirmation · Execution ${escapeHtml(execution.id)} · Evidence ${escapeHtml(execution.evidenceId)}</footer>
+  </section>
+</main></body></html>`;
+}
+
+function splitDateTime(value: string | null | undefined): { date: string; time: string } {
+  if (!value) return { date: '—', time: '—' };
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return { date: '—', time: '—' };
+  return {
+    date: d.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }),
+    time: value.slice(11, 16),
+  };
 }
 
 function documentShell(title: string, body: string): string {

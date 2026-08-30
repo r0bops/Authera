@@ -599,6 +599,9 @@ function requestFromDraft(draft: MandateChatDraft, me: MeResponse): CreateMandat
       departureDateTo: draft.departureDateTo,
       dateFlexibilityDays: draft.dateFlexibilityDays ?? 0,
       passengerCount: draft.passengerCount,
+      ...(draft.departureTimeFrom && draft.departureTimeTo
+        ? { departureTimeFrom: draft.departureTimeFrom, departureTimeTo: draft.departureTimeTo }
+        : {}),
     },
     limits: {
       currency: draft.currency,
@@ -863,6 +866,7 @@ const REVISION_LABELS: Record<ChatPendingRevision['changes'][number]['field'], s
   departureDates: 'Departure dates',
   dateFlexibility: 'Date flexibility',
   passengerCount: 'Passengers',
+  departureTime: 'Departure time',
 };
 
 function CompletedTripCard({
@@ -948,6 +952,10 @@ function flightSummary(draft: MandateChatDraft): string {
     draft.departureDateFrom && draft.departureDateTo
       ? `leaving between ${formatDate(draft.departureDateFrom)} and ${formatDate(draft.departureDateTo)}`
       : 'on the dates you choose';
+  const hours =
+    draft.departureTimeFrom && draft.departureTimeTo
+      ? ` (departing ${draft.departureTimeFrom}–${draft.departureTimeTo})`
+      : '';
   const maximum =
     draft.maxPerPurchaseMinor && draft.currency
       ? formatMoney({ currency: draft.currency, minor: draft.maxPerPurchaseMinor })
@@ -961,7 +969,7 @@ function flightSummary(draft: MandateChatDraft): string {
     draft.escalation === 'block'
       ? 'Anything outside these rules is blocked — except a near miss on price (within about 10 %), which I bring to you first.'
       : 'Anything outside these rules pauses and asks you first.';
-  return `${people}, ${route}, ${dates}, up to ${maximum} all-in — ${uses}${until}. ${outside}`;
+  return `${people}, ${route}, ${dates}${hours}, up to ${maximum} all-in — ${uses}${until}. ${outside}`;
 }
 
 function DraftSummary({ draft }: { draft: MandateChatDraft }) {
@@ -981,6 +989,13 @@ function DraftSummary({ draft }: { draft: MandateChatDraft }) {
               : 'Not specified',
         },
         { label: 'Passengers', value: draft.passengerCount ?? 'Not specified' },
+        {
+          label: 'Departure time',
+          value:
+            draft.departureTimeFrom && draft.departureTimeTo
+              ? `${draft.departureTimeFrom}–${draft.departureTimeTo} local`
+              : 'Any time',
+        },
         {
           label: 'Hard maximum',
           value:

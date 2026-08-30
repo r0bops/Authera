@@ -81,6 +81,11 @@ const SCENARIO_GROUPS: Array<{ title: string; blurb: string; items: Scenario[] }
       { cmd: 'race', label: 'Race two attempts', proves: 'a one-use mandate allows exactly one' },
       { cmd: 'tamper', label: 'Tampered cart', proves: 'a cart changed after approval is blocked' },
       {
+        cmd: 'late',
+        label: 'Wrong departure time',
+        proves: 'a fare outside the plan’s departure hours is not bought on its own',
+      },
+      {
         cmd: 'poison',
         label: 'Prompt injection',
         proves: 'offer text ordering the agent to overspend cannot move money',
@@ -147,7 +152,12 @@ export function DemoTerminal() {
     ),
   );
   const [last, setLast] = useState<Record<string, { kind: LineKind; text: string }>>({});
-  const [injectForm, setInjectForm] = useState({ usd: '130', airline: '', date: '' });
+  const [injectForm, setInjectForm] = useState({
+    usd: '130',
+    airline: '',
+    date: '',
+    time: '09:00',
+  });
   const lastVerdict = useRef<{ kind: LineKind; text: string } | null>(null);
   const seq = useRef(1);
   const endRef = useRef<HTMLDivElement>(null);
@@ -363,6 +373,23 @@ export function DemoTerminal() {
       );
       print('muted', `retrying the ${usd(offer.total.minor)} offer under the new version…`);
       await direct(revised, offer.id);
+      return refresh();
+    }
+    if (cmd === 'late') {
+      if (plan.policy.intent.type !== 'flight') throw new Error('late works on flight plans');
+      const window = plan.policy.intent.departureTimeFrom
+        ? `${plan.policy.intent.departureTimeFrom}–${plan.policy.intent.departureTimeTo}`
+        : null;
+      if (!window)
+        print(
+          'warn',
+          'this plan has no departure-time rule (say "mornings only" or "after 6 pm" in the chat) — expect ALLOW',
+        );
+      const offer = await inject(plan, Math.max(100, cap - 2000), undefined, 1440, {
+        departureAt: `${plan.policy.intent.departureDateFrom}T23:10:00.000Z`,
+      });
+      print('muted', `attempting a 23:10 departure${window ? ` against ${window}` : ''}…`);
+      await direct(plan, offer.id);
       return refresh();
     }
     if (cmd === 'category') {
@@ -776,7 +803,11 @@ export function DemoTerminal() {
                     ...(injectForm.airline.trim()
                       ? { airline: injectForm.airline.trim().slice(0, 40) }
                       : {}),
-                    ...(injectForm.date ? { departureAt: `${injectForm.date}T09:00:00.000Z` } : {}),
+                    ...(injectForm.date || injectForm.time !== '09:00'
+                      ? {
+                          departureAt: `${injectForm.date || (selected.policy.intent.type === 'flight' ? selected.policy.intent.departureDateFrom : '')}T${injectForm.time || '09:00'}:00.000Z`,
+                        }
+                      : {}),
                   });
                   await refresh();
                 } catch (error) {
@@ -808,6 +839,15 @@ export function DemoTerminal() {
                 value={injectForm.airline}
                 placeholder="optional — e.g. Duffel Airways, or an injected instruction"
                 onChange={(e) => setInjectForm((f) => ({ ...f, airline: e.target.value }))}
+                className="h-8 rounded-md border border-line-strong bg-surface px-2 text-[12.5px] text-ink"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[11.5px] text-ink-muted">
+              Time (local)
+              <input
+                type="time"
+                value={injectForm.time}
+                onChange={(e) => setInjectForm((f) => ({ ...f, time: e.target.value }))}
                 className="h-8 rounded-md border border-line-strong bg-surface px-2 text-[12.5px] text-ink"
               />
             </label>
