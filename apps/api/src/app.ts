@@ -164,6 +164,7 @@ export function createApp(deps: AppDependencies): App {
         clock,
         logger: deps.logger,
         refreshMs: deps.config.markets.priceWatchIntervalMs,
+        warmRoutes: deps.config.markets.priceWatchWarmRoutes,
         // "Buy when it drops": the agent attempts the eligible offer through the gateway.
         ...(deps.config.markets.priceWatchAutoBuy
           ? {
@@ -245,7 +246,43 @@ export function createApp(deps: AppDependencies): App {
       '/api/chats',
       humanChatSessionRoutes({
         db,
-        sessions: new ChatSessionService({ db, chat, mandates }),
+        sessions: new ChatSessionService({
+          db,
+          chat,
+          mandates,
+          market: async (origin, destination, limitMinor) => {
+            const live = (await checkout.listCatalog())
+              .filter(
+                (o) => o.kind === 'flight' && o.origin === origin && o.destination === destination,
+              )
+              .sort((a, b) => a.total.minor - b.total.minor);
+            const cheapest = live[0];
+            return {
+              origin,
+              destination,
+              count: live.length,
+              cheapest: cheapest
+                ? {
+                    amountMinor: cheapest.total.minor,
+                    currency: cheapest.total.currency,
+                    airline: cheapest.airline ?? cheapest.merchantName,
+                    date: (cheapest.departureAt ?? '').slice(0, 10),
+                    stops: cheapest.stops ?? null,
+                    durationMinutes:
+                      cheapest.departureAt && cheapest.arrivalAt
+                        ? Math.round(
+                            (Date.parse(cheapest.arrivalAt) - Date.parse(cheapest.departureAt)) /
+                              60_000,
+                          )
+                        : null,
+                  }
+                : null,
+              limitMinor,
+              withinLimitCount:
+                limitMinor === null ? null : live.filter((o) => o.total.minor <= limitMinor).length,
+            };
+          },
+        }),
       }),
     );
     app.route('/api', consoleReadRoutes({ db, clock, views, checkout }));

@@ -36,8 +36,27 @@ const EMPTY_DRAFT: MandateChatDraft = {
 
 type MissingField = MandateChatResponse['missingFields'][number];
 
+/** Live fares for the route being discussed — computed by code, quoted by Aria, never invented. */
+export interface MarketSnapshot {
+  origin: string;
+  destination: string;
+  count: number;
+  cheapest: {
+    amountMinor: number;
+    currency: string;
+    airline: string;
+    date: string;
+    stops: number | null;
+    durationMinutes: number | null;
+  } | null;
+  limitMinor: number | null;
+  withinLimitCount: number | null;
+}
+
 export interface MandateChatContext {
   signedPlan?: boolean;
+  /** What the catalog holds right now for the draft's route; absent when the route is unknown. */
+  market?: MarketSnapshot | null;
   lifecycle?: 'ACTIVE' | 'BOOKED' | 'REVOKED';
   /** First name of the person, so Aria can greet them like a person would. */
   personName?: string;
@@ -81,10 +100,15 @@ export class MandateChatService {
   ): Promise<MandateChatResponse> {
     const now = this.deps.clock.now();
     const grounded = scriptedMandateChat(input, now);
-    const fallback = context.signedPlan
-      ? scriptedSignedPlanChat(input, grounded.draft, now)
-      : grounded;
-    if (this.deps.agent.mode === 'openai') {
+    if (this.deps.agent.mode !== 'openai') {
+      // Aria is the model. Deterministic parsing only grounds the draft; it never speaks for her.
+      throw new ApiProblem(
+        503,
+        'CHAT_MODEL_UNAVAILABLE',
+        'Aria needs the OpenAI model (OPENAI_MODE=openai) to reply.',
+      );
+    }
+    {
       try {
         return await this.interpretWithOpenAi(input, grounded.draft, context);
       } catch (error) {
@@ -99,7 +123,6 @@ export class MandateChatService {
         );
       }
     }
-    return fallback;
   }
 
   private async interpretWithOpenAi(
@@ -140,6 +163,8 @@ export class MandateChatService {
           lifecycle: context.lifecycle ?? null,
           personName: context.personName ?? null,
         },
+        // Live fares on the route, computed by code: the only fares Aria may ever mention.
+        market: context.market ?? null,
         // Authoritative, computed by code from the grounded draft: the model must not guess.
         state: {
           missingFields,
@@ -200,6 +225,7 @@ export function buildInstructions(context: MandateChatContext): string {
     '',
     '# Hard rules',
     '1. Flights only. If they ask for something that is not a flight, keep `category` null and say so kindly (see Tone). Do not bring this up otherwise.',
+    '2b. `market` (when present) is the live catalog for this route right now, computed by the system. You MAY cite it — count, cheapest fare with airline/date/stops, how many fit the limit — always as "right now", with the numbers verbatim, and you may suggest a limit from it. Never mention any other fare, and never imply anything was bought. If the person asks about prices and `market` is null, say you have nothing on that route yet and that you keep looking.',
     '2. Never invent a route, date, amount, expiry or purchase count. A field the person has not given stays null.',
     '3. Keep every value already in `draft` unless the person explicitly changes it.',
     '4. Ask exactly ONE question per reply, and only about `state.nextField`. Never ask for something already filled.',
@@ -405,28 +431,6 @@ function finalizeResponse(
     reply = `${reply} ${questionFor(missingFields[0]!)}`;
   }
   return MandateChatResponseSchema.parse({ reply, draft, missingFields, complete, interpreter });
-}
-
-function scriptedSignedPlanChat(
-  input: MandateChatRequest,
-  draft: MandateChatDraft,
-  now: Date,
-): MandateChatResponse {
-  const message = input.messages.at(-1)?.content ?? '';
-  let reply =
-    'This plan is still active and watching verified flight providers. No signed rule has changed, and a verified booking will appear here when one completes.';
-  if (
-    /\b(change|edit|raise|lower|increase|decrease|instead|different|maximum|max|until)\b/i.test(
-      message,
-    )
-  ) {
-    reply =
-      'I have noted that change. The signed rules stay exactly as they are until you confirm the update on the plan card; then the plan is re-signed as a new version.';
-  } else if (/\b(stop|revoke|cancel)\b/i.test(message)) {
-    reply =
-      'I can stop the plan, but only through the trusted confirmation shown in this chat. Nothing is revoked until you confirm it.';
-  }
-  return finalizeResponse(reply, draft, 'scripted', now);
 }
 
 function normalizeDraft(draft: MandateChatDraft, now: Date): MandateChatDraft {

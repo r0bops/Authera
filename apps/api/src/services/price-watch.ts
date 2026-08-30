@@ -33,6 +33,8 @@ export interface PriceWatchDependencies {
   tickBudgetMs?: number;
   /** How long to wait before retrying an intent whose market failed (default 20 s). */
   retryMs?: number;
+  /** Routes searched on the same schedule with no plan behind them: fares before anyone asks. */
+  warmRoutes?: Array<{ origin: string; destination: string }>;
   /**
    * "Buy when it drops": called once per (mandate, offer) when a search finds an AVAILABLE offer
    * inside the plan's per-purchase limit. The agent still goes through the gateway; the watcher
@@ -132,6 +134,33 @@ export class PriceWatcher {
             mandates: [mandate],
             last: this.lastRun.get(key) ?? -1,
           });
+      }
+      // Warm routes: a 30-day window from tomorrow, one passenger, no hand-off (there is no plan).
+      const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+      for (const route of this.deps.warmRoutes ?? []) {
+        const covered = [...groups.values()].some(
+          (g) =>
+            g.intent.type === 'flight' &&
+            g.intent.origin === route.origin &&
+            g.intent.destination === route.destination,
+        );
+        if (covered) continue;
+        const key = `warm:${route.origin}-${route.destination}`;
+        groups.set(key, {
+          key,
+          intent: {
+            type: 'flight',
+            origin: route.origin,
+            destination: route.destination,
+            cabin: 'economy',
+            departureDateFrom: iso(now + 86_400_000),
+            departureDateTo: iso(now + 31 * 86_400_000),
+            passengerCount: 1,
+          },
+          ids: [],
+          mandates: [],
+          last: this.lastRun.get(key) ?? -1,
+        });
       }
       const due = [...groups.values()]
         .filter((g) => g.last < 0 || now - g.last >= this.deps.refreshMs)

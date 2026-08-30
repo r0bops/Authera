@@ -137,7 +137,7 @@ export function mandateChatSuggestions(
 ): string[] {
   if (options.signedPlan)
     return [
-      'What are you doing right now?',
+      'What are the fares right now?',
       'Change my maximum to $250',
       'What happens if the price goes up?',
     ];
@@ -153,7 +153,7 @@ export function mandateChatSuggestions(
     case 'passengerCount':
       return ['Just me', '2 passengers'];
     case 'maximumPrice':
-      return ['Max $150 all-in', 'Max $300 all-in', 'Max $500 all-in'];
+      return ['What are the fares right now?', 'Max $150 all-in', 'Max $300 all-in'];
     case 'purchaseCount':
       return ['One purchase only', 'Up to 2 purchases'];
     case 'validUntil':

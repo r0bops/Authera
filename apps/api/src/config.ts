@@ -47,6 +47,8 @@ const envSchema = z
     DUFFEL_TEST_PRICE_MODEL: z.enum(['off', 'region']).default('off'),
     /** When a watched route gains an offer inside a plan, let the agent attempt it at once. */
     PRICE_WATCH_AUTO_BUY: booleanString.default('true'),
+    /** Routes kept fresh even with no plan on them, so fares exist before anyone asks. */
+    PRICE_WATCH_WARM_ROUTES: z.string().default('CCS-COR,BOG-MDE,EZE-COR,BOG-COR'),
     /** Background discovery cadence per active mandate; 0 disables the price watcher. */
     PRICE_WATCH_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
     TRUSTED_SURFACE_PRIVATE_JWK: optionalSecret,
@@ -121,6 +123,8 @@ export interface AppConfig {
     priceWatchAutoBuy: boolean;
     /** Region-calibrated pricing for sandbox inventory; never applies to live mode. */
     duffelPriceModel: 'off' | 'region';
+    /** Origin/destination pairs searched on a schedule regardless of plans. */
+    priceWatchWarmRoutes: Array<{ origin: string; destination: string }>;
   };
   keys: {
     trustedSurfacePrivateJwk: string | undefined;
@@ -211,6 +215,10 @@ function toAppConfig(env: ParsedEnv): AppConfig {
       priceWatchIntervalMs: env.PRICE_WATCH_INTERVAL_MS,
       priceWatchAutoBuy: env.PRICE_WATCH_AUTO_BUY === 'true',
       duffelPriceModel: env.DUFFEL_TEST_PRICE_MODEL,
+      priceWatchWarmRoutes: env.PRICE_WATCH_WARM_ROUTES.split(',')
+        .map((pair) => pair.trim().toUpperCase())
+        .filter((pair) => /^[A-Z]{3}-[A-Z]{3}$/.test(pair))
+        .map((pair) => ({ origin: pair.slice(0, 3), destination: pair.slice(4, 7) })),
     },
     keys: {
       trustedSurfacePrivateJwk: env.TRUSTED_SURFACE_PRIVATE_JWK,

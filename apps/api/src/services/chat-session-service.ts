@@ -29,7 +29,7 @@ import {
   pendingRevisionFor,
   pinSignedDraft,
 } from './chat-revision.js';
-import type { MandateChatService } from './mandate-chat.js';
+import type { MandateChatService, MarketSnapshot } from './mandate-chat.js';
 import type { MandateService } from './mandate-service.js';
 
 export class ChatSessionService {
@@ -38,8 +38,27 @@ export class ChatSessionService {
       db: Database;
       chat: MandateChatService;
       mandates: MandateService;
+      /** Live fares on a route (from the catalog), so Aria can talk about the market. */
+      market?: (
+        origin: string,
+        destination: string,
+        limitMinor: number | null,
+      ) => Promise<MarketSnapshot | null>;
     },
   ) {}
+
+  private async marketFor(draft: MandateChatDraft | null): Promise<MarketSnapshot | null> {
+    if (!draft?.origin || !draft.destination || !this.deps.market) return null;
+    try {
+      return await this.deps.market(
+        draft.origin,
+        draft.destination,
+        draft.maxPerPurchaseMinor ?? null,
+      );
+    } catch {
+      return null;
+    }
+  }
 
   async create(user: UserRow, message: string): Promise<ChatSessionView> {
     const result = await this.deps.chat.interpret(
@@ -80,7 +99,12 @@ export class ChatSessionService {
     if (session.mandateId && draft) {
       const result = await this.deps.chat.interpret(
         { messages: transcript.slice(-16), draft },
-        { signedPlan: true, lifecycle, personName: firstNameOf(user) },
+        {
+          signedPlan: true,
+          lifecycle,
+          personName: firstNameOf(user),
+          market: await this.marketFor(draft),
+        },
       );
       // The model may capture a requested change, but code decides what a signed plan may touch,
       // and nothing is in force until the person confirms the re-signed version on the plan card.
@@ -103,7 +127,7 @@ export class ChatSessionService {
     }
     const result = await this.deps.chat.interpret(
       { messages: transcript.slice(-16), draft },
-      { personName: firstNameOf(user) },
+      { personName: firstNameOf(user), market: await this.marketFor(draft) },
     );
     await appendChatTurn(this.deps.db, {
       sessionId: session.id,
