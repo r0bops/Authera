@@ -162,7 +162,14 @@ export function AppShell({
                 ) : (
                   <Badge tone="neutral">Ready</Badge>
                 )}
-                {me.data?.demoMode ? <Badge tone="info">Demo</Badge> : null}
+                {me.data?.demoMode ? (
+                  <NavLink
+                    to="/demo"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-coral/40 bg-coral-soft px-3 text-[12px] font-semibold text-coral hover:border-coral focus-visible:outline-2 focus-visible:outline-cobalt"
+                  >
+                    🔥 Trial by fire
+                  </NavLink>
+                ) : null}
                 {me.isError ? <Badge tone="destructive">API unreachable</Badge> : null}
                 <NavLink
                   to="/settings"

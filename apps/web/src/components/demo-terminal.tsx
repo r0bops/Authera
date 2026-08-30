@@ -716,9 +716,22 @@ export function DemoTerminal() {
         <div>
           <h2 className="text-[13.5px] font-semibold text-ink">Trial by fire · terminal</h2>
           <p className="text-[11.5px] text-ink-muted">
-            Pick a case or type it. Every step is a real signed request; the log prints the
-            gateway’s verdict.
+            Pick a case or type it. Every step is a real signed request against the plan selected
+            here — the same signed mandate Marta sees in her chat; the log prints the gateway’s
+            verdict.
           </p>
+          {selected ? (
+            <p className="mt-1 text-[11.5px] text-ink">
+              Connected to plan <code className="font-mono">{selected.id.slice(0, 8)}</code> v
+              {selected.version} · {intentTitle(selected.policy.intent)} · up to{' '}
+              {usd(selected.policy.limits.maxPerPurchaseMinor)} · {selected.usage.remainingCount}{' '}
+              use(s) left · signed {selected.policy.validFrom.slice(0, 10)}
+            </p>
+          ) : (
+            <p className="mt-1 text-[11.5px] text-coral">
+              No plan yet — create one in the chat first; every case here needs a signed mandate.
+            </p>
+          )}
         </div>
         <label className="flex items-center gap-2 text-[12px] text-ink-muted">
           Plan
