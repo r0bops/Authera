@@ -124,7 +124,8 @@ export function createApp(deps: AppDependencies): App {
       signer: new MandateSigner(keys.trustedSurface),
       clock,
       logger: deps.logger,
-      onCreated: () => priceWatcher?.nudge(),
+      // A new plan looks at its market right away, even if that route was refreshed a minute ago.
+      onCreated: () => priceWatcher?.refreshNow(),
     });
 
     // Public discovery (agent key directory + profiles).
@@ -137,6 +138,7 @@ export function createApp(deps: AppDependencies): App {
       ? new DuffelFlightMarketProvider({
           accessToken: deps.config.markets.duffel.accessToken,
           merchantId: SEED_IDS.duffel,
+          priceModel: deps.config.markets.duffelPriceModel,
         })
       : undefined;
     if (duffelMarket) markets.push(duffelMarket);
@@ -145,6 +147,7 @@ export function createApp(deps: AppDependencies): App {
       clock,
       markets,
       logger: deps.logger,
+      priceModel: deps.config.markets.duffelPriceModel,
     });
     // "Aria watches prices": discovery only, on a schedule, for every ACTIVE mandate.
     if (deps.config.markets.priceWatchIntervalMs > 0 && markets.length > 0) {

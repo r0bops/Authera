@@ -918,13 +918,6 @@ function CompletedTripCard({
       </div>
       <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
         <a
-          href={`/api/purchases/${purchase.id}/receipt.html`}
-          download
-          className={buttonStyles({ variant: 'secondary' })}
-        >
-          <ReceiptText className="h-4 w-4" aria-hidden /> Receipt
-        </a>
-        <a
           href={`/api/purchases/${purchase.id}/stripe-receipt.html`}
           download
           className={buttonStyles({ variant: 'secondary' })}

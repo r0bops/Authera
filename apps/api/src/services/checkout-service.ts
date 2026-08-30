@@ -74,8 +74,18 @@ export class CheckoutService {
       clock: Clock;
       markets?: FlightMarketProvider[];
       logger?: Logger;
+      /** 'region': sandbox Duffel offers carry a region-calibrated price and say so. */
+      priceModel?: 'off' | 'region';
     },
   ) {}
+
+  /** The offer as screens see it: labelled when its price comes from the region model. */
+  private present(offer: Offer): FlightOfferView {
+    const view = toOfferView(offer);
+    return this.deps.priceModel === 'region' && offer.source === 'duffel'
+      ? { ...view, priceModel: 'region-calibrated' }
+      : view;
+  }
 
   /** `${source}:${providerOfferId}` → until when the stored price counts as fresh. */
   private readonly freshUntil = new Map<string, number>();
@@ -147,7 +157,7 @@ export class CheckoutService {
     return offers
       .filter((o) => Date.parse(o.expiresAt) > now.getTime())
       .slice(0, query.limit ?? 20)
-      .map(toOfferView);
+      .map((o) => this.present(o));
   }
 
   async searchFlights(
@@ -174,7 +184,7 @@ export class CheckoutService {
         // many refreshes) must narrow the choice set, not blind the agent with a too-big payload.
         .sort((a, b) => a.total.minor - b.total.minor || a.id.localeCompare(b.id))
         .slice(0, MAX_SEARCH_RESULTS)
-        .map(toOfferView)
+        .map((o) => this.present(o))
     );
   }
 
@@ -182,7 +192,9 @@ export class CheckoutService {
   async listCatalog(): Promise<FlightOfferView[]> {
     const now = this.deps.clock.now();
     const offers = await listOffers(this.deps.db, { status: 'AVAILABLE' });
-    return offers.filter((o) => Date.parse(o.expiresAt) > now.getTime()).map(toOfferView);
+    return offers
+      .filter((o) => Date.parse(o.expiresAt) > now.getTime())
+      .map((o) => this.present(o));
   }
 
   /** Live offers are re-priced with the provider right before a checkout binds their cart. */
@@ -278,7 +290,7 @@ export class CheckoutService {
       expiresAt: checkout.expiresAt,
       createdAt: checkout.createdAt,
       updatedAt: checkout.updatedAt,
-      offer: toOfferView(offer),
+      offer: this.present(offer),
     };
   }
 }

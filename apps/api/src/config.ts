@@ -43,6 +43,8 @@ const envSchema = z
     STRIPE_WEBHOOK_SECRET: optionalSecret,
     /** Optional: enables the live Duffel flight market (test-mode token is fine). */
     DUFFEL_ACCESS_TOKEN: optionalSecret,
+    /** Sandbox fares are synthetic: 'region' prices them with Authera's region model (labelled). */
+    DUFFEL_TEST_PRICE_MODEL: z.enum(['off', 'region']).default('off'),
     /** When a watched route gains an offer inside a plan, let the agent attempt it at once. */
     PRICE_WATCH_AUTO_BUY: booleanString.default('true'),
     /** Background discovery cadence per active mandate; 0 disables the price watcher. */
@@ -117,6 +119,8 @@ export interface AppConfig {
     priceWatchIntervalMs: number;
     /** The watcher hands an eligible new offer to the agent (one attempt per offer). */
     priceWatchAutoBuy: boolean;
+    /** Region-calibrated pricing for sandbox inventory; never applies to live mode. */
+    duffelPriceModel: 'off' | 'region';
   };
   keys: {
     trustedSurfacePrivateJwk: string | undefined;
@@ -206,6 +210,7 @@ function toAppConfig(env: ParsedEnv): AppConfig {
       duffel: env.DUFFEL_ACCESS_TOKEN ? { accessToken: env.DUFFEL_ACCESS_TOKEN } : undefined,
       priceWatchIntervalMs: env.PRICE_WATCH_INTERVAL_MS,
       priceWatchAutoBuy: env.PRICE_WATCH_AUTO_BUY === 'true',
+      duffelPriceModel: env.DUFFEL_TEST_PRICE_MODEL,
     },
     keys: {
       trustedSurfacePrivateJwk: env.TRUSTED_SURFACE_PRIVATE_JWK,

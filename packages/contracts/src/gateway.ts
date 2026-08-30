@@ -25,7 +25,11 @@ export const ProductSearchQuerySchema = z.strictObject({
 export type ProductSearchQuery = z.infer<typeof ProductSearchQuerySchema>;
 
 /** Offer plus a display line; price and currency remain server-owned. */
-export const FlightOfferViewSchema = OfferSchema.extend({ summary: z.string() });
+export const FlightOfferViewSchema = OfferSchema.extend({
+  summary: z.string(),
+  /** Sandbox inventory priced by Authera's region model rather than by the provider. */
+  priceModel: z.enum(['region-calibrated']).optional(),
+});
 export type FlightOfferView = z.infer<typeof FlightOfferViewSchema>;
 
 export const CreateCheckoutSessionRequestSchema = z.strictObject({ offerId: z.uuid() });

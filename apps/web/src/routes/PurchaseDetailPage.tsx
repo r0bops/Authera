@@ -72,16 +72,6 @@ export function PurchaseDetailPage() {
           <div className="flex flex-wrap gap-2">
             {succeeded ? (
               <a
-                href={`/api/purchases/${execution.id}/receipt.html`}
-                download
-                className={buttonStyles({ variant: 'secondary' })}
-              >
-                <Download className="h-4 w-4" aria-hidden />
-                Payment receipt
-              </a>
-            ) : null}
-            {succeeded ? (
-              <a
                 href={`/api/purchases/${execution.id}/stripe-receipt.html`}
                 download
                 className={buttonStyles({ variant: 'secondary' })}

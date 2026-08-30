@@ -169,15 +169,6 @@ function OrderCard({
       <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
         {succeeded ? (
           <a
-            href={`/api/purchases/${purchase.id}/receipt.html`}
-            download
-            className={buttonStyles({ variant: 'secondary', size: 'sm' })}
-          >
-            <Download className="h-4 w-4" aria-hidden /> Receipt
-          </a>
-        ) : null}
-        {succeeded ? (
-          <a
             href={`/api/purchases/${purchase.id}/stripe-receipt.html`}
             download
             className={buttonStyles({ variant: 'secondary', size: 'sm' })}

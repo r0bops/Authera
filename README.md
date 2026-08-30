@@ -100,7 +100,7 @@ docs/               architecture, threat model, demo runbook
 
 ## Configuration
 
-See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
+See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`, `DUFFEL_TEST_PRICE_MODEL=off|region` (sandbox inventory has synthetic fares; `region` prices Duffel test offers with Authera's region model, deterministically per offer and applied again on revalidation, and every screen and receipt labels them *region-calibrated*; Duffel itself is still paid its own sandbox total; never applies to live mode). Startup validation fails fast and never echoes secret values.
 
 For local Stripe webhook forwarding, run this as one line and copy the CLI's `whsec_…` value into `STRIPE_WEBHOOK_SECRET`:
 

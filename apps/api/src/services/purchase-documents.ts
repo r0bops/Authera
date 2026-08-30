@@ -124,7 +124,7 @@ export function stripeStyleReceiptHtml(
       <p class="foot">Questions? Open <a href="${escapeHtml(`/purchases/${execution.id}`)}">this purchase</a> in Authera to see the mandate, the agent's signed request and the gateway decision, or report a problem from there.</p>
     </div>
   </div>
-  <div class="fine">Rendered by Authera from the processor record (evidence ${escapeHtml(execution.evidenceId)}). Not a tax invoice.</div>
+  <div class="fine">Rendered by Authera from the processor record (evidence ${escapeHtml(execution.evidenceId)}). Not a tax invoice.${offer?.priceModel ? ' Sandbox fare, region-calibrated by Authera.' : ''}</div>
 </div></body></html>`;
 }
 
@@ -186,6 +186,7 @@ export function bookingConfirmationHtml(receipt: PurchaseReceipt): string {
     ${tickets ? `<ul>${tickets}</ul>` : '<p style="font-size:13.5px;margin:0">No ticket identifiers were returned by the airline yet.</p>'}
     <h2>Fare</h2>
     <div class="fare"><span>Total paid, all-in (taxes and fees included)</span><strong>${escapeHtml(formatMoney(offer.total))}</strong></div>
+    ${offer.priceModel ? '<p style="font-size:12px;color:#8090a8;margin:8px 0 0">Sandbox fare, region-calibrated by Authera (test inventory has no market price).</p>' : ''}
     <aside><strong>Not a boarding pass.</strong> This document confirms the booking${booking.liveMode ? '' : ' in Duffel test mode — no real seat was issued'}. The airline issues boarding passes at check-in against the booking reference above.</aside>
     <footer>Booking confirmation · Execution ${escapeHtml(execution.id)} · Evidence ${escapeHtml(execution.evidenceId)}</footer>
   </section>

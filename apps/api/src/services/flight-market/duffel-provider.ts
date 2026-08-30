@@ -1,4 +1,5 @@
 import type { Cabin, Currency, FlightSearchQuery } from '@authera/contracts';
+import { regionCalibratedMinor, type PriceModel } from './price-model.js';
 import type { FlightMarketProvider, MarketOffer, RevalidatedOffer } from './provider.js';
 
 export const DUFFEL_BASE_URL = 'https://api.duffel.com';
@@ -15,6 +16,8 @@ export interface DuffelProviderOptions {
   timeoutMs?: number;
   /** Test-mode offers expire quickly; cap how far ahead we trust the provider's expiry. */
   maxExpiryMs?: number;
+  /** Sandbox fares are synthetic: 'region' replaces them with Authera's region model (labelled). */
+  priceModel?: PriceModel;
 }
 
 /** Subset of Duffel's offer payload that Authera maps. Everything else is ignored. */
@@ -98,6 +101,20 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
     this.maxExpiryMs = options.maxExpiryMs ?? 24 * 60 * 60 * 1000;
   }
 
+  /** Sandbox-only: replace the synthetic fare with the region model's, deterministically per offer. */
+  private calibrate(offer: MarketOffer): MarketOffer {
+    if ((this.options.priceModel ?? 'off') !== 'region') return offer;
+    return {
+      ...offer,
+      amountMinor: regionCalibratedMinor({
+        providerOfferId: offer.providerOfferId,
+        origin: offer.origin,
+        destination: offer.destination,
+        stops: offer.stops,
+      }),
+    };
+  }
+
   async search(
     query: FlightSearchQuery,
     options: { signal?: AbortSignal } = {},
@@ -117,6 +134,7 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
       }
     }
     return offers
+      .map((offer) => this.calibrate(offer))
       .sort(
         (a, b) =>
           a.amountMinor - b.amountMinor || a.departureAt.getTime() - b.departureAt.getTime(),
@@ -141,8 +159,9 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
       return { available: false };
     if (!response.ok) throw new DuffelApiError(response.status, 'Duffel offer lookup failed');
     const body = (await response.json()) as { data: DuffelOffer };
-    const mapped = mapDuffelOffer(body.data, { passengerCount: 1, cabin: 'economy' });
-    if (!mapped) return { available: false };
+    const raw = mapDuffelOffer(body.data, { passengerCount: 1, cabin: 'economy' });
+    if (!raw) return { available: false };
+    const mapped = this.calibrate(raw);
     return {
       available: mapped.expiresAt.getTime() > Date.now(),
       amountMinor: mapped.amountMinor,
@@ -184,10 +203,13 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
       );
     }
     const offer = ((await offerResponse.json()) as { data: DuffelOffer }).data;
-    const mapped = mapDuffelOffer(offer, { passengerCount: 1, cabin: 'economy' });
+    // The gateway bound the (possibly region-calibrated) price; Duffel is paid its own total.
+    const raw = mapDuffelOffer(offer, { passengerCount: 1, cabin: 'economy' });
+    const mapped = raw ? this.calibrate(raw) : null;
     const passenger = offer.passengers?.[0];
     if (
       !mapped ||
+      !raw ||
       mapped.providerOfferId !== input.providerOfferId ||
       mapped.amountMinor !== input.amountMinor ||
       mapped.currency !== input.currency ||
@@ -212,7 +234,7 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
             {
               type: 'balance',
               currency: input.currency,
-              amount: minorToDecimal(input.amountMinor),
+              amount: minorToDecimal(raw.amountMinor),
             },
           ],
           passengers: [
@@ -262,7 +284,7 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
       !order.id ||
       order.live_mode !== false ||
       (order.offer_id !== undefined && order.offer_id !== input.providerOfferId) ||
-      totalMinor !== input.amountMinor ||
+      totalMinor !== raw.amountMinor ||
       order.total_currency?.toUpperCase() !== input.currency
     ) {
       // A 2xx order may exist. Leave this for reconciliation instead of charging or retrying.
