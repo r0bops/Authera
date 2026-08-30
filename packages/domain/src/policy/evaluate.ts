@@ -286,6 +286,16 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
     }
     if (mandate.escalation === 'require_human') {
       const amountException = exceptions.some((code) => code.startsWith('AMOUNT'));
+      // 11. Rich condition: a human may approve an overage only up to the ceiling the mandate
+      //     itself sets. Above it, the answer is no — deterministically, before anyone is asked.
+      const ceiling = mandate.limits.approvalCeilingMinor;
+      if (
+        amountException &&
+        ceiling !== undefined &&
+        !check('APPROVAL_CEILING', amount <= ceiling, ceiling, amount)
+      ) {
+        return block('AMOUNT_EXCEEDED');
+      }
       return finish(
         'REQUIRE_HUMAN',
         amountException ? 'REQUIRE_HUMAN_AMOUNT' : 'REQUIRE_HUMAN_CONDITION',

@@ -85,11 +85,26 @@ export const MandateLimitsSchema = z
     maxPerPurchaseMinor: MinorUnitsSchema.min(1),
     maxTotalMinor: MinorUnitsSchema.min(1),
     maxFulfillments: z.number().int().min(1).max(100),
+    /**
+     * Rich condition for `require_human` plans: a purchase above the per-purchase limit but at
+     * or under this amount waits for the human; anything above it is blocked outright, no
+     * matter what anyone approves. Absent = any overage may be escalated (legacy behaviour).
+     */
+    approvalCeilingMinor: MinorUnitsSchema.min(1).optional(),
   })
   .refine((limits) => limits.maxPerPurchaseMinor <= limits.maxTotalMinor, {
     message: 'maxPerPurchaseMinor must not exceed maxTotalMinor',
     path: ['maxPerPurchaseMinor'],
-  });
+  })
+  .refine(
+    (limits) =>
+      limits.approvalCeilingMinor === undefined ||
+      limits.approvalCeilingMinor >= limits.maxPerPurchaseMinor,
+    {
+      message: 'approvalCeilingMinor must be at least maxPerPurchaseMinor',
+      path: ['approvalCeilingMinor'],
+    },
+  );
 export type MandateLimits = z.infer<typeof MandateLimitsSchema>;
 
 export const MandateEscalationSchema = z.enum(['block', 'require_human']);

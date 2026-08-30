@@ -156,6 +156,20 @@ describe('evaluatePolicy — escalation', () => {
     });
   });
 
+  it('escalates an overage up to the approval ceiling and blocks above it', () => {
+    const askUpTo200 = {
+      escalation: 'require_human' as const,
+      limits: { approvalCeilingMinor: 20_000 },
+    };
+    const within = evaluatePolicy(withAmount(policyInputFixture({ mandate: askUpTo200 }), 16_800));
+    expect(within).toMatchObject({ decision: 'REQUIRE_HUMAN', reasonCode: 'REQUIRE_HUMAN_AMOUNT' });
+    expect(within.checks.find((c) => c.code === 'APPROVAL_CEILING')?.passed).toBe(true);
+
+    const above = evaluatePolicy(withAmount(policyInputFixture({ mandate: askUpTo200 }), 30_000));
+    expect(above).toMatchObject({ decision: 'BLOCK', reasonCode: 'AMOUNT_EXCEEDED' });
+    expect(above.checks.find((c) => c.code === 'APPROVAL_CEILING')?.passed).toBe(false);
+  });
+
   it('never escalates a usage-count exhaustion', () => {
     const verdict = evaluatePolicy(
       policyInputFixture({

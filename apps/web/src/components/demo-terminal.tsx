@@ -41,6 +41,11 @@ const SCENARIOS: Array<{ cmd: string; label: string; proves: string }> = [
     proves: 'the plan is re-signed as a new version and the next attempt is judged by it',
   },
   {
+    cmd: 'ceiling 200',
+    label: 'Rich condition',
+    proves: 'between the limit and the ceiling waits for you; above the ceiling is blocked',
+  },
+  {
     cmd: 'expire',
     label: 'Expired mandate',
     proves: 'move the clock past validity; attempt fails',
@@ -73,6 +78,7 @@ const HELP = [
   'category                  attempt something the plan does not allow (goods or another trip)',
   'revoke                    revoke the plan, then retry a purchase',
   'limit <usd> · until <date> · uses <n>   revise the plan (new signed version), then retry',
+  'ceiling <usd>             ask-plans only: overages up to the ceiling wait for you, above it are blocked',
   'expire                    push the demo clock past validity, attempt, restore',
   'forge · replay · race     signature, nonce and concurrency defences',
   'approve · tamper          approval bound to one exact cart',
@@ -330,6 +336,32 @@ export function DemoTerminal() {
         });
       }
       await direct(plan, offer.id);
+      return refresh();
+    }
+    if (cmd === 'ceiling') {
+      const dollars = Number(args[0]);
+      const limits = plan.policy.limits;
+      const cap = limits.maxPerPurchaseMinor;
+      if (!Number.isFinite(dollars) || dollars * 100 < cap)
+        throw new Error(`ceiling <usd> (at least the limit, ${usd(cap)})`);
+      const approvalCeilingMinor = Math.round(dollars * 100);
+      const revised = await api<MandateView>(`/api/mandates/${plan.id}/revise`, {
+        method: 'POST',
+        body: {
+          limits: { ...limits, approvalCeilingMinor },
+          ...(plan.policy.escalation === 'require_human' ? {} : { escalation: 'require_human' }),
+        },
+      });
+      print(
+        'ok',
+        `plan re-signed as v${revised.version}: up to ${usd(cap)} buys alone · up to ${usd(approvalCeilingMinor)} asks you · above is blocked`,
+      );
+      const between = Math.round((cap + approvalCeilingMinor) / 2);
+      const above = Math.round(approvalCeilingMinor * 1.5);
+      print('muted', `attempting ${usd(between)} (should wait for you)…`);
+      await direct(revised, (await inject(revised, between)).id);
+      print('muted', `attempting ${usd(above)} (should be blocked outright)…`);
+      await direct(revised, (await inject(revised, above)).id);
       return refresh();
     }
     if (cmd === 'revoke') {

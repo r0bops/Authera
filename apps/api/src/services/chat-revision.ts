@@ -96,11 +96,16 @@ export function pendingRevisionFor(
     });
   }
   if (limitsChanged) {
+    const ceiling = policy.limits.approvalCeilingMinor;
     request.limits = {
       currency,
       maxPerPurchaseMinor: draft.maxPerPurchaseMinor,
       maxTotalMinor: draft.maxPerPurchaseMinor * draft.maxFulfillments,
       maxFulfillments: draft.maxFulfillments,
+      // a ceiling the plan already carries never drops below the new limit
+      ...(ceiling !== undefined
+        ? { approvalCeilingMinor: Math.max(ceiling, draft.maxPerPurchaseMinor) }
+        : {}),
     };
   }
   if (draft.validUntil !== current.validUntil) {
