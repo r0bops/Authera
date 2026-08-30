@@ -28,6 +28,8 @@ import type { FlightMarketProvider } from './flight-market/provider.js';
 const MARKET_SEARCH_TIMEOUT_MS = 8_000;
 /** An offer the server itself stored this recently does not need a second round trip. */
 const FRESH_OFFER_MS = 90_000;
+/** Matches the purchasing agent's `FlightSearchResultSchema` (`offers.max(100)`). */
+const MAX_SEARCH_RESULTS = 100;
 
 /** Thrown only in strict searches (the price watcher) when a live market could not be queried. */
 export class MarketUnavailableError extends Error {
@@ -164,10 +166,16 @@ export class CheckoutService {
       ...(query.from ? { departureFrom: new Date(`${query.from}T00:00:00.000Z`) } : {}),
       ...(query.to ? { departureTo: new Date(`${query.to}T23:59:59.999Z`) } : {}),
     });
-    return offers
-      .filter((o) => Date.parse(o.expiresAt) > now.getTime())
-      .filter((o) => query.passengers === undefined || o.passengerCount === query.passengers)
-      .map(toOfferView);
+    return (
+      offers
+        .filter((o) => Date.parse(o.expiresAt) > now.getTime())
+        .filter((o) => query.passengers === undefined || o.passengerCount === query.passengers)
+        // Cheapest first, and never more than the agent can take: a busy route (many injections,
+        // many refreshes) must narrow the choice set, not blind the agent with a too-big payload.
+        .sort((a, b) => a.total.minor - b.total.minor || a.id.localeCompare(b.id))
+        .slice(0, MAX_SEARCH_RESULTS)
+        .map(toOfferView)
+    );
   }
 
   /** The console catalog: only offers that are still AVAILABLE (superseded live rows stay as history). */
