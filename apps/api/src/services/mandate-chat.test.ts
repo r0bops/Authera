@@ -43,6 +43,23 @@ describe('quick replies', () => {
 });
 
 describe('scripted mandate chat fallback', () => {
+  it('grounds accented city names (JS word boundaries are ASCII-only)', () => {
+    const result = scriptedMandateChat(
+      request(
+        'Flight from Bogotá to Medellín next month, max $90, one purchase, valid until end of month, ask me first',
+      ),
+      new Date('2026-08-30T06:30:00.000Z'),
+    );
+    expect(result.draft.origin).toBe('BOG');
+    expect(result.draft.destination).toBe('MDE');
+    expect(result.complete).toBe(true);
+    const mx = scriptedMandateChat(
+      request('Un vuelo de Ciudad de México a Ciudad de Panamá'),
+      new Date('2026-08-30T06:30:00.000Z'),
+    );
+    expect([mx.draft.origin, mx.draft.destination]).toEqual(['MEX', 'PTY']);
+  });
+
   it('turns the challenge sentence into a complete, reviewable flight draft', () => {
     const result = scriptedMandateChat(
       request(

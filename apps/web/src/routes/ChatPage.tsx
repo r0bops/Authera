@@ -1,3 +1,4 @@
+import { airportLabel } from '../lib/airports.js';
 import { mandateChatSuggestions } from '@authera/contracts';
 import type {
   ChatSessionMessageView,
@@ -44,7 +45,7 @@ import {
   buttonStyles,
 } from '../components/ui/primitives.js';
 import { cn } from '../lib/cn.js';
-import { formatDateTime, formatMoney, friendlyAgentName } from '../lib/format.js';
+import { formatDateTime, formatMoney, friendlyAgentName, formatDate } from '../lib/format.js';
 
 export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
@@ -443,7 +444,7 @@ function ChatComposer({
     <footer className="shrink-0 border-t border-line bg-surface px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-4">
       {suggestions.length > 0 && !busy ? (
         <div
-          className="mx-auto mb-2 flex w-full max-w-3xl gap-2 overflow-x-auto pb-1"
+          className="mx-auto mb-2 flex w-full max-w-3xl flex-wrap gap-2"
           role="group"
           aria-label="Suggested replies"
         >
@@ -598,14 +599,15 @@ function isCompleteDraft(draft: MandateChatDraft): boolean {
 }
 
 function composerPrompt(draft: MandateChatDraft | null, hasSignedPlan: boolean): string {
-  if (hasSignedPlan) return 'Ask about this plan, or type “stop this plan”';
+  // Short enough for one line on a phone: placeholders never wrap or clip.
+  if (hasSignedPlan) return 'Ask about the plan, or say “stop”';
   if (!draft?.origin) return 'Where are you flying from?';
   if (!draft.destination) return 'Where do you want to go?';
   if (!draft.departureDateFrom || !draft.departureDateTo) return 'When would you like to travel?';
   if (!draft.maxPerPurchaseMinor) return 'What is your all-in maximum?';
-  if (!draft.validUntil) return 'How long should this authorization stay valid?';
-  if (!draft.escalation) return 'Should I block or ask you when a price is outside the plan?';
-  return 'Change any detail, or review the plan above';
+  if (!draft.validUntil) return 'Until when should this stay valid?';
+  if (!draft.escalation) return 'Block or ask you if a price is outside?';
+  return 'Change a detail, or review the plan';
 }
 
 function chatStatus(
@@ -800,18 +802,31 @@ function CompletedTripCard({
   );
 }
 
+/** The plan card restates the draft the way a person would say it, not in codes and ISO dates. */
 function flightSummary(draft: MandateChatDraft): string {
-  const route = `${draft.origin ?? 'your origin'} to ${draft.destination ?? 'your destination'}`;
+  const people =
+    (draft.passengerCount ?? 1) === 1
+      ? 'One economy flight'
+      : `${draft.passengerCount} economy flights`;
+  const route = `${airportLabel(draft.origin ?? undefined)} → ${airportLabel(draft.destination ?? undefined)}`;
   const dates =
     draft.departureDateFrom && draft.departureDateTo
-      ? `${draft.departureDateFrom} through ${draft.departureDateTo}`
-      : 'the dates you choose';
+      ? `leaving between ${formatDate(draft.departureDateFrom)} and ${formatDate(draft.departureDateTo)}`
+      : 'on the dates you choose';
   const maximum =
     draft.maxPerPurchaseMinor && draft.currency
       ? formatMoney({ currency: draft.currency, minor: draft.maxPerPurchaseMinor })
       : 'your maximum';
-  const outside = draft.escalation === 'block' ? 'block anything outside it' : 'ask you first';
-  return `${draft.passengerCount ?? 1} passenger, economy, ${route}, departing ${dates}. The all-in maximum is ${maximum}. I may complete ${draft.maxFulfillments ?? 1} purchase and will ${outside}.`;
+  const uses =
+    (draft.maxFulfillments ?? 1) === 1
+      ? 'one purchase'
+      : `up to ${draft.maxFulfillments} purchases`;
+  const until = draft.validUntil ? `, valid until ${formatDate(draft.validUntil)}` : '';
+  const outside =
+    draft.escalation === 'block'
+      ? 'Anything outside these rules is blocked.'
+      : 'Anything outside these rules pauses and asks you first.';
+  return `${people}, ${route}, ${dates}, up to ${maximum} all-in — ${uses}${until}. ${outside}`;
 }
 
 function DraftSummary({ draft }: { draft: MandateChatDraft }) {

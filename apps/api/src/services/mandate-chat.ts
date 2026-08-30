@@ -37,22 +37,27 @@ export interface MandateChatContext {
   personName?: string;
 }
 
+/** JS `\b` is ASCII-only, so "Bogotá" would never match — bound on Unicode letters instead. */
+function city(pattern: string): RegExp {
+  return new RegExp(`(?<!\\p{L})(?:${pattern})(?!\\p{L})`, 'iu');
+}
+
 const CITY_CODES: ReadonlyArray<[RegExp, string]> = [
-  [/\bcaracas\b/i, 'CCS'],
-  [/\bc[oó]rdoba\b/i, 'COR'],
-  [/\bbogot[aá]\b/i, 'BOG'],
-  [/\bmedell[ií]n\b/i, 'MDE'],
-  [/\bbuenos aires\b/i, 'EZE'],
-  [/\bs[aã]o paulo\b/i, 'GRU'],
-  [/\brio de janeiro\b/i, 'GIG'],
-  [/\bsantiago\b/i, 'SCL'],
-  [/\blima\b/i, 'LIM'],
-  [/\bmexico city\b|\bciudad de m[eé]xico\b/i, 'MEX'],
-  [/\bpanama city\b|\bciudad de panam[aá]\b/i, 'PTY'],
-  [/\bquito\b/i, 'UIO'],
-  [/\bmontevideo\b/i, 'MVD'],
-  [/\bmiami\b/i, 'MIA'],
-  [/\bmadrid\b/i, 'MAD'],
+  [city('caracas'), 'CCS'],
+  [city('c[oó]rdoba'), 'COR'],
+  [city('bogot[aá]'), 'BOG'],
+  [city('medell[ií]n'), 'MDE'],
+  [city('buenos aires'), 'EZE'],
+  [city('s[aã]o paulo'), 'GRU'],
+  [city('rio de janeiro'), 'GIG'],
+  [city('santiago'), 'SCL'],
+  [city('lima'), 'LIM'],
+  [city('mexico city|ciudad de m[eé]xico'), 'MEX'],
+  [city('panama city|ciudad de panam[aá]'), 'PTY'],
+  [city('quito'), 'UIO'],
+  [city('montevideo'), 'MVD'],
+  [city('miami'), 'MIA'],
+  [city('madrid'), 'MAD'],
 ];
 
 export class MandateChatService {
@@ -191,7 +196,7 @@ export function buildInstructions(context: MandateChatContext): string {
     '5. `state.missingFields` is computed by the system and is authoritative. Do not claim the plan is complete while it is non-empty.',
     '6. Money is integer minor units (USD 150 = 15000) and always the all-in total including taxes and fees.',
     '7. `validUntil` is when the authorization expires, not a travel date. Resolve relative dates against `currentTime`.',
-    '8. Resolve city names to IATA codes (Caracas = CCS, Córdoba = COR, Bogotá = BOG, Madrid = MAD, Miami = MIA).',
+    '8. Resolve city names to the city’s main IATA code (Caracas = CCS, Córdoba = COR, Bogotá = BOG, Medellín = MDE, Madrid = MAD, Miami = MIA). Never ask which airport of a city to use unless the person mentions airports themselves.',
     '9. Reply in the language the person is using. Under 45 words. Plain sentences: no markdown, no bullet lists, no headings.',
     '10. Never ask the person to confirm a value that is already in `draft`: the plan card shows every value and they can change it any time. Move straight to `state.nextField`.',
     '11. When a value is ambiguous, pick the safer, more conservative reading, state it in a few words, and continue; do not turn it into a question. "End of the month" / "fin de mes" means the last day of the current month of `currentTime`.',
