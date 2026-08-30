@@ -23,17 +23,19 @@ export const MandateChatDraftSchema = z.strictObject({
     .nullable(),
   departureDateFrom: z.iso.date().nullable(),
   departureDateTo: z.iso.date().nullable(),
-  dateFlexibilityDays: z.number().int().min(0).max(30).nullable(),
+  dateFlexibilityDays: z.number().int().min(0).max(30).nullable().default(null),
   departureTimeFrom: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-    .nullable(),
+    .nullable()
+    .default(null),
   departureTimeTo: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-    .nullable(),
-  maxDurationMinutes: z.number().int().min(30).max(4320).nullable(),
-  maxStops: z.number().int().min(0).max(3).nullable(),
+    .nullable()
+    .default(null),
+  maxDurationMinutes: z.number().int().min(30).max(4320).nullable().default(null),
+  maxStops: z.number().int().min(0).max(3).nullable().default(null),
   passengerCount: z.number().int().min(1).max(9).nullable(),
   maxPerPurchaseMinor: z.number().int().min(1).nullable(),
   currency: CurrencySchema.nullable(),
