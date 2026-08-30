@@ -13,10 +13,6 @@ export function intentLabel(intent: Intent): string {
     : `“${intent.query}” (up to ${intent.maxQuantity})`;
 }
 
-export function intentKindLabel(intent: Intent): string {
-  return intent.type === 'flight' ? 'Flight' : 'Product';
-}
-
 /** Whether an offer belongs to the intent's scope (route for flights, query for goods). */
 export function offerInScope(offer: FlightOfferView, intent: Intent): boolean {
   if (intent.type === 'flight') {
@@ -40,6 +36,3 @@ export function offerHeadline(offer: FlightOfferView): string {
 }
 
 /** A time-like axis for price charts: departure for flights, discovery time for goods. */
-export function offerWhen(offer: FlightOfferView): string {
-  return offer.departureAt ?? offer.createdAt;
-}

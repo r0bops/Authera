@@ -1,13 +1,10 @@
 import {
   effectiveFlightDateWindow,
-  priceOveragePercent,
-  recommendationCeilingMinor,
-  recommendationTolerancePercent,
   type FlightOfferView,
   type MandateView,
 } from '@authera/contracts';
 import { formatMoney } from '../lib/format.js';
-import { offerHeadline, offerInScope, offerWhen } from '../lib/intent.js';
+import { offerHeadline, offerInScope } from '../lib/intent.js';
 import { Badge, Table, Td, Th } from './ui/primitives.js';
 
 export function offerMatches(
@@ -36,48 +33,9 @@ export function offerMatches(
   return { eligible: true, why: 'within mandate' };
 }
 
-export type FlightPriceRecommendation = Readonly<{
-  offer: FlightOfferView;
-  overageMinor: number;
-  overagePercent: number;
-  tolerancePercent: number;
-}>;
-
 /** Closest authoritative flight in the soft band, only when no offer meets the hard limit. */
-export function findOverBudgetFlightRecommendation(
-  offers: readonly FlightOfferView[],
-  mandate: MandateView,
-): FlightPriceRecommendation | undefined {
-  const intent = mandate.policy.intent;
-  const limits = mandate.policy.limits;
-  if (intent.type !== 'flight' || limits.maxPerPurchaseMinor <= 0) return undefined;
-  if (offers.some((offer) => offerMatches(offer, mandate).eligible)) return undefined;
 
-  const ceiling = recommendationCeilingMinor(limits.maxPerPurchaseMinor);
-  const offer = [...offers]
-    .filter(
-      (candidate) =>
-        candidate.kind === 'flight' &&
-        !flightRuleMismatch(candidate, intent) &&
-        candidate.status === 'AVAILABLE' &&
-        candidate.total.currency === limits.currency &&
-        candidate.total.minor > limits.maxPerPurchaseMinor &&
-        candidate.total.minor <= ceiling,
-    )
-    .sort((left, right) =>
-      left.total.minor === right.total.minor
-        ? left.id.localeCompare(right.id)
-        : left.total.minor - right.total.minor,
-    )[0];
-  if (!offer) return undefined;
-
-  return {
-    offer,
-    overageMinor: offer.total.minor - limits.maxPerPurchaseMinor,
-    overagePercent: priceOveragePercent(offer.total.minor, limits.maxPerPurchaseMinor),
-    tolerancePercent: recommendationTolerancePercent(limits.maxPerPurchaseMinor),
-  };
-}
+/** Simple, dependency-free SVG chart: offer prices over departure date with the mandate threshold. */
 
 function flightRuleMismatch(
   offer: FlightOfferView,
@@ -92,106 +50,6 @@ function flightRuleMismatch(
   if (offer.passengerCount !== intent.passengerCount) return 'passenger count';
   if (day < dates.from || day > dates.to) return 'outside travel dates';
   return undefined;
-}
-
-/** Simple, dependency-free SVG chart: offer prices over departure date with the mandate threshold. */
-export function PriceWatchChart({
-  offers,
-  mandate,
-}: {
-  offers: FlightOfferView[];
-  mandate: MandateView | undefined;
-}) {
-  const route = mandate
-    ? offers.filter((o) => offerInScope(o, mandate.policy.intent))
-    : offers.filter((o) => o.kind !== 'flight' || o.cabin === 'economy');
-  const points = [...route].sort((a, b) => offerWhen(a).localeCompare(offerWhen(b)));
-  const threshold = mandate?.policy.limits.maxPerPurchaseMinor ?? null;
-  const width = 640;
-  const height = 180;
-  const pad = { left: 48, right: 16, top: 12, bottom: 28 };
-  const values = points.map((p) => p.total.minor).concat(threshold !== null ? [threshold] : []);
-  const max = Math.max(...values, 1) * 1.1;
-  const min = 0;
-  const x = (i: number) =>
-    pad.left +
-    (points.length <= 1
-      ? (width - pad.left - pad.right) / 2
-      : (i * (width - pad.left - pad.right)) / (points.length - 1));
-  const y = (v: number) =>
-    pad.top + (height - pad.top - pad.bottom) * (1 - (v - min) / (max - min));
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => min + (max - min) * f);
-  if (points.length === 0) {
-    return <p className="text-[13px] text-ink-muted">No offers on this route yet.</p>;
-  }
-  return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="h-[180px] w-full"
-      role="img"
-      aria-label="Price watch chart"
-    >
-      {ticks.map((t) => (
-        <g key={t}>
-          <line
-            x1={pad.left}
-            x2={width - pad.right}
-            y1={y(t)}
-            y2={y(t)}
-            stroke="#e2e6ee"
-            strokeWidth={1}
-          />
-          <text x={pad.left - 6} y={y(t) + 4} textAnchor="end" fontSize={10} fill="#8b95a7">
-            {Math.round(t / 100)}
-          </text>
-        </g>
-      ))}
-      {threshold !== null ? (
-        <g>
-          <line
-            x1={pad.left}
-            x2={width - pad.right}
-            y1={y(threshold)}
-            y2={y(threshold)}
-            stroke="#14805c"
-            strokeWidth={1.5}
-            strokeDasharray="6 4"
-          />
-          <text
-            x={width - pad.right}
-            y={y(threshold) - 4}
-            textAnchor="end"
-            fontSize={10.5}
-            fill="#14805c"
-            fontWeight={600}
-          >
-            limit{' '}
-            {formatMoney({ currency: mandate?.policy.limits.currency ?? 'USD', minor: threshold })}
-          </text>
-        </g>
-      ) : null}
-      {points.length > 1 ? (
-        <polyline
-          fill="none"
-          stroke="#2448d6"
-          strokeWidth={1.5}
-          points={points.map((p, i) => `${x(i)},${y(p.total.minor)}`).join(' ')}
-        />
-      ) : null}
-      {points.map((p, i) => {
-        const eligible =
-          threshold !== null && p.total.minor <= threshold && offerMatches(p, mandate).eligible;
-        return (
-          <g key={p.id}>
-            <circle cx={x(i)} cy={y(p.total.minor)} r={4} fill={eligible ? '#14805c' : '#2448d6'} />
-            <text x={x(i)} y={height - 10} textAnchor="middle" fontSize={10} fill="#5b6577">
-              {offerWhen(p).slice(5, 10)}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
 }
 
 export function OffersTable({

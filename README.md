@@ -71,7 +71,7 @@ The route separation is a local product boundary, not a replacement for role-spe
 | Discovery | `GET /.well-known/ucp`, `GET /.well-known/http-message-signatures-directory`, `GET /agents/:id/profile` |
 | Signed agent (browse) | `GET /api/flights` (cross-merchant, cross-market catalog), `GET /api/products?q=` (live storefront search), `POST /ucp/v1/checkout-sessions`, `GET /ucp/v1/checkout-sessions/:id` |
 | Signed agent (payment) | `POST /api/purchase-attempts` — body is `{ executionId, mandateId, offerId, checkoutId }` and nothing else |
-| Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/chats[...]` (durable conversations; `POST /api/chats/:id/revision` confirms or discards a change captured on a signed plan), `POST /api/chat/interpret` (draft only), `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]` (including printable payment receipt and Duffel booking confirmation), `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
+| Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/chats[...]` (durable conversations; `POST /api/chats/:id/revision` confirms or discards a change captured on a signed plan), `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]` (including printable payment receipt and Duffel booking confirmation), `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
 | Demo (DEMO_MODE) | `/api/demo/*` |
 | Webhooks | `POST /webhooks/stripe` (raw-body `Stripe-Signature` check), `POST /webhooks/mock/:executionId` (demo) |
 

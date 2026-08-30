@@ -5,7 +5,7 @@ export interface Airport {
   country: string;
 }
 
-export const AIRPORTS: Airport[] = [
+const AIRPORTS: Airport[] = [
   { code: 'CCS', city: 'Caracas', country: 'Venezuela' },
   { code: 'COR', city: 'Córdoba', country: 'Argentina' },
   { code: 'EZE', city: 'Buenos Aires (Ezeiza)', country: 'Argentina' },
@@ -24,7 +24,7 @@ export const AIRPORTS: Airport[] = [
   { code: 'MAD', city: 'Madrid', country: 'Spain' },
 ];
 
-export function airportByCode(code: string | undefined): Airport | undefined {
+function airportByCode(code: string | undefined): Airport | undefined {
   if (!code) return undefined;
   return AIRPORTS.find((a) => a.code === code.toUpperCase());
 }

@@ -7,10 +7,6 @@ export function formatMoney(value: Money | null | undefined): string {
   return `${value.currency} ${major.toLocaleString('en-US')}.${cents.toString().padStart(2, '0')}`;
 }
 
-export function minorToInput(minor: number): string {
-  return (minor / 100).toFixed(2);
-}
-
 export function inputToMinor(value: string | number): number {
   const parsed = typeof value === 'number' ? value : Number.parseFloat(value);
   if (!Number.isFinite(parsed) || parsed < 0) return Number.NaN;
@@ -85,9 +81,4 @@ export function formatPaymentState(state: string | null | undefined): string {
     REFUNDED: 'Refunded',
   };
   return state ? (labels[state] ?? state.toLowerCase().replaceAll('_', ' ')) : 'No payment';
-}
-
-export function endOfMonthIso(now: Date = new Date()): string {
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59));
-  return end.toISOString();
 }

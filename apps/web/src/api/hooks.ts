@@ -15,11 +15,8 @@ import type {
   ExecutionSummary,
   FlightOfferView,
   MandateView,
-  MandateChatRequest,
-  MandateChatResponse,
   MeResponse,
   PurchaseReceipt,
-  ReviseMandateRequest,
   VerificationView,
 } from '@authera/contracts';
 import { api } from './client.js';
@@ -59,16 +56,6 @@ export function useMandates() {
   return useQuery({
     queryKey: keys.mandates,
     queryFn: () => api<MandateView[]>('/api/mandates'),
-    refetchInterval: interval,
-  });
-}
-
-export function useMandate(id: string | undefined) {
-  const interval = usePollInterval();
-  return useQuery({
-    queryKey: keys.mandate(id ?? ''),
-    queryFn: () => api<MandateView>(`/api/mandates/${id}`),
-    enabled: Boolean(id),
     refetchInterval: interval,
   });
 }
@@ -165,14 +152,6 @@ export function useCreateMandate() {
   });
 }
 
-export function useInterpretMandateChat() {
-  return useMutation({
-    mutationFn: (input: MandateChatRequest) =>
-      api<MandateChatResponse>('/api/chat/interpret', { method: 'POST', body: input }),
-    retry: false,
-  });
-}
-
 export function useChats() {
   const interval = usePollInterval();
   return useQuery({
@@ -257,16 +236,6 @@ export function useRevokeMandate(id: string) {
   });
 }
 
-export function useReviseMandate(id: string) {
-  const invalidate = useInvalidateAll();
-  return useMutation({
-    mutationFn: (input: ReviseMandateRequest) =>
-      api<MandateView>(`/api/mandates/${id}/revise`, { method: 'POST', body: input }),
-    onSuccess: invalidate,
-    retry: false,
-  });
-}
-
 function useDemoAction<TInput, TResult>(path: string) {
   const invalidate = useInvalidateAll();
   return useMutation({
@@ -327,15 +296,6 @@ import type {
   DisputeView,
   EvidenceBundle,
 } from '@authera/contracts';
-
-export function useApprovals() {
-  const interval = usePollInterval();
-  return useQuery({
-    queryKey: ['approvals'],
-    queryFn: () => api<ApprovalView[]>('/api/approvals'),
-    refetchInterval: interval,
-  });
-}
 
 export function useApproval(id: string | undefined) {
   const interval = usePollInterval();

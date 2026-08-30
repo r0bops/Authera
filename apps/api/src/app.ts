@@ -52,7 +52,6 @@ import type { PaymentProcessor } from './services/payments/processor.js';
 import { MandateSigner } from './services/mandate-signer.js';
 import { BookingService } from './services/booking-service.js';
 import { MandateChatService } from './services/mandate-chat.js';
-import { humanChatRoutes } from './routes/human/chat.js';
 import { humanChatSessionRoutes } from './routes/human/chat-sessions.js';
 import { ChatSessionService } from './services/chat-session-service.js';
 
@@ -236,7 +235,6 @@ export function createApp(deps: AppDependencies): App {
     }
     app.route('/api/me', meRoutes(sessionDeps));
     const chat = new MandateChatService({ agent: deps.config.agent, clock, logger: deps.logger });
-    app.route('/api/chat', humanChatRoutes({ chat }));
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
     app.route(
       '/api/chats',
