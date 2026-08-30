@@ -1,3 +1,4 @@
+import { mandateChatSuggestions } from '@authera/contracts';
 import type {
   ChatSessionMessageView,
   CreateMandateRequest,
@@ -301,6 +302,10 @@ export function ChatPage() {
           placeholder={composerPrompt(draft, hasSignedPlan)}
           busy={busy}
           agentName={agentName}
+          suggestions={
+            input.trim() ? [] : mandateChatSuggestions(draft, { signedPlan: hasSignedPlan })
+          }
+          onSuggestion={(text) => void submitText(text)}
           onChange={setInput}
           onSubmit={onSubmit}
           onSend={() => void submitText(input)}
@@ -420,6 +425,8 @@ function ChatComposer({
   placeholder,
   busy,
   agentName,
+  suggestions,
+  onSuggestion,
   onChange,
   onSubmit,
   onSend,
@@ -429,12 +436,32 @@ function ChatComposer({
   placeholder: string;
   busy: boolean;
   agentName: string;
+  suggestions: string[];
+  onSuggestion: (text: string) => void;
   onChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
   onSend: () => void;
 }) {
   return (
     <footer className="shrink-0 border-t border-line bg-surface px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-4">
+      {suggestions.length > 0 && !busy ? (
+        <div
+          className="mx-auto mb-2 flex w-full max-w-3xl gap-2 overflow-x-auto pb-1"
+          role="group"
+          aria-label="Suggested replies"
+        >
+          {suggestions.map((text) => (
+            <button
+              key={text}
+              type="button"
+              onClick={() => onSuggestion(text)}
+              className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[13px] text-ink hover:border-cobalt hover:text-cobalt focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt/30"
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <form
         onSubmit={onSubmit}
         className="mx-auto w-full max-w-3xl rounded-2xl border border-line-strong bg-surface px-2 py-2 shadow-md shadow-ink/5 focus-within:border-cobalt focus-within:ring-2 focus-within:ring-cobalt/20"

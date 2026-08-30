@@ -1,3 +1,4 @@
+import { mandateChatSuggestions } from '@authera/contracts';
 import { describe, expect, it } from 'vitest';
 import type { MandateChatDraft, MandateChatRequest } from '@authera/contracts';
 import { scriptedMandateChat } from './mandate-chat.js';
@@ -20,6 +21,26 @@ const emptyDraft: MandateChatDraft = {
 function request(content: string, draft: MandateChatDraft | null = null): MandateChatRequest {
   return { messages: [{ role: 'user', content }], draft };
 }
+
+describe('quick replies', () => {
+  it('offers tap-to-answer suggestions for the next missing field only', () => {
+    expect(mandateChatSuggestions(null)).toEqual([
+      'A flight from Caracas',
+      'A flight from Bogotá',
+      'A flight from Buenos Aires',
+    ]);
+    const result = scriptedMandateChat(
+      request('I need a flight from Caracas to Madrid.'),
+      new Date('2026-08-29T12:00:00.000Z'),
+    );
+    expect(mandateChatSuggestions(result.draft)).toEqual([
+      'Next month',
+      'Next week',
+      'Any date in the next 60 days',
+    ]);
+    expect(mandateChatSuggestions(result.draft, { signedPlan: true })).toHaveLength(2);
+  });
+});
 
 describe('scripted mandate chat fallback', () => {
   it('turns the challenge sentence into a complete, reviewable flight draft', () => {

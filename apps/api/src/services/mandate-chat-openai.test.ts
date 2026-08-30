@@ -155,6 +155,31 @@ describe('OpenAI mandate chat', () => {
     expect(modelInput.conversationContext).toEqual({ signedPlan: true, lifecycle: 'ACTIVE' });
   });
 
+  it('tells the model what is still missing and enforces the next question in code', async () => {
+    // The model answered a side question but forgot to ask anything.
+    openAi.run.mockResolvedValue({
+      finalOutput: modelOutput('Prices are checked against live providers.', emptyDraft, false),
+    });
+
+    const result = await service().interpret({
+      messages: [
+        { role: 'user', content: 'I need a flight from Caracas to Madrid. Are prices real?' },
+      ],
+      draft: null,
+    });
+
+    const modelInput = JSON.parse(openAi.run.mock.calls[0]?.[1] as string) as {
+      state: { missingFields: string[]; nextField: string; nextQuestion: string };
+    };
+    expect(modelInput.state.missingFields[0]).toBe('departureDates');
+    expect(modelInput.state.nextField).toBe('departureDates');
+    expect(modelInput.state.nextQuestion).toContain('departure date');
+    expect(result.reply).toBe(
+      'Prices are checked against live providers. What departure date or date range should I search?',
+    );
+    expect(result.missingFields[0]).toBe('departureDates');
+  });
+
   it('returns a retryable error instead of pretending a fallback was an AI reply', async () => {
     openAi.run.mockRejectedValue(new Error('upstream unavailable'));
 

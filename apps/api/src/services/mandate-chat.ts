@@ -1,5 +1,6 @@
 import { Agent, Runner, setDefaultOpenAIKey } from '@openai/agents';
 import {
+  mandateChatMissingFields,
   MandateChatDraftSchema,
   MandateChatModelOutputSchema,
   MandateChatResponseSchema,
@@ -96,35 +97,21 @@ export class MandateChatService {
     if (this.deps.agent.mode !== 'openai') return scriptedMandateChat(input, this.deps.clock.now());
     setDefaultOpenAIKey(this.deps.agent.apiKey);
     const now = this.deps.clock.now();
+    const missingFields = mandateChatMissingFields(groundedDraft);
+    const nextField = missingFields[0];
     const agent = new Agent({
       name: 'Authera mandate drafting assistant',
       model: this.deps.agent.model,
       outputType: MandateChatModelOutputSchema,
       modelSettings: {
-        reasoning: { effort: 'minimal' },
+        // gpt-5-mini: a little reasoning keeps dates, money and "one question" discipline honest
+        // without noticeable latency; low verbosity matches the 60-word replies we want.
+        reasoning: { effort: 'low' },
         text: { verbosity: 'low' },
         maxTokens: 1_200,
         store: false,
       },
-      instructions: [
-        'You help a person draft a bounded purchasing mandate in a conversational interface.',
-        'You draft authority only. You never authorize, pay, book, claim that an offer exists, or claim that a purchase succeeded.',
-        'This assistant supports economy flights only. Ask at most one concise follow-up question at a time.',
-        'Answer concise questions about trip planning, the current plan, Authera authorization, safety, payments, and the next action the person can take.',
-        'Preserve confirmed values from the existing draft unless the user explicitly changes them.',
-        'Never invent a budget, route, travel date, expiration, or purchase count.',
-        'Safe defaults may be proposed and must remain visible for confirmation: one passenger, one purchase, zero date-flexibility days, USD for a dollar amount, and require_human outside the rules.',
-        'Resolve city names to IATA codes. Resolve relative dates against the supplied current ISO time.',
-        'Money is integer minor units. The maximum is the complete total including taxes and fees.',
-        'validUntil is the mandate authorization expiry, not the flight departure date.',
-        'Set complete true only when all fields required for the selected intent are present.',
-        'For flights require origin, destination, departure range, passenger count, maximum price, currency, purchase count, mandate expiry, and outside-rules behavior.',
-        'If the user asks to purchase a category other than a flight, explain that purchasing currently supports flights only and keep category null.',
-        context.signedPlan
-          ? 'The plan is already signed and immutable. Answer questions using its supplied draft and ACTIVE status. Never change its fields. If the user wants different rules, direct them to stop this plan and start a new trip. If they want to stop it, direct them to the trusted confirmation in the chat and state that nothing changes until they confirm.'
-          : 'The plan is not signed yet. Guide the person toward a complete draft they can review, without implying that authority already exists.',
-        'Reply in the language used by the user. Keep the reply under 60 words.',
-      ].join(' '),
+      instructions: buildInstructions(context),
     });
     const runner = new Runner({
       tracingDisabled: true,
@@ -138,6 +125,13 @@ export class MandateChatService {
         conversationContext: {
           signedPlan: context.signedPlan ?? false,
           lifecycle: context.lifecycle ?? null,
+        },
+        // Authoritative, computed by code from the grounded draft: the model must not guess.
+        state: {
+          missingFields,
+          nextField: nextField ?? null,
+          nextQuestion: nextField ? questionFor(nextField) : null,
+          capturedSoFar: describeDraft(groundedDraft),
         },
         ...input,
         draft: groundedDraft,
@@ -153,6 +147,83 @@ export class MandateChatService {
       now,
     );
   }
+}
+
+/**
+ * Prompt for a small, fast model (gpt-5-mini at low reasoning): sectioned, ordered, with the
+ * reply shape spelled out and short examples. Everything the model must not decide (what is
+ * still missing, the next question, today's date) arrives in the input `state`, computed by code.
+ */
+export function buildInstructions(context: MandateChatContext): string {
+  const mode = context.signedPlan
+    ? [
+        '# Mode: signed plan (immutable)',
+        'The plan in `draft` is already signed and ACTIVE. Answer questions about it from the draft only.',
+        'Never change any field. If the person wants different rules, tell them to stop this plan and start a new trip.',
+        'If they want to stop it, point them to the confirmation shown in the chat and say nothing changes until they confirm.',
+        'Do not ask drafting questions in this mode.',
+      ]
+    : [
+        '# Mode: drafting (not signed yet)',
+        'Guide the person to a complete draft they can review. Never imply that authority already exists.',
+      ];
+  return [
+    '# Role',
+    'You are Aria, the assistant inside Authera. You help one person write the rules of a purchasing mandate for an economy flight: where, when, for how many, up to how much, how many times, until when, and what to do when an offer falls outside those rules.',
+    'You draft authority only. You never authorize, pay, book, say an offer exists, or say a purchase happened. The person authorizes on a separate signed screen.',
+    '',
+    '# What Authera does (answer questions from this, never contradict it)',
+    'Once the person authorizes, their agent Aria watches real, live flight offers from connected providers (for example the Duffel marketplace) on that route, and may request one purchase only inside the signed rules. A deterministic gateway checks every request against the rules; payments run through a real processor in test mode. Prices shown later are real offers, never invented. Nothing is searched or bought before authorization.',
+    '',
+    '# Hard rules',
+    '1. Flights only. If asked to buy anything else, say purchasing currently supports flights only and keep `category` null.',
+    '2. Never invent a route, date, amount, expiry or purchase count. A field the person has not given stays null.',
+    '3. Keep every value already in `draft` unless the person explicitly changes it.',
+    '4. Ask exactly ONE question per reply, and only about `state.nextField`. Never ask for something already filled.',
+    '5. `state.missingFields` is computed by the system and is authoritative. Do not claim the plan is complete while it is non-empty.',
+    '6. Money is integer minor units (USD 150 = 15000) and always the all-in total including taxes and fees.',
+    '7. `validUntil` is when the authorization expires, not a travel date. Resolve relative dates against `currentTime`.',
+    '8. Resolve city names to IATA codes (Caracas = CCS, Córdoba = COR, Bogotá = BOG, Madrid = MAD, Miami = MIA).',
+    '9. Reply in the language the person is using. Under 45 words. Plain sentences: no markdown, no bullet lists, no headings.',
+    '10. Never ask the person to confirm a value that is already in `draft`: the plan card shows every value and they can change it any time. Move straight to `state.nextField`.',
+    '11. When a value is ambiguous, pick the safer, more conservative reading, state it in a few words, and continue; do not turn it into a question. "End of the month" / "fin de mes" means the last day of the current month of `currentTime`.',
+    '',
+    '# How to build each reply',
+    '- Acknowledge only what is NEW in this message, in one short clause with the resolved value (city and code, dates, amount with currency). Do not repeat values captured earlier; the plan card already shows them.',
+    '- If the person asked a question, answer it in one or two sentences first.',
+    '- Then ask the single question for `state.nextField`, in your own words; `state.nextQuestion` tells you what it must establish.',
+    '- The first time `state.missingFields` is empty: give a one-sentence recap of the whole plan and tell them to review the plan card and authorize when it looks right. No question.',
+    '- If the plan was already complete and this message changes nothing, reply in one short sentence (acknowledge, point to the plan card). Do not repeat the recap.',
+    '- Sensible defaults you may propose, and must name as assumptions once: one traveller, one purchase, no date flexibility, USD for dollar amounts, "ask me first" outside the rules.',
+    '',
+    '# Examples of good replies',
+    'Person: "I need a flight to Córdoba" → "Córdoba (COR), great. Which city are you flying from?"',
+    'Person: "from Caracas, next month, max 150" → "Caracas (CCS), 1–30 September, up to USD 150.00 all-in. How many purchases may this plan make — just one?"',
+    'Person: "are the prices real?" (while dates are missing) → "Yes: once you authorize, Aria checks real offers from live providers and only buys inside your rules. When would you like to travel?"',
+    'Person (Spanish): "solo una compra" → "Perfecto, una sola compra. ¿Hasta qué fecha debe seguir vigente esta autorización?"',
+    'Plan complete → "Here is the plan: one economy flight CCS → COR between 1 and 30 September, up to USD 150.00 all-in, one purchase, valid until 31 August, and I will ask you first if anything falls outside these rules. Review the plan card and authorize when it looks right."',
+    '',
+    ...mode,
+  ].join('\n');
+}
+
+/** Short, human recap of the grounded draft for the model's state block (never the source of truth). */
+function describeDraft(draft: MandateChatDraft): string {
+  const parts: string[] = [];
+  if (draft.origin || draft.destination)
+    parts.push(`route ${draft.origin ?? '?'} → ${draft.destination ?? '?'}`);
+  if (draft.departureDateFrom && draft.departureDateTo)
+    parts.push(`travel ${draft.departureDateFrom} to ${draft.departureDateTo}`);
+  if (draft.passengerCount) parts.push(`${draft.passengerCount} traveller(s)`);
+  if (draft.maxPerPurchaseMinor && draft.currency)
+    parts.push(`max ${draft.currency} ${(draft.maxPerPurchaseMinor / 100).toFixed(2)} all-in`);
+  if (draft.maxFulfillments) parts.push(`${draft.maxFulfillments} purchase(s)`);
+  if (draft.validUntil) parts.push(`valid until ${draft.validUntil.slice(0, 10)}`);
+  if (draft.escalation)
+    parts.push(
+      draft.escalation === 'require_human' ? 'ask first outside rules' : 'block outside rules',
+    );
+  return parts.length > 0 ? parts.join('; ') : 'nothing yet';
 }
 
 function mergeGroundedDraft(
@@ -267,11 +338,16 @@ function finalizeResponse(
   const draft = normalizeDraft(proposedDraft, now);
   const missingFields = missingFor(draft);
   const complete = missingFields.length === 0;
-  const reply =
+  let reply =
     proposedReply.trim() ||
     (complete
       ? 'I have enough information to prepare the plan. Review the exact rules before authorizing it.'
       : questionFor(missingFields[0]!));
+  // One-question discipline is enforced here, not trusted to the model: an incomplete draft
+  // always ends with the question for the next missing field.
+  if (!complete && interpreter === 'openai' && !reply.includes('?')) {
+    reply = `${reply} ${questionFor(missingFields[0]!)}`;
+  }
   return MandateChatResponseSchema.parse({ reply, draft, missingFields, complete, interpreter });
 }
 
@@ -308,17 +384,7 @@ function normalizeDraft(draft: MandateChatDraft, now: Date): MandateChatDraft {
 }
 
 function missingFor(draft: MandateChatDraft): MissingField[] {
-  if (!draft.category) return ['category'];
-  const missing: MissingField[] = [];
-  if (!draft.origin) missing.push('origin');
-  if (!draft.destination) missing.push('destination');
-  if (!draft.departureDateFrom || !draft.departureDateTo) missing.push('departureDates');
-  if (!draft.passengerCount) missing.push('passengerCount');
-  if (!draft.maxPerPurchaseMinor || !draft.currency) missing.push('maximumPrice');
-  if (!draft.maxFulfillments) missing.push('purchaseCount');
-  if (!draft.validUntil) missing.push('validUntil');
-  if (!draft.escalation) missing.push('outsideRules');
-  return missing;
+  return mandateChatMissingFields(draft);
 }
 
 function questionFor(field: MissingField): string {
@@ -349,7 +415,7 @@ function relativeDateRange(text: string, now: Date): { from: string; to: string 
     /\b(\d{4}-\d{2}-\d{2})\s+(?:to|through|until|a|hasta)\s+(\d{4}-\d{2}-\d{2})\b/i,
   );
   if (explicit?.[1] && explicit[2]) return { from: explicit[1], to: explicit[2] };
-  if (/\bnext month\b|\bpr[oó]ximo mes\b/i.test(text)) {
+  if (/\bnext month\b|\bpr[oó]ximo mes\b|\bmes que viene\b/i.test(text)) {
     const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
     const last = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 0));
     return { from: isoDate(first), to: isoDate(last) };
@@ -391,10 +457,12 @@ function isWaitingForValidity(draft: MandateChatDraft): boolean {
 /** Resolve an authorization end date without letting a bare date overwrite travel dates. */
 function authorizationExpiry(text: string, now: Date, allowBareAnswer: boolean): Date | undefined {
   const hasExpiryLanguage =
-    /\b(?:until|valid until|expires?|expiration|before|hasta|v[aá]lido hasta)\b/i.test(text);
+    /\b(?:until|valid until|expires?|expiration|before|hasta|v[aá]lido hasta|vigente|caduc[ae])\b/i.test(
+      text,
+    );
   if (!hasExpiryLanguage && !allowBareAnswer) return undefined;
 
-  if (/\bend of (?:the )?month\b/i.test(text)) return endOfMonth(now);
+  if (/\bend of (?:the )?month\b|\bfin(?:al)? de(?:l)? mes\b/i.test(text)) return endOfMonth(now);
 
   const days = text.match(/\b(?:in|within)\s+(?:the\s+)?next\s+(\d{1,3})\s+days?\b/i);
   if (days?.[1]) return endOfUtcDay(shiftUtcDay(now, Number(days[1])));
