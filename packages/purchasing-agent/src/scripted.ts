@@ -8,6 +8,7 @@ import {
   type FlightPurchasingTask,
   type PurchasingTask,
 } from './schemas.js';
+import { findOverBudgetRecommendation, recommendationReason } from './recommendation.js';
 import { RedactedTrace, type AgentTraceEvent } from './trace.js';
 
 export type AgentExecution = Readonly<{
@@ -52,21 +53,32 @@ export async function runScriptedPurchasingAgent(
   );
   const selected = qualifying[0];
   if (!selected) {
-    const selectionReason = noMatchReason(offers, task);
-    trace.add('NO_MATCH', {
+    const recommendation = findOverBudgetRecommendation(offers, task);
+    const selectionReason = recommendation
+      ? recommendationReason(recommendation)
+      : noMatchReason(offers, task);
+    trace.add(recommendation ? 'RECOMMENDATION_FOUND' : 'NO_MATCH', {
       maxAmountMinor: task.maxAmountMinor,
       currency: task.currency,
       reason: selectionReason,
+      ...(recommendation
+        ? {
+            offerId: recommendation.offerId,
+            overageMinor: recommendation.overageMinor,
+            overagePercent: recommendation.overagePercent,
+          }
+        : {}),
     });
     return {
       result: AgentRunResultSchema.parse({
         requestedMode: options.requestedMode ?? 'scripted',
         executedMode: 'scripted',
         fallbackUsed: options.fallbackUsed ?? false,
-        outcome: 'NO_MATCH',
+        outcome: recommendation ? 'RECOMMENDATION' : 'NO_MATCH',
         consideredOfferIds: offers.map((offer) => offer.offerId),
         marketsSearched,
         selectionReason,
+        recommendation,
       }),
       trace: trace.snapshot(),
     };

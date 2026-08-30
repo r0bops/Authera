@@ -1,4 +1,4 @@
-import { PurchaseAttemptResponseSchema } from '@authera/contracts';
+import { OverBudgetRecommendationSchema, PurchaseAttemptResponseSchema } from '@authera/contracts';
 import { z } from 'zod';
 
 export const SearchFlightsInputSchema = z.strictObject({
@@ -82,7 +82,7 @@ export type PurchasingTask = z.infer<typeof PurchasingTaskSchema>;
 export type FlightPurchasingTask = z.infer<typeof FlightPurchasingTaskSchema>;
 export type GoodsPurchasingTask = z.infer<typeof GoodsPurchasingTaskSchema>;
 
-export const AgentRunOutcomeSchema = z.enum(['PURCHASE_REQUESTED', 'NO_MATCH']);
+export const AgentRunOutcomeSchema = z.enum(['PURCHASE_REQUESTED', 'RECOMMENDATION', 'NO_MATCH']);
 export type AgentRunOutcome = z.infer<typeof AgentRunOutcomeSchema>;
 
 export const AgentRunResultSchema = z.strictObject({
@@ -96,6 +96,8 @@ export const AgentRunResultSchema = z.strictObject({
   selectedOfferId: z.uuid().optional(),
   /** Plain-language reason for the selection (or for finding no match). */
   selectionReason: z.string().optional(),
+  /** Closest authoritative offer inside the soft band; never an authorization to purchase. */
+  recommendation: OverBudgetRecommendationSchema.optional(),
   purchase: PurchaseAttemptResponseSchema.optional(),
 });
 

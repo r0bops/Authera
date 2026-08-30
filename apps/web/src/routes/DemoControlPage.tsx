@@ -569,7 +569,15 @@ function ResultSummary({ value }: { value: unknown }) {
         <>
           <p>
             Agent outcome:{' '}
-            <Badge tone={v.outcome === 'PURCHASE_REQUESTED' ? 'info' : 'neutral'}>
+            <Badge
+              tone={
+                v.outcome === 'PURCHASE_REQUESTED'
+                  ? 'info'
+                  : v.outcome === 'RECOMMENDATION'
+                    ? 'attention'
+                    : 'neutral'
+              }
+            >
               {v.outcome}
             </Badge>{' '}
             {v.mode ? (
@@ -595,6 +603,29 @@ function ResultSummary({ value }: { value: unknown }) {
             <p className="rounded-md border border-line bg-ground px-2.5 py-1.5 text-ink">
               <span className="font-medium">Agent's reasoning:</span> {v.selectionReason}
             </p>
+          ) : null}
+          {v.recommendation ? (
+            <Alert tone="attention" title="Closest option — recommendation only">
+              <p>{v.recommendation.displaySummary}</p>
+              <p className="mt-1">
+                {formatMoney({
+                  currency: v.recommendation.currency,
+                  minor: v.recommendation.overageMinor,
+                })}{' '}
+                ({v.recommendation.overagePercent}%) above the{' '}
+                {formatMoney({
+                  currency: v.recommendation.currency,
+                  minor: v.recommendation.budgetMinor,
+                })}{' '}
+                hard limit. No purchase was requested.
+              </p>
+              <Link
+                className="mt-1.5 inline-block font-medium text-cobalt hover:underline"
+                to={`/dashboard/mandates/${v.recommendation.mandateId}`}
+              >
+                Review and change the signed limit
+              </Link>
+            </Alert>
           ) : null}
         </>
       ) : null}

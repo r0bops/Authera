@@ -1,5 +1,8 @@
 import {
   effectiveFlightDateWindow,
+  priceOveragePercent,
+  recommendationCeilingMinor,
+  recommendationTolerancePercent,
   type FlightOfferView,
   type MandateView,
 } from '@authera/contracts';
@@ -17,14 +20,8 @@ export function offerMatches(
   if (offer.kind !== intent.type)
     return { eligible: false, why: intent.type === 'flight' ? 'not a flight' : 'not a product' };
   if (intent.type === 'flight') {
-    const day = (offer.departureAt ?? '').slice(0, 10);
-    const dates = effectiveFlightDateWindow(intent);
-    if (offer.origin !== intent.origin || offer.destination !== intent.destination)
-      return { eligible: false, why: 'different route' };
-    if (offer.cabin !== intent.cabin) return { eligible: false, why: `${offer.cabin} cabin` };
-    if (offer.passengerCount !== intent.passengerCount)
-      return { eligible: false, why: 'passenger count' };
-    if (day < dates.from || day > dates.to) return { eligible: false, why: 'outside travel dates' };
+    const mismatch = flightRuleMismatch(offer, intent);
+    if (mismatch) return { eligible: false, why: mismatch };
   } else {
     if (!offerInScope(offer, intent)) return { eligible: false, why: 'different search' };
     if (offer.quantity > intent.maxQuantity) return { eligible: false, why: 'quantity' };
@@ -37,6 +34,64 @@ export function offerMatches(
     };
   if (offer.status !== 'AVAILABLE') return { eligible: false, why: offer.status.toLowerCase() };
   return { eligible: true, why: 'within mandate' };
+}
+
+export type FlightPriceRecommendation = Readonly<{
+  offer: FlightOfferView;
+  overageMinor: number;
+  overagePercent: number;
+  tolerancePercent: number;
+}>;
+
+/** Closest authoritative flight in the soft band, only when no offer meets the hard limit. */
+export function findOverBudgetFlightRecommendation(
+  offers: readonly FlightOfferView[],
+  mandate: MandateView,
+): FlightPriceRecommendation | undefined {
+  const intent = mandate.policy.intent;
+  const limits = mandate.policy.limits;
+  if (intent.type !== 'flight' || limits.maxPerPurchaseMinor <= 0) return undefined;
+  if (offers.some((offer) => offerMatches(offer, mandate).eligible)) return undefined;
+
+  const ceiling = recommendationCeilingMinor(limits.maxPerPurchaseMinor);
+  const offer = [...offers]
+    .filter(
+      (candidate) =>
+        candidate.kind === 'flight' &&
+        !flightRuleMismatch(candidate, intent) &&
+        candidate.status === 'AVAILABLE' &&
+        candidate.total.currency === limits.currency &&
+        candidate.total.minor > limits.maxPerPurchaseMinor &&
+        candidate.total.minor <= ceiling,
+    )
+    .sort((left, right) =>
+      left.total.minor === right.total.minor
+        ? left.id.localeCompare(right.id)
+        : left.total.minor - right.total.minor,
+    )[0];
+  if (!offer) return undefined;
+
+  return {
+    offer,
+    overageMinor: offer.total.minor - limits.maxPerPurchaseMinor,
+    overagePercent: priceOveragePercent(offer.total.minor, limits.maxPerPurchaseMinor),
+    tolerancePercent: recommendationTolerancePercent(limits.maxPerPurchaseMinor),
+  };
+}
+
+function flightRuleMismatch(
+  offer: FlightOfferView,
+  intent: Extract<MandateView['policy']['intent'], { type: 'flight' }>,
+): string | undefined {
+  const day = (offer.departureAt ?? '').slice(0, 10);
+  const dates = effectiveFlightDateWindow(intent);
+  if (offer.kind !== 'flight') return 'not a flight';
+  if (offer.origin !== intent.origin || offer.destination !== intent.destination)
+    return 'different route';
+  if (offer.cabin !== intent.cabin) return `${offer.cabin} cabin`;
+  if (offer.passengerCount !== intent.passengerCount) return 'passenger count';
+  if (day < dates.from || day > dates.to) return 'outside travel dates';
+  return undefined;
 }
 
 /** Simple, dependency-free SVG chart: offer prices over departure date with the mandate threshold. */

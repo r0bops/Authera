@@ -1,6 +1,7 @@
 export * from './common.js';
 export * from './api.js';
 export * from './money.js';
+export * from './recommendation.js';
 export * from './mandate.js';
 export * from './policy.js';
 export * from './checkout.js';

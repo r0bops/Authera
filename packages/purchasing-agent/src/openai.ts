@@ -12,6 +12,7 @@ import {
   type FlightPurchasingTask,
   type PurchasingTask,
 } from './schemas.js';
+import { findOverBudgetRecommendation, recommendationReason } from './recommendation.js';
 import { boundedToolResult, RedactedTrace, type AgentTraceEvent } from './trace.js';
 
 export class OpenAiPurchasingAgentError extends Error {
@@ -55,6 +56,7 @@ export async function runOpenAiPurchasingAgent(
   let consideredOfferIds: string[] = [];
   let marketsSearched: string[] = [];
   let selectionReason: string | undefined;
+  let authoritativeOffers: Awaited<ReturnType<typeof gateway.searchFlights>>['offers'] = [];
   const authoritativeCheckouts = new Map<string, string>();
   let selectedOfferId: string | undefined;
   let purchase: AgentRunResult['purchase'];
@@ -67,6 +69,7 @@ export async function runOpenAiPurchasingAgent(
   trace.add('RUN_STARTED', { requestedMode: 'openai', model: options.model });
 
   const recordSearch = (result: Awaited<ReturnType<typeof gateway.searchFlights>>) => {
+    authoritativeOffers = [...result.offers];
     consideredOfferIds = result.offers.map((offer) => offer.offerId);
     marketsSearched = marketsOf(result.offers);
     authoritativeCheckouts.clear();
@@ -122,11 +125,29 @@ export async function runOpenAiPurchasingAgent(
     parameters: RequestPurchaseToolCallSchema,
     strict: true,
     execute: async ({ reason, ...input }) => {
+      const candidate = authoritativeOffers.find((offer) => offer.offerId === input.offerId);
       if (
         input.mandateId !== task.mandateId ||
+        !candidate ||
         authoritativeCheckouts.get(input.offerId) !== input.checkoutId
       ) {
         throw new Error('Purchase identifiers were not authorized by this run search result');
+      }
+      const withinTaskLimit =
+        candidate.currency === task.currency &&
+        candidate.totalMinor <= task.maxAmountMinor &&
+        (task.kind !== 'goods' || candidate.quantity <= task.maxQuantity);
+      if (!withinTaskLimit) {
+        return boundedToolResult(
+          {
+            ok: false,
+            error: {
+              code: 'OFFER_OUTSIDE_TASK_LIMIT',
+              message: 'This offer may be recommended but cannot be sent for purchase.',
+            },
+          },
+          maxToolResultBytes,
+        );
       }
       purchaseInvoked = true;
       selectedOfferId = input.offerId;
@@ -187,20 +208,34 @@ export async function runOpenAiPurchasingAgent(
     });
   }
 
+  const recommendation = purchase
+    ? undefined
+    : findOverBudgetRecommendation(authoritativeOffers, task);
+  if (recommendation) {
+    trace.add('RECOMMENDATION_FOUND', {
+      offerId: recommendation.offerId,
+      overageMinor: recommendation.overageMinor,
+      overagePercent: recommendation.overagePercent,
+      tolerancePercent: recommendation.tolerancePercent,
+    });
+  }
+
   return {
     result: AgentRunResultSchema.parse({
       requestedMode: 'openai',
       executedMode: 'openai',
       fallbackUsed: false,
-      outcome: purchase ? 'PURCHASE_REQUESTED' : 'NO_MATCH',
+      outcome: purchase ? 'PURCHASE_REQUESTED' : recommendation ? 'RECOMMENDATION' : 'NO_MATCH',
       consideredOfferIds,
       marketsSearched,
       selectedOfferId,
-      selectionReason:
-        selectionReason ??
-        (typeof finalOutput === 'string' && finalOutput.trim().length > 0
-          ? finalOutput.trim().slice(0, 280)
-          : undefined),
+      selectionReason: recommendation
+        ? recommendationReason(recommendation)
+        : (selectionReason ??
+          (typeof finalOutput === 'string' && finalOutput.trim().length > 0
+            ? finalOutput.trim().slice(0, 280)
+            : undefined)),
+      recommendation,
       purchase,
     }),
     trace: trace.snapshot(),

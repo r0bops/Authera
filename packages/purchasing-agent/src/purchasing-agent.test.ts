@@ -1,5 +1,5 @@
 import type { PurchaseAttemptResponse } from '@authera/contracts';
-import { ScriptedModel, functionCall } from '@openai/agents/testing';
+import { ScriptedModel, assistantMessage, functionCall } from '@openai/agents/testing';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AgentHttpClientTransport,
@@ -163,6 +163,29 @@ describe('scripted purchasing agent', () => {
     expect(gateway.purchases).toEqual([]);
   });
 
+  it('recommends the cheapest authoritative flight inside the adaptive soft band', async () => {
+    const nearMiss = offer(ID.offer145, ID.checkout145, 16_000, '2026-09-03T10:00:00.000Z');
+    const gateway = new RecordingGateway({ offers: [nearMiss, offers[0]!] });
+
+    const execution = await runScriptedPurchasingAgent(task, gateway);
+
+    expect(execution.result).toMatchObject({
+      outcome: 'RECOMMENDATION',
+      recommendation: {
+        mandateId: ID.mandate,
+        offerId: ID.offer145,
+        totalMinor: 16_000,
+        budgetMinor: 15_000,
+        overageMinor: 1_000,
+        overagePercent: 6.7,
+        tolerancePercent: 15,
+      },
+    });
+    expect(execution.result.selectionReason).toContain('No purchase was requested');
+    expect(execution.trace.map((event) => event.event)).toContain('RECOMMENDATION_FOUND');
+    expect(gateway.purchases).toEqual([]);
+  });
+
   it('rejects valid-shaped identifiers that were not returned by the authoritative search', async () => {
     const gateway = new RecordingGateway();
     const inventedOffer = '00000000-0000-4000-8000-000000000099';
@@ -266,6 +289,63 @@ describe('OpenAI purchasing agent', () => {
 
     expect(execution.result.outcome).toBe('NO_MATCH');
     expect(gateway.purchases).toEqual([]);
+  });
+
+  it('replaces model prose with a grounded recommendation from the returned offers', async () => {
+    const nearMiss = offer(ID.offer145, ID.checkout145, 16_000, '2026-09-03T10:00:00.000Z');
+    const gateway = new RecordingGateway({ offers: [nearMiss] });
+    const model = new ScriptedModel([
+      [functionCall('search_flights', searchInput, { callId: 'search-near-miss' })],
+      [assistantMessage('I found a flight for USD 1.00.')],
+    ]);
+
+    const execution = await runOpenAiPurchasingAgent(task, gateway, {
+      model: 'test-model',
+      modelOverride: model,
+      timeoutMs: 1_000,
+    });
+
+    expect(execution.result).toMatchObject({
+      outcome: 'RECOMMENDATION',
+      recommendation: { offerId: ID.offer145, totalMinor: 16_000, overagePercent: 6.7 },
+    });
+    expect(execution.result.selectionReason).toContain('USD 160.00');
+    expect(execution.result.selectionReason).not.toContain('USD 1.00');
+    expect(gateway.purchases).toEqual([]);
+    model.assertComplete();
+  });
+
+  it('does not let the model send a recommended over-budget offer to the gateway', async () => {
+    const nearMiss = offer(ID.offer145, ID.checkout145, 16_000, '2026-09-03T10:00:00.000Z');
+    const gateway = new RecordingGateway({ offers: [nearMiss] });
+    const model = new ScriptedModel([
+      [functionCall('search_flights', searchInput, { callId: 'search-over-budget' })],
+      [
+        functionCall(
+          'request_purchase',
+          {
+            mandateId: ID.mandate,
+            offerId: ID.offer145,
+            checkoutId: ID.checkout145,
+            reason: 'Try the closest flight despite the hard limit.',
+          },
+          { callId: 'purchase-over-budget' },
+        ),
+      ],
+    ]);
+
+    const execution = await runOpenAiPurchasingAgent(task, gateway, {
+      model: 'test-model',
+      modelOverride: model,
+      timeoutMs: 1_000,
+    });
+
+    expect(execution.result).toMatchObject({
+      outcome: 'RECOMMENDATION',
+      recommendation: { offerId: ID.offer145, totalMinor: 16_000 },
+    });
+    expect(gateway.purchases).toEqual([]);
+    model.assertComplete();
   });
 });
 

@@ -142,6 +142,9 @@ export class AgentRunner {
       ...(execution.result.selectionReason
         ? { selectionReason: execution.result.selectionReason }
         : {}),
+      ...(execution.result.recommendation
+        ? { recommendation: execution.result.recommendation }
+        : {}),
       ...(execution.result.purchase ? { purchase: execution.result.purchase } : {}),
       trace: execution.trace.map((e) => ({ at: e.at, event: e.event, data: { ...e.data } })),
     };

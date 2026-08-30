@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CabinSchema, IataCodeSchema } from './mandate.js';
 import { CurrencySchema } from './money.js';
 import { PurchaseAttemptResponseSchema } from './execution.js';
+import { OverBudgetRecommendationSchema } from './recommendation.js';
 
 /**
  * Demo-control API (CLAUDE_IMPLEMENTATION_SPEC.md §12). Every control drives the same
@@ -91,13 +92,14 @@ export const AgentTraceEventSchema = z.object({
 export const DemoAttemptResultSchema = z.object({
   mode: z.enum(['scripted', 'openai']),
   fallbackUsed: z.boolean(),
-  outcome: z.enum(['PURCHASE_REQUESTED', 'NO_MATCH']),
+  outcome: z.enum(['PURCHASE_REQUESTED', 'RECOMMENDATION', 'NO_MATCH']),
   consideredOfferIds: z.array(z.uuid()),
   /** Distinct markets (ISO 3166-1 alpha-2) whose merchants returned offers. */
   marketsSearched: z.array(z.string()),
   selectedOfferId: z.uuid().optional(),
   /** Plain-language reason the agent gave for its choice (or for not choosing). */
   selectionReason: z.string().optional(),
+  recommendation: OverBudgetRecommendationSchema.optional(),
   purchase: PurchaseAttemptResponseSchema.optional(),
   trace: z.array(AgentTraceEventSchema),
 });

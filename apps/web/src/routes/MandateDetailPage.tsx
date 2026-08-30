@@ -8,7 +8,11 @@ import {
   useReviseMandate,
   useRevokeMandate,
 } from '../api/hooks.js';
-import { OffersTable, PriceWatchChart } from '../components/price-watch.js';
+import {
+  findOverBudgetFlightRecommendation,
+  OffersTable,
+  PriceWatchChart,
+} from '../components/price-watch.js';
 import { DecisionBadge, MandateStatusBadge, Timeline } from '../components/status.js';
 import {
   Alert,
@@ -66,9 +70,10 @@ export function MandateDetailPage() {
   const isComplete = m.status === 'ACTIVE' && m.usage.remainingCount === 0;
   const inProgress =
     executions.data?.filter((e) => e.state === 'RESERVED' || e.state === 'PAYMENT_PENDING') ?? [];
+  const priceRecommendation = findOverBudgetFlightRecommendation(offers.data ?? [], m);
 
-  const openRevise = () => {
-    setNewMax(minorToInput(limits.maxPerPurchaseMinor));
+  const openRevise = (suggestedMaxMinor = limits.maxPerPurchaseMinor) => {
+    setNewMax(minorToInput(suggestedMaxMinor));
     setNewUntil(m.policy.validUntil.slice(0, 16));
     setNewEscalate(m.policy.escalation === 'require_human');
     setReviseOpen(true);
@@ -93,7 +98,11 @@ export function MandateDetailPage() {
             </Link>
           ) : (
             <>
-              <Button variant="secondary" onClick={openRevise} disabled={m.status !== 'ACTIVE'}>
+              <Button
+                variant="secondary"
+                onClick={() => openRevise()}
+                disabled={m.status !== 'ACTIVE'}
+              >
                 Change plan
               </Button>
               <Button
@@ -131,6 +140,35 @@ export function MandateDetailPage() {
           <Alert tone="attention" title="Plan expired">
             This plan ended {formatDateTime(m.policy.validUntil)}. Create a new one to keep watching
             prices.
+          </Alert>
+        </div>
+      ) : null}
+      {m.status === 'ACTIVE' && !isComplete && priceRecommendation ? (
+        <div className="mb-4">
+          <Alert tone="attention" title="Closest flight is slightly above your limit">
+            <p>
+              No eligible flight is currently available within{' '}
+              {formatMoney({
+                currency: limits.currency,
+                minor: limits.maxPerPurchaseMinor,
+              })}
+              . The closest option is{' '}
+              <span className="font-semibold">{priceRecommendation.offer.summary}</span> —{' '}
+              {formatMoney({
+                currency: limits.currency,
+                minor: priceRecommendation.overageMinor,
+              })}{' '}
+              ({priceRecommendation.overagePercent}%) over your limit.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button size="sm" onClick={() => openRevise(priceRecommendation.offer.total.minor)}>
+                Raise limit to {formatMoney(priceRecommendation.offer.total)}
+              </Button>
+              <span className="text-[12px]">
+                Recommendation band: {priceRecommendation.tolerancePercent}%. Nothing has been
+                purchased.
+              </span>
+            </div>
           </Alert>
         </div>
       ) : null}
