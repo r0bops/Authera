@@ -117,3 +117,8 @@ One Docker service plus PostgreSQL. `railway.json` builds from the `Dockerfile` 
 - Rate limiting not implemented.
 - The audit ledger is tamper-evident, not immutable (no external anchoring).
 - Local Playwright acceptance passed twice across both supported desktop viewports; Railway deployment still requires a linked project.
+
+## Standards and references
+
+- **AP2 — Agent Payments Protocol** (Google agentic commerce): https://github.com/google-agentic-commerce/AP2 — the mandate model (intent → cart → payment mandates) Authera's purchase mandates and audit trail are aligned with.
+- **RFC 9421 — HTTP Message Signatures**: https://www.rfc-editor.org/rfc/rfc9421 — how every agent request to the gateway is signed and verified.
