@@ -60,7 +60,9 @@ export function buttonStyles({
   };
   return cn(
     'inline-flex items-center justify-center gap-1.5 rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt',
-    size === 'sm' ? 'min-h-10 px-2.5 text-[12.5px]' : 'min-h-10 px-3.5 text-[13.5px]',
+    size === 'sm'
+      ? 'min-h-11 px-2.5 text-[12.5px] md:min-h-10'
+      : 'min-h-11 px-3.5 text-[13.5px] md:min-h-10',
     variants[variant],
     className,
   );
@@ -82,13 +84,21 @@ export function Button({
     <button
       {...props}
       disabled={props.disabled || loading}
+      aria-busy={loading || undefined}
       className={cn(
         buttonStyles({ variant, size }),
         'disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
     >
-      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+      {loading ? (
+        <>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          <span className="sr-only" aria-live="polite">
+            Working…
+          </span>
+        </>
+      ) : null}
       {children}
     </button>
   );
@@ -111,7 +121,7 @@ export function Card({
     <section className={cn('rounded-md border border-line bg-surface', className)}>
       {title !== undefined ? (
         <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-[14px] font-semibold text-ink">{title}</h2>
             {description ? (
               <p className="mt-0.5 text-[12.5px] text-ink-muted">{description}</p>
@@ -143,7 +153,7 @@ export function Label({
 }
 
 const fieldClass =
-  'min-h-10 w-full rounded-md border border-line-strong bg-surface px-2.5 text-[13.5px] text-ink placeholder:text-ink-muted focus:border-cobalt focus:outline-none focus:ring-2 focus:ring-cobalt/30 disabled:bg-surface-muted';
+  'min-h-11 w-full rounded-md border border-line-strong bg-surface px-2.5 text-[13.5px] text-ink placeholder:text-ink-muted focus:border-cobalt focus:outline-none focus:ring-2 focus:ring-cobalt/30 disabled:bg-surface-muted md:min-h-10';
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(fieldClass, className)} />;
@@ -174,12 +184,12 @@ export function Switch({
   id: string;
   disabled?: boolean;
 }) {
+  const labelId = `${id}-label`;
   return (
-    <label
-      htmlFor={id}
+    <div
       className={cn(
-        'flex cursor-pointer items-center gap-2.5 text-[13px] text-ink',
-        disabled && 'cursor-not-allowed opacity-60',
+        'flex min-h-11 items-center gap-2 text-[13px] text-ink',
+        disabled && 'opacity-60',
       )}
     >
       <button
@@ -187,22 +197,33 @@ export function Switch({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-labelledby={labelId}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cn(
-          'relative h-5 w-9 rounded-full border transition-colors',
-          checked ? 'border-cobalt bg-cobalt' : 'border-line-strong bg-surface-muted',
-        )}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt disabled:cursor-not-allowed"
       >
         <span
           className={cn(
-            'absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform',
-            checked ? 'translate-x-4.5 left-0.5' : 'left-0.5',
+            'relative h-5 w-9 rounded-full border transition-colors',
+            checked ? 'border-cobalt bg-cobalt' : 'border-line-strong bg-surface-muted',
           )}
-        />
+        >
+          <span
+            className={cn(
+              'absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform',
+              checked && 'translate-x-4',
+            )}
+          />
+        </span>
       </button>
-      {label}
-    </label>
+      <label
+        id={labelId}
+        htmlFor={id}
+        className={cn('cursor-pointer', disabled && 'cursor-not-allowed')}
+      >
+        {label}
+      </label>
+    </div>
   );
 }
 
@@ -241,7 +262,15 @@ export function Alert({
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('animate-pulse rounded-md bg-surface-muted', className)} aria-hidden />;
+  return (
+    <div
+      className={cn('animate-pulse rounded-md bg-surface-muted', className)}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="sr-only">Loading…</span>
+    </div>
+  );
 }
 
 export function EmptyState({
@@ -293,15 +322,12 @@ export function KeyValue({
   className?: string;
 }) {
   return (
-    <dl
-      className={cn(
-        'grid grid-cols-[minmax(120px,max-content)_1fr] gap-x-4',
-        dense ? 'gap-y-1' : 'gap-y-2',
-        className,
-      )}
-    >
+    <dl className={cn('grid min-w-0', dense ? 'gap-y-2' : 'gap-y-3', className)}>
       {items.map((item, index) => (
-        <div key={index} className="contents">
+        <div
+          key={index}
+          className="grid min-w-0 grid-cols-1 gap-y-0.5 sm:grid-cols-[minmax(120px,max-content)_minmax(0,1fr)] sm:gap-x-4"
+        >
           <dt className="text-[12.5px] text-ink-muted">{item.label}</dt>
           <dd
             className={cn(
@@ -413,7 +439,7 @@ function OpenDialog({
       ref={ref}
       aria-labelledby={titleId}
       className={cn(
-        'm-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto rounded-md border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/45',
+        'm-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-x-hidden overflow-y-auto rounded-md border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/45',
         wide ? 'max-w-3xl' : 'max-w-xl',
       )}
       onCancel={(event) => {

@@ -242,7 +242,7 @@ export function NewMandatePage() {
                     <input
                       type="radio"
                       name="category"
-                      className="mt-0.5"
+                      className="mt-0.5 h-5 w-5 shrink-0 accent-cobalt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
                       checked={values.category === c.value}
                       onChange={() => form.setValue('category', c.value)}
                     />
@@ -396,9 +396,13 @@ export function NewMandatePage() {
                         {merchants.map((m) => {
                           const on = allowedMerchants.some((a) => a.id === m.id);
                           return (
-                            <label key={m.id} className="flex items-center gap-1.5 text-[13px]">
+                            <label
+                              key={m.id}
+                              className="flex min-h-11 items-center gap-2 text-[13px] md:min-h-10"
+                            >
                               <input
                                 type="checkbox"
+                                className="h-5 w-5 shrink-0 accent-cobalt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
                                 checked={on}
                                 onChange={(e) => toggleMerchant(m.id, e.target.checked)}
                               />
@@ -443,7 +447,7 @@ export function NewMandatePage() {
                         <input
                           type="radio"
                           name="escalate"
-                          className="mt-0.5"
+                          className="mt-0.5 h-5 w-5 shrink-0 accent-cobalt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
                           checked={values.escalate === opt.value}
                           onChange={() => form.setValue('escalate', opt.value)}
                         />
@@ -584,7 +588,9 @@ export function NewMandatePage() {
               Nothing is charged when you create this plan. You can change or stop it at any time.
             </p>
             <details className="mt-3 border-t border-line pt-3 text-[12px]">
-              <summary className="min-h-10 font-medium text-cobalt">Proof & details</summary>
+              <summary className="min-h-11 font-medium text-cobalt md:min-h-10">
+                Proof & details
+              </summary>
               <p className="mt-1 text-ink-muted">
                 Authera signs this authorization and binds it to {agentName}’s verified key. Every
                 later purchase is checked against the signed rules and current revocation state.

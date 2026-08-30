@@ -75,6 +75,18 @@ export function friendlyAgentName(displayName: string | null | undefined): strin
   return displayName.split(/\s+[—–-]\s+/)[0]?.trim() || displayName;
 }
 
+export function formatPaymentState(state: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    SUCCEEDED: 'Paid',
+    AUTHORIZED: 'Authorized',
+    PENDING: 'Pending',
+    FAILED: 'Failed',
+    CANCELED: 'Cancelled',
+    REFUNDED: 'Refunded',
+  };
+  return state ? (labels[state] ?? state.toLowerCase().replaceAll('_', ' ')) : 'No payment';
+}
+
 export function endOfMonthIso(now: Date = new Date()): string {
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59));
   return end.toISOString();

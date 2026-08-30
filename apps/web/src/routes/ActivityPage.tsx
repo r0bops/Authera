@@ -55,6 +55,7 @@ export function ActivityPage() {
                           state={e.state}
                           reasonCode={e.reasonCode}
                           showReasonCode={false}
+                          plainLanguage
                         />
                         {e.explanation ? (
                           <p className="mt-0.5 text-[12px] text-ink-muted">{e.explanation}</p>

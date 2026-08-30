@@ -69,7 +69,11 @@ export function MandatesPage() {
                     </span>
                   </Td>
                   <Td>
-                    <MandateStatusBadge status={m.status} plainLanguage />
+                    <MandateStatusBadge
+                      status={m.status}
+                      plainLanguage
+                      complete={m.usage.remainingCount === 0}
+                    />
                   </Td>
                   <Td className="tabular">
                     {formatMoney({
@@ -104,7 +108,11 @@ export function MandatesPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="font-medium text-ink">{intentTitle(m.policy.intent)}</span>
-                  <MandateStatusBadge status={m.status} plainLanguage />
+                  <MandateStatusBadge
+                    status={m.status}
+                    plainLanguage
+                    complete={m.usage.remainingCount === 0}
+                  />
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-ink-muted">
                   <span>

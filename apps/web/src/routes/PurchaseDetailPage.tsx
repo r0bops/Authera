@@ -12,7 +12,12 @@ import {
   Skeleton,
   buttonStyles,
 } from '../components/ui/primitives.js';
-import { formatDateTime, formatMoney, friendlyAgentName } from '../lib/format.js';
+import {
+  formatDateTime,
+  formatMoney,
+  formatPaymentState,
+  friendlyAgentName,
+} from '../lib/format.js';
 import { offerHeadline } from '../lib/intent.js';
 
 export function PurchaseDetailPage() {
@@ -51,9 +56,18 @@ export function PurchaseDetailPage() {
             state={execution.state}
             reasonCode={execution.reasonCode}
             showReasonCode={false}
+            plainLanguage
           />
         }
-        description={execution.explanation ?? undefined}
+        description={
+          succeeded
+            ? `${friendlyAgentName(mandate?.agentDisplayName)} paid only after Authera confirmed every rule in your plan.`
+            : execution.state === 'PAYMENT_PENDING'
+              ? 'Authera approved the purchase and is waiting for the payment provider.'
+              : execution.state === 'FAILED'
+                ? 'The payment did not complete. No additional purchase was authorized.'
+                : 'A readable record of this purchase attempt and the checks behind it.'
+        }
         actions={
           <Link
             to={`/dashboard/disputes/new?executionId=${execution.id}`}
@@ -71,8 +85,8 @@ export function PurchaseDetailPage() {
           </Alert>
         </div>
       ) : null}
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="flex flex-col gap-4 lg:col-span-8">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-12">
+        <div className="flex min-w-0 flex-col gap-4 lg:col-span-8">
           <section className="rounded-md border border-line bg-surface">
             <div className="flex flex-col gap-4 border-b border-dashed border-line-strong px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div className="flex items-center gap-3">
@@ -112,12 +126,7 @@ export function PurchaseDetailPage() {
                 <>
                   <Segment label="From" value={offer?.origin ?? '—'} />
                   <Segment label="To" value={offer?.destination ?? '—'} />
-                  <Segment
-                    label="Departs"
-                    value={
-                      offer?.departureAt ? offer.departureAt.slice(0, 16).replace('T', ' ') : '—'
-                    }
-                  />
+                  <Segment label="Departs" value={formatDateTime(offer?.departureAt)} />
                   <Segment label="Cabin" value={offer?.cabin ?? '—'} />
                 </>
               )}
@@ -128,7 +137,7 @@ export function PurchaseDetailPage() {
                 items={[
                   {
                     label: 'Payment',
-                    value: `${mandate?.paymentMethodLabel ?? '—'} · ${execution.payment?.state ?? 'no payment'}`,
+                    value: `${mandate?.paymentMethodLabel ?? '—'} · ${formatPaymentState(execution.payment?.state)}`,
                   },
                   { label: 'Purchased at', value: formatDateTime(execution.createdAt) },
                   {
@@ -145,7 +154,11 @@ export function PurchaseDetailPage() {
           <Card title="Plan used">
             {mandate ? (
               <>
-                <p className="text-[13.5px]">{mandate.summary}</p>
+                <p className="text-[13.5px]">
+                  This plan let {friendlyAgentName(mandate.agentDisplayName)} pay up to{' '}
+                  {formatMoney(mandate.maxPerPurchase)} for this offer before{' '}
+                  {formatDateTime(mandate.validUntil)}.
+                </p>
                 <KeyValue
                   className="mt-3"
                   dense
@@ -161,7 +174,10 @@ export function PurchaseDetailPage() {
                         </Link>
                       ),
                     },
-                    { label: 'Version', value: `v${mandate.version} · ${mandate.status}` },
+                    {
+                      label: 'Plan version',
+                      value: `v${mandate.version} · ${succeeded ? 'used for this purchase' : 'recorded'}`,
+                    },
                     { label: 'Agent', value: friendlyAgentName(mandate.agentDisplayName) },
                   ]}
                 />
@@ -175,7 +191,7 @@ export function PurchaseDetailPage() {
             description="The receipt above is the readable record. Technical evidence stays available here."
           >
             <details>
-              <summary className="text-[12.5px] font-medium text-cobalt">
+              <summary className="min-h-11 text-[12.5px] font-medium text-cobalt md:min-h-10">
                 Policy checklist ({execution.checklist.length} checks)
               </summary>
               <div className="mt-2">
@@ -183,7 +199,9 @@ export function PurchaseDetailPage() {
               </div>
             </details>
             <details className="mt-2">
-              <summary className="text-[12.5px] font-medium text-cobalt">Identifiers</summary>
+              <summary className="min-h-11 text-[12.5px] font-medium text-cobalt md:min-h-10">
+                Identifiers
+              </summary>
               <KeyValue
                 className="mt-2"
                 dense
@@ -201,14 +219,16 @@ export function PurchaseDetailPage() {
               />
             </details>
             <details className="mt-2">
-              <summary className="text-[12.5px] font-medium text-cobalt">Event timeline</summary>
+              <summary className="min-h-11 text-[12.5px] font-medium text-cobalt md:min-h-10">
+                Event timeline
+              </summary>
               <div className="mt-2">
                 <Timeline events={execution.timeline} />
               </div>
             </details>
           </Card>
         </div>
-        <aside className="lg:col-span-4">
+        <aside className="min-w-0 lg:col-span-4">
           <Card title="Why Authera allowed it" className="lg:sticky lg:top-5">
             <ul className="divide-y divide-line">
               {verification.map((v) => (
@@ -219,14 +239,17 @@ export function PurchaseDetailPage() {
                     <X className="mt-0.5 h-4 w-4 shrink-0 text-coral" aria-hidden />
                   )}
                   <div>
-                    <p className={v.ok ? 'text-ink' : 'text-coral'}>{v.label}</p>
-                    {v.detail ? <p className="text-[11.5px] text-ink-faint">{v.detail}</p> : null}
+                    <p className={v.ok ? 'text-ink' : 'text-coral'}>
+                      {humanVerificationLabel(v.label)}
+                    </p>
                   </div>
                 </li>
               ))}
             </ul>
             <details className="mt-3 border-t border-line pt-3 text-[11.5px]">
-              <summary className="min-h-10 font-medium text-cobalt">Show evidence id</summary>
+              <summary className="min-h-11 font-medium text-cobalt md:min-h-10">
+                Show evidence id
+              </summary>
               <Mono className="mt-1 block break-all">{execution.evidenceId}</Mono>
             </details>
           </Card>
@@ -243,4 +266,16 @@ function Segment({ label, value }: { label: string; value: string }) {
       <p className="text-[15px] font-semibold text-ink">{value}</p>
     </div>
   );
+}
+
+function humanVerificationLabel(label: string): string {
+  const labels: Record<string, string> = {
+    'Agent identity verified': 'Request came from your verified agent',
+    'Mandate signature valid': 'Your purchase plan is authentic',
+    'Mandate active at purchase time': 'Your plan was active when Aria bought it',
+    'Amount within authorized limit': 'Price was inside your limit',
+    'Cart matched the authorized checkout': 'The final cart matched the checked offer',
+    'Payment confirmed': 'Payment completed',
+  };
+  return labels[label] ?? label;
 }

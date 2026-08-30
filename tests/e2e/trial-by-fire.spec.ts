@@ -34,19 +34,19 @@ test('1 · reset demo', async ({ request }) => {
 test('2 · create the USD 150 Córdoba mandate through the wizard', async ({ page }) => {
   await page.goto('/dashboard');
   await page
-    .getByRole('link', { name: /create mandate/i })
+    .getByRole('link', { name: /plan a purchase/i })
     .first()
     .click();
-  await expect(page.getByRole('heading', { name: /create purchase mandate/i })).toBeVisible();
-  await page.getByLabel('From').fill('CCS');
-  await page.getByLabel('To').fill('COR');
+  await expect(page.getByRole('heading', { name: /plan a purchase/i })).toBeVisible();
+  await page.getByLabel('Flying from').selectOption('CCS');
+  await page.getByLabel('Flying to').selectOption('COR');
   await page.getByRole('button', { name: /continue/i }).click();
-  await page.getByLabel(/maximum price/i).fill('150.00');
+  await page.getByLabel(/spend up to/i).fill('150.00');
   await page.getByRole('button', { name: /continue/i }).click();
   await expect(page.getByText(/USD 150\.00/).first()).toBeVisible();
-  await page.getByRole('button', { name: /authorize mandate/i }).click();
+  await page.getByRole('button', { name: /authorize and start/i }).click();
   await expect(page).toHaveURL(/\/dashboard\/mandates\/[0-9a-f-]{36}$/);
-  await expect(page.getByText('ACTIVE').first()).toBeVisible();
+  await expect(page.getByText('Active').first()).toBeVisible();
   await expectNoHorizontalScroll(page);
   mandateId = page.url().split('/').at(-1)!;
   expect(mandateId).toBeTruthy();
@@ -153,9 +153,9 @@ test('10 · live revocation blocks the immediate retry', async ({ page, request 
   const fresh = await createMandate(request, { paymentMethodId });
   const offer = await injectOffer(request, 12_000);
   await page.goto(`/dashboard/mandates/${fresh.id}`);
-  await page.getByRole('button', { name: /^revoke$/i }).click();
-  await page.getByRole('button', { name: /revoke now/i }).click();
-  await expect(page.getByText('Revoked').first()).toBeVisible();
+  await page.getByRole('button', { name: /stop aria/i }).click();
+  await page.getByRole('button', { name: /stop aria now/i }).click();
+  await expect(page.getByText('Plan stopped').first()).toBeVisible();
   const result = await directAttempt(request, { mandateId: fresh.id, offerId: offer.id });
   expect(result.purchase).toMatchObject({ decision: 'BLOCK', reasonCode: 'MANDATE_REVOKED' });
   await expectNoHorizontalScroll(page);
@@ -177,8 +177,8 @@ test('11 · USD 168 escalates, one approval completes the exact checkout once', 
   const checkoutId = paused.checkoutId!;
 
   await page.goto(`/dashboard/approvals/${approvalId}`);
-  await expect(page.getByRole('heading', { name: /approval requested/i })).toBeVisible();
-  await page.getByRole('button', { name: /approve this purchase only/i }).click();
+  await expect(page.getByRole('heading', { name: /aria needs your decision/i })).toBeVisible();
+  await page.getByRole('button', { name: /approve this offer only/i }).click();
   await expect(page.getByText(/Approved/).first()).toBeVisible();
   await expectNoHorizontalScroll(page);
 
@@ -281,7 +281,7 @@ test('14 · every console screen fits the viewport', async ({ page }) => {
 
 test('15 · perspectives stay separated and legacy links redirect', async ({ page }) => {
   await page.goto('/dashboard');
-  await expect(page.getByRole('navigation', { name: /Marta navigation/i })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: /Your account navigation/i })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Agent overview' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Purchase verification' })).toHaveCount(0);
 

@@ -10,7 +10,7 @@ import {
   Td,
   Th,
 } from '../components/ui/primitives.js';
-import { formatDateTime, formatMoney } from '../lib/format.js';
+import { formatDateTime, formatMoney, formatPaymentState } from '../lib/format.js';
 
 export function PurchasesPage() {
   const purchases = usePurchases();
@@ -48,9 +48,9 @@ export function PurchasesPage() {
                 <Td>{p.offerSummary ?? '—'}</Td>
                 <Td className="tabular text-right font-medium">{formatMoney(p.amount)}</Td>
                 <Td>
-                  <DecisionBadge decision={p.decision} state={p.state} />
+                  <DecisionBadge decision={p.decision} state={p.state} plainLanguage />
                 </Td>
-                <Td>{p.paymentState ?? '—'}</Td>
+                <Td>{formatPaymentState(p.paymentState)}</Td>
                 <Td>
                   <Link
                     className="text-[12.5px] font-medium text-cobalt hover:underline"

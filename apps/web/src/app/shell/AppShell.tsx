@@ -15,6 +15,7 @@ import { useMandates, useMe } from '../../api/hooks.js';
 import { Badge } from '../../components/ui/primitives.js';
 import { cn } from '../../lib/cn.js';
 import { friendlyAgentName } from '../../lib/format.js';
+import { selectDashboardPlans } from '../../lib/mandates.js';
 
 export type AppPerspective = 'client' | 'agent' | 'merchant' | 'auditor' | 'demo';
 
@@ -100,12 +101,7 @@ export function AppShell({
 }) {
   const me = useMe();
   const mandates = useMandates();
-  const active = mandates.data?.find(
-    (mandate) => mandate.status === 'ACTIVE' && mandate.usage.remainingCount > 0,
-  );
-  const completed = mandates.data?.find(
-    (mandate) => mandate.status === 'ACTIVE' && mandate.usage.remainingCount === 0,
-  );
+  const { livePlan: active, completedPlan: completed } = selectDashboardPlans(mandates.data);
   const config = PERSPECTIVE_CONFIG[perspective];
   const humanName = me.data?.user.displayName ?? 'Marta Ledezma';
   const agentName = friendlyAgentName(me.data?.agents[0]?.displayName);

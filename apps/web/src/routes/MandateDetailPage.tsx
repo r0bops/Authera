@@ -31,6 +31,7 @@ import {
   buttonStyles,
 } from '../components/ui/primitives.js';
 import {
+  formatDate,
   formatDateTime,
   formatMoney,
   friendlyAgentName,
@@ -84,7 +85,7 @@ export function MandateDetailPage() {
             <MandateStatusBadge status={m.status} plainLanguage />
           )
         }
-        description={m.summary}
+        description={`${agentName} may buy ${intentTitle(m.policy.intent)} for ${formatMoney({ currency: limits.currency, minor: limits.maxPerPurchaseMinor })} or less, ${limits.maxFulfillments === 1 ? 'once' : `up to ${limits.maxFulfillments} times`}, until ${formatDateTime(m.policy.validUntil)}.`}
         actions={
           isComplete ? (
             <Link to="/dashboard/mandates/new" className={buttonStyles()}>
@@ -133,10 +134,10 @@ export function MandateDetailPage() {
           </Alert>
         </div>
       ) : null}
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="flex flex-col gap-4 lg:col-span-8">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-12">
+        <div className="flex min-w-0 flex-col gap-4 lg:col-span-8">
           <Card title="Your rules">
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat
                 label="Price limit"
                 value={formatMoney({
@@ -173,7 +174,7 @@ export function MandateDetailPage() {
                   ? [
                       {
                         label: 'Travel window',
-                        value: `${m.policy.intent.departureDateFrom} → ${m.policy.intent.departureDateTo}`,
+                        value: `${formatDate(m.policy.intent.departureDateFrom)} → ${formatDate(m.policy.intent.departureDateTo)}`,
                       },
                       {
                         label: 'Cabin / passengers',
@@ -272,6 +273,7 @@ export function MandateDetailPage() {
                           state={e.state}
                           reasonCode={e.reasonCode}
                           showReasonCode={false}
+                          plainLanguage
                         />
                       </Td>
                       <Td>
@@ -302,7 +304,7 @@ export function MandateDetailPage() {
             )}
           </Card>
         </div>
-        <aside className="flex flex-col gap-4 lg:col-span-4">
+        <aside className="flex min-w-0 flex-col gap-4 lg:col-span-4">
           <Card title="Who can use this plan">
             <KeyValue
               dense
@@ -315,7 +317,9 @@ export function MandateDetailPage() {
               ]}
             />
             <details className="mt-2 text-[12px]">
-              <summary className="min-h-10 font-medium text-cobalt">Show verified key</summary>
+              <summary className="min-h-11 font-medium text-cobalt md:min-h-10">
+                Show verified key
+              </summary>
               <Mono className="mt-1 block break-all">{m.agent.keyThumbprint}</Mono>
             </details>
           </Card>
@@ -335,7 +339,9 @@ export function MandateDetailPage() {
               Your card details are never shared with {agentName}.
             </p>
             <details className="mt-2 text-[12px]">
-              <summary className="min-h-10 font-medium text-cobalt">Show payment reference</summary>
+              <summary className="min-h-11 font-medium text-cobalt md:min-h-10">
+                Show payment reference
+              </summary>
               <Mono className="mt-1 block break-all">{m.policy.paymentMethodRef}</Mono>
             </details>
           </Card>
@@ -360,7 +366,7 @@ export function MandateDetailPage() {
             description="Technical evidence is available for an audit or dispute."
           >
             <details>
-              <summary className="min-h-10 text-[12.5px] font-medium text-cobalt">
+              <summary className="min-h-11 text-[12.5px] font-medium text-cobalt md:min-h-10">
                 Show technical evidence
               </summary>
               <div className="mt-2">
@@ -373,7 +379,7 @@ export function MandateDetailPage() {
                   ]}
                 />
                 <details className="mt-2">
-                  <summary className="min-h-10 text-[12.5px] font-medium text-cobalt">
+                  <summary className="min-h-11 text-[12.5px] font-medium text-cobalt md:min-h-10">
                     Show signed authorization (JWS)
                   </summary>
                   <Mono className="mt-1 block max-h-40 overflow-auto break-all whitespace-pre-wrap">

@@ -67,7 +67,9 @@ export function SettingsPage() {
                     </Badge>
                   </div>
                   <details className="mt-1 text-[12px]">
-                    <summary className="min-h-10 font-medium text-cobalt">Proof & details</summary>
+                    <summary className="min-h-11 font-medium text-cobalt md:min-h-10">
+                      Proof & details
+                    </summary>
                     <p className="font-mono text-[11.5px] break-all text-ink-muted">
                       key {agent.keyThumbprint ?? 'none'}
                     </p>

@@ -68,9 +68,7 @@ export function ApprovalPage() {
                   },
                   {
                     label: 'Departs',
-                    value: a.offer?.departureAt
-                      ? a.offer.departureAt.slice(0, 16).replace('T', ' ')
-                      : '—',
+                    value: formatDateTime(a.offer?.departureAt),
                   },
                   {
                     label: a.offer?.kind === 'goods' ? 'Quantity' : 'Cabin',
@@ -122,8 +120,11 @@ export function ApprovalPage() {
               />
             </Card>
           </div>
-          <Card title="Plan you approved">
-            <p className="text-[13.5px]">{a.mandateSummary}</p>
+          <Card title="Plan that set your limit">
+            <p className="text-[13.5px]">
+              Your plan allows up to {formatMoney(a.limit)} for this kind of purchase. This offer is{' '}
+              {formatMoney(a.difference)} higher, so no payment can happen without this decision.
+            </p>
           </Card>
           <Card title="What approving means">
             <ul className="list-disc space-y-1 pl-5 text-[13px]">
@@ -140,7 +141,9 @@ export function ApprovalPage() {
               </li>
             </ul>
             <details className="mt-3 border-t border-line pt-3 text-[12px]">
-              <summary className="min-h-10 font-medium text-cobalt">Proof & details</summary>
+              <summary className="min-h-11 font-medium text-cobalt md:min-h-10">
+                Proof & details
+              </summary>
               <p className="mt-1 text-ink-muted">
                 This one-time approval is bound to checkout hash{' '}
                 <code className="font-mono">{shortHash(a.checkoutHash)}</code>. If the checkout
@@ -227,7 +230,9 @@ export function ApprovalPage() {
               </>
             )}
             <details className="mt-3 border-t border-line pt-3 text-[11.5px]">
-              <summary className="min-h-10 font-medium text-cobalt">How this is recorded</summary>
+              <summary className="min-h-11 font-medium text-cobalt md:min-h-10">
+                How this is recorded
+              </summary>
               <p className="mt-1 text-ink-muted">
                 Authera records the exact checkout, amount, and decision time in the evidence trail.
               </p>

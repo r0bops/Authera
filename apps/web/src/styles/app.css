@@ -10,15 +10,15 @@
   --color-line-strong: #c9d0dc;
   --color-ink: #1d2230;
   --color-ink-muted: #5b6577;
-  --color-ink-faint: #8b95a7;
+  --color-ink-faint: #687386;
   --color-cobalt: #2448d6;
   --color-cobalt-strong: #1b39b3;
   --color-cobalt-soft: #e8ecfb;
-  --color-emerald: #14805c;
+  --color-emerald: #0f684b;
   --color-emerald-soft: #e3f4ec;
   --color-amber: #9a5b00;
   --color-amber-soft: #fff3dc;
-  --color-coral: #c8382d;
+  --color-coral: #a62e25;
   --color-coral-soft: #fde8e6;
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -57,4 +57,15 @@ details > summary::-webkit-details-marker {
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

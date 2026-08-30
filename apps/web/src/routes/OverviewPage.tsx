@@ -21,6 +21,7 @@ import {
 } from '../components/ui/primitives.js';
 import { formatDate, formatMoney, friendlyAgentName } from '../lib/format.js';
 import { intentLabel, offerHeadline, offerInScope } from '../lib/intent.js';
+import { selectDashboardPlans } from '../lib/mandates.js';
 
 export function OverviewPage() {
   const me = useMe();
@@ -28,32 +29,41 @@ export function OverviewPage() {
   const offers = useOffers();
   const approvals = useApprovals();
   const purchases = usePurchases();
-  const active = mandates.data?.find((mandate) => mandate.status === 'ACTIVE');
+  const { livePlan, plan } = selectDashboardPlans(mandates.data);
   const events = useAuditEvents({
-    mandateId: active?.id,
+    mandateId: plan?.id,
     limit: 50,
-    enabled: Boolean(active),
+    enabled: Boolean(plan),
   });
   const eligible =
-    active && offers.data
+    plan && offers.data
       ? offers.data
-          .filter((offer) => offerMatches(offer, active).eligible)
+          .filter((offer) => offerMatches(offer, plan).eligible)
           .sort((a, b) => a.total.minor - b.total.minor)
       : [];
   const routeOffers =
-    active && offers.data
+    plan && offers.data
       ? offers.data
-          .filter((offer) => offerInScope(offer, active.policy.intent))
+          .filter((offer) => offerInScope(offer, plan.policy.intent))
           .sort((a, b) => a.total.minor - b.total.minor)
       : [];
   const best = eligible[0] ?? routeOffers[0];
   const pendingApprovals = approvals.data?.filter((approval) => approval.state === 'PENDING') ?? [];
   const completedPurchase = purchases.data?.find(
-    (purchase) => purchase.mandateId === active?.id && purchase.state === 'SUCCEEDED',
+    (purchase) => purchase.mandateId === plan?.id && purchase.state === 'SUCCEEDED',
   );
-  const planComplete = active?.usage.remainingCount === 0;
+  const planComplete = Boolean(plan && !livePlan);
   const firstName = me.data?.user.displayName.split(' ')[0] ?? 'there';
   const agentName = friendlyAgentName(me.data?.agents[0]?.displayName);
+  const narrative = plan
+    ? `${intentLabel(plan.policy.intent)} for ${formatMoney({ currency: plan.policy.limits.currency, minor: plan.policy.limits.maxPerPurchaseMinor })} or less. ${
+        completedPurchase
+          ? `${agentName} completed it inside your rules; your receipt and proof are ready.`
+          : eligible.length > 0
+            ? `${agentName} found a matching offer and will pay only after every check passes.`
+            : `${agentName} is comparing verified providers and will buy when every rule matches.`
+      }`
+    : '';
 
   return (
     <>
@@ -86,7 +96,7 @@ export function OverviewPage() {
                 {agentName} paused before paying. Your standing limit stays unchanged unless you
                 approve this exact offer.{' '}
                 <Link
-                  className="inline-flex min-h-10 items-center font-medium text-amber underline-offset-2 hover:underline"
+                  className="inline-flex min-h-11 items-center font-medium text-amber underline-offset-2 hover:underline md:min-h-10"
                   to={`/dashboard/approvals/${approval.id}`}
                 >
                   Review the offer <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden />
@@ -102,7 +112,7 @@ export function OverviewPage() {
       ) : null}
       {mandates.isPending ? <DashboardSkeleton /> : null}
 
-      {mandates.data && !active ? (
+      {mandates.data && !plan ? (
         <EmptyState
           title={`${agentName} is ready when you are`}
           action={
@@ -116,7 +126,7 @@ export function OverviewPage() {
         </EmptyState>
       ) : null}
 
-      {active ? (
+      {plan ? (
         <div className="space-y-4">
           <section className="overflow-hidden rounded-md border border-line bg-surface">
             <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 md:flex-row md:items-start md:justify-between">
@@ -126,34 +136,19 @@ export function OverviewPage() {
                     {planComplete ? 'Plan complete' : `${agentName} is watching`}
                   </Badge>
                   <span className="text-[12px] text-ink-muted">
-                    until {formatDate(active.policy.validUntil)}
+                    until {formatDate(plan.policy.validUntil)}
                   </span>
                 </div>
                 <h2 className="mt-3 text-[20px] font-semibold tracking-tight text-ink">
-                  {intentLabel(active.policy.intent)}
+                  {intentLabel(plan.policy.intent)}
                 </h2>
-                <p className="mt-1 max-w-3xl text-[14px] leading-6 text-ink-muted">
-                  {active.policy.intent.type === 'flight'
-                    ? `Buy ${active.policy.intent.passengerCount === 1 ? 'one' : active.policy.intent.passengerCount} economy flight for `
-                    : `Buy ${active.policy.intent.maxQuantity === 1 ? 'one' : `up to ${active.policy.intent.maxQuantity}`} “${active.policy.intent.query}” for `}
-                  <strong className="font-semibold text-ink">
-                    {formatMoney({
-                      currency: active.policy.limits.currency,
-                      minor: active.policy.limits.maxPerPurchaseMinor,
-                    })}{' '}
-                    or less
-                  </strong>
-                  . Anything outside these rules is{' '}
-                  {active.policy.escalation === 'require_human'
-                    ? 'paused for your approval.'
-                    : 'blocked automatically.'}
-                </p>
+                <p className="mt-1 max-w-3xl text-[14px] leading-6 text-ink-muted">{narrative}</p>
               </div>
               <Link
                 to={
                   completedPurchase
                     ? `/dashboard/purchases/${completedPurchase.id}`
-                    : `/dashboard/mandates/${active.id}`
+                    : `/dashboard/mandates/${plan.id}`
                 }
                 className={buttonStyles({ variant: 'secondary', className: 'shrink-0' })}
               >
@@ -203,10 +198,10 @@ export function OverviewPage() {
                 title={completedPurchase ? 'Purchased' : 'Best price right now'}
                 description={
                   completedPurchase
-                    ? 'Aria completed this plan inside your rules.'
+                    ? `${agentName} completed this plan inside your rules.`
                     : eligible.length > 0
                       ? 'This offer is inside your plan.'
-                      : 'No action needed. Aria keeps watching.'
+                      : `No action needed. ${agentName} keeps watching.`
                 }
               >
                 {offers.isError ? (
@@ -230,7 +225,7 @@ export function OverviewPage() {
                     </div>
                     <Link
                       to={`/dashboard/purchases/${completedPurchase.id}`}
-                      className="mt-4 inline-flex min-h-10 items-center border-t border-line pt-3 text-[12.5px] font-medium text-cobalt hover:underline"
+                      className="mt-4 inline-flex min-h-11 items-center border-t border-line pt-3 text-[12.5px] font-medium text-cobalt hover:underline md:min-h-10"
                     >
                       Open receipt <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden />
                     </Link>
@@ -262,10 +257,10 @@ export function OverviewPage() {
                       ) : (
                         <span className="text-ink-muted">
                           {formatMoney({
-                            currency: active.policy.limits.currency,
+                            currency: plan.policy.limits.currency,
                             minor: Math.max(
                               0,
-                              best.total.minor - active.policy.limits.maxPerPurchaseMinor,
+                              best.total.minor - plan.policy.limits.maxPerPurchaseMinor,
                             ),
                           })}{' '}
                           above your limit
@@ -288,7 +283,7 @@ export function OverviewPage() {
                 actions={
                   <Link
                     to="/dashboard/activity"
-                    className="inline-flex min-h-10 items-center text-[12.5px] font-medium text-cobalt hover:underline"
+                    className="inline-flex min-h-11 items-center text-[12.5px] font-medium text-cobalt hover:underline md:min-h-10"
                   >
                     View all
                   </Link>
@@ -307,7 +302,7 @@ export function OverviewPage() {
 
           <details className="group rounded-md border border-line bg-surface">
             <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-3 px-4 py-3 font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt">
-              <span>See all prices Aria is comparing</span>
+              <span>See all prices {agentName} is comparing</span>
               <span className="text-[12px] font-normal text-ink-muted group-open:hidden">
                 Optional detail
               </span>
@@ -316,7 +311,7 @@ export function OverviewPage() {
               {offers.isPending ? (
                 <Skeleton className="h-[180px]" />
               ) : (
-                <PriceWatchChart offers={offers.data ?? []} mandate={active} />
+                <PriceWatchChart offers={offers.data ?? []} mandate={plan} />
               )}
             </div>
           </details>

@@ -27,9 +27,11 @@ function mandateTone(status: MandateState): Tone {
 export function MandateStatusBadge({
   status,
   plainLanguage = false,
+  complete = false,
 }: {
   status: MandateState;
   plainLanguage?: boolean;
+  complete?: boolean;
 }) {
   const labels: Record<MandateState, string> = {
     ACTIVE: 'Active',
@@ -38,7 +40,15 @@ export function MandateStatusBadge({
     EXPIRED: 'Ended',
     SUPERSEDED: 'Replaced',
   };
-  return <Badge tone={mandateTone(status)}>{plainLanguage ? labels[status] : status}</Badge>;
+  return (
+    <Badge tone={mandateTone(status)}>
+      {plainLanguage
+        ? complete && status === 'ACTIVE'
+          ? 'Plan complete'
+          : labels[status]
+        : status}
+    </Badge>
+  );
 }
 
 function decisionTone(decision: Decision | null, state?: ExecutionState): Tone {
@@ -62,13 +72,15 @@ export function DecisionBadge({
   state,
   reasonCode,
   showReasonCode = true,
+  plainLanguage = false,
 }: {
   decision: Decision | null;
   state?: ExecutionState;
   reasonCode?: ReasonCode | null;
   showReasonCode?: boolean;
+  plainLanguage?: boolean;
 }) {
-  const label =
+  const rawLabel =
     state === 'SUCCEEDED'
       ? 'PURCHASED'
       : state === 'FAILED'
@@ -76,6 +88,17 @@ export function DecisionBadge({
         : state === 'PAYMENT_PENDING'
           ? 'PAYMENT PENDING'
           : (decision ?? state ?? 'PENDING');
+  const plainLabels: Record<string, string> = {
+    PURCHASED: 'Paid',
+    'PAYMENT FAILED': 'Payment failed',
+    'PAYMENT PENDING': 'Payment pending',
+    ALLOW: 'Approved',
+    REQUIRE_HUMAN: 'Needs your decision',
+    BLOCK: 'Blocked',
+    RESERVED: 'Checking payment',
+    PENDING: 'Pending',
+  };
+  const label = plainLanguage ? (plainLabels[rawLabel] ?? rawLabel) : rawLabel;
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <Badge tone={decisionTone(decision, state)}>{label}</Badge>
