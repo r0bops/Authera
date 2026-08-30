@@ -1,8 +1,23 @@
-import type { ChatSessionSummary, DisputeView, ExecutionSummary } from '@authera/contracts';
-import { Download, FileSearch, MessageSquare, ReceiptText, ShieldAlert } from 'lucide-react';
+import type {
+  ChatSessionSummary,
+  DisputeView,
+  ExecutionSummary,
+  MandateView,
+} from '@authera/contracts';
+import {
+  Ban,
+  Download,
+  FileSearch,
+  MessageSquare,
+  Radar,
+  ReceiptText,
+  ShieldAlert,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { useChats, useDisputes, usePurchases } from '../api/hooks.js';
+import { useChats, useDisputes, useMandates, usePurchases } from '../api/hooks.js';
+import { cn } from '../lib/cn.js';
+import { intentLabel } from '../lib/intent.js';
 import { DecisionBadge } from '../components/status.js';
 import { EmptyState, ErrorState, Skeleton, buttonStyles } from '../components/ui/primitives.js';
 import { formatDateTime, formatMoney, formatPaymentState } from '../lib/format.js';
@@ -11,10 +26,22 @@ export function PurchasesPage() {
   const purchases = usePurchases();
   const chats = useChats();
   const disputes = useDisputes();
+  const mandates = useMandates();
   const current = purchases.data?.filter((purchase) => purchase.state === 'PAYMENT_PENDING') ?? [];
   const completed = purchases.data?.filter((purchase) => purchase.state === 'SUCCEEDED') ?? [];
+  const waiting = purchases.data?.filter((purchase) => purchase.state === 'REQUIRES_HUMAN') ?? [];
   const unsuccessful = purchases.data?.filter((purchase) => purchase.state === 'FAILED') ?? [];
-  const hasOrders = Boolean(purchases.data?.length);
+  // Plans Aria is still shopping for: live, purchases left, nothing completed under them yet.
+  const finding = (mandates.data ?? []).filter(
+    (plan) =>
+      plan.status === 'ACTIVE' &&
+      plan.usage.remainingCount > 0 &&
+      !completed.some((purchase) => purchase.mandateId === plan.id),
+  );
+  const stopped = (mandates.data ?? []).filter(
+    (plan) => plan.status === 'REVOKED' || plan.status === 'EXPIRED',
+  );
+  const hasOrders = Boolean(purchases.data?.length) || finding.length > 0 || stopped.length > 0;
 
   return (
     <section className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden bg-surface sm:rounded-lg sm:border sm:border-line sm:shadow-sm">
@@ -54,6 +81,39 @@ export function PurchasesPage() {
           </EmptyState>
         ) : null}
 
+        {finding.length > 0 ? (
+          <OrderGroup
+            title="Finding a flight"
+            description="Aria is watching live fares for these plans; nothing is bought until a fare fits the rules."
+            tone="pending"
+          >
+            {finding.map((plan) => (
+              <PlanOrderCard
+                key={plan.id}
+                plan={plan}
+                latest={purchases.data?.find((purchase) => purchase.mandateId === plan.id)}
+                tone="pending"
+              />
+            ))}
+          </OrderGroup>
+        ) : null}
+        {waiting.length > 0 ? (
+          <OrderGroup
+            title="Waiting for you"
+            description="An offer fell outside the rules; Aria stopped until you decide."
+            tone="pending"
+          >
+            {waiting.map((purchase) => (
+              <OrderCard
+                key={purchase.id}
+                purchase={purchase}
+                chat={chatFor(purchase, chats.data)}
+                dispute={disputes.data?.find((d) => d.executionId === purchase.id)}
+                tone="pending"
+              />
+            ))}
+          </OrderGroup>
+        ) : null}
         {current.length > 0 ? (
           <OrderGroup
             title="In progress"
@@ -84,7 +144,11 @@ export function PurchasesPage() {
         ) : null}
 
         {unsuccessful.length > 0 ? (
-          <OrderGroup title="Didn’t complete" description="No completed payment was recorded.">
+          <OrderGroup
+            title="Didn’t complete"
+            description="No completed payment was recorded."
+            tone="failed"
+          >
             {unsuccessful.map((purchase) => (
               <OrderCard
                 key={purchase.id}
@@ -95,10 +159,34 @@ export function PurchasesPage() {
             ))}
           </OrderGroup>
         ) : null}
+        {stopped.length > 0 ? (
+          <OrderGroup
+            title="Stopped plans"
+            description="Revoked or expired: merchants reject any purchase attempt under them."
+            tone="failed"
+          >
+            {stopped.map((plan) => (
+              <PlanOrderCard
+                key={plan.id}
+                plan={plan}
+                latest={purchases.data?.find((purchase) => purchase.mandateId === plan.id)}
+                tone="failed"
+              />
+            ))}
+          </OrderGroup>
+        ) : null}
       </div>
     </section>
   );
 }
+
+type OrderTone = 'pending' | 'failed' | 'done' | 'neutral';
+const TONE_BORDER: Record<OrderTone, string> = {
+  pending: 'border-l-4 border-l-amber-400',
+  failed: 'border-l-4 border-l-red-400',
+  done: 'border-l-4 border-l-emerald',
+  neutral: '',
+};
 
 function OrderGroup({
   title,
@@ -108,6 +196,7 @@ function OrderGroup({
   title: string;
   description: string;
   children: ReactNode;
+  tone?: OrderTone;
 }) {
   const titleId = `orders-${title.replaceAll(' ', '-').toLowerCase()}`;
   return (
@@ -127,14 +216,18 @@ function OrderCard({
   purchase,
   chat,
   dispute,
+  tone,
 }: {
   purchase: ExecutionSummary;
   chat?: ChatSessionSummary;
   dispute?: DisputeView | undefined;
+  tone?: OrderTone;
 }) {
   const succeeded = purchase.state === 'SUCCEEDED';
+  const cardTone: OrderTone =
+    tone ?? (succeeded ? 'done' : purchase.state === 'FAILED' ? 'failed' : 'neutral');
   return (
-    <article className="rounded-xl border border-line bg-surface p-4">
+    <article className={cn('rounded-xl border border-line bg-surface p-4', TONE_BORDER[cardTone])}>
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cobalt-soft text-cobalt">
           <ReceiptText className="h-4 w-4" aria-hidden />
@@ -217,6 +310,86 @@ function OrderCard({
             <MessageSquare className="h-4 w-4" aria-hidden /> Open chat
           </Link>
         ) : null}
+      </div>
+    </article>
+  );
+}
+
+/** A plan on the Orders page: what Aria is shopping for (yellow) or a plan that was stopped (red). */
+function PlanOrderCard({
+  plan,
+  latest,
+  tone,
+}: {
+  plan: MandateView;
+  latest: ExecutionSummary | undefined;
+  tone: OrderTone;
+}) {
+  const stopped = tone === 'failed';
+  const limit = formatMoney({
+    currency: plan.policy.limits.currency,
+    minor: plan.policy.limits.maxPerPurchaseMinor,
+  });
+  const status = stopped
+    ? plan.status === 'EXPIRED'
+      ? 'Expired'
+      : 'Revoked'
+    : latest?.state === 'REQUIRES_HUMAN'
+      ? 'Waiting for your decision'
+      : 'Searching live fares';
+  return (
+    <article className={cn('rounded-xl border border-line bg-surface p-4', TONE_BORDER[tone])}>
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
+            stopped ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600',
+          )}
+        >
+          {stopped ? (
+            <Ban className="h-4 w-4" aria-hidden />
+          ) : (
+            <Radar className="h-4 w-4" aria-hidden />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+            <div className="min-w-0">
+              <h3 className="truncate text-[13.5px] font-semibold text-ink">
+                {intentLabel(plan.policy.intent)}
+              </h3>
+              <p className="mt-0.5 text-[11.5px] text-ink-muted">
+                up to {limit} · {plan.usage.remainingCount} of {plan.policy.limits.maxFulfillments}{' '}
+                purchase
+                {plan.policy.limits.maxFulfillments === 1 ? '' : 's'} left
+              </p>
+            </div>
+            <span
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium',
+                stopped ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700',
+              )}
+            >
+              {!stopped ? (
+                <span
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500 motion-reduce:animate-none"
+                  aria-hidden
+                />
+              ) : null}
+              {status}
+            </span>
+          </div>
+          {latest ? (
+            <p className="mt-2 truncate text-[12px] text-ink-muted">
+              Last: {latest.offerSummary ?? 'offer'} · {formatMoney(latest.amount)}
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
+            <Link to="/activity" className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+              <FileSearch className="h-4 w-4" aria-hidden /> Follow on Updates
+            </Link>
+          </div>
+        </div>
       </div>
     </article>
   );

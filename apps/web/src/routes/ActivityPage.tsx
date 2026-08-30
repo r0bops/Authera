@@ -1,5 +1,5 @@
 import type { AuditEvent, ExecutionSummary, MandateView } from '@authera/contracts';
-import { Ban, Bot, CheckCircle2, Clock3, Radar, ShieldCheck } from 'lucide-react';
+import { Ban, Bot, CheckCircle2, ChevronDown, Clock3, Radar, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -54,8 +54,11 @@ export function ActivityPage() {
   const plans = mandates.data ?? [];
   const { livePlan, completedPlan } = selectDashboardPlans(plans);
   const [chosenId, setChosenId] = useState<string | null>(null);
+  // 'none' = the person collapsed the open plan; otherwise the chosen one, else a sensible default.
   const selected =
-    plans.find((plan) => plan.id === chosenId) ?? livePlan ?? completedPlan ?? plans[0];
+    chosenId === 'none'
+      ? undefined
+      : (plans.find((plan) => plan.id === chosenId) ?? livePlan ?? completedPlan ?? plans[0]);
   const events = useAuditEvents({
     limit: 400,
     ...(selected ? { mandateId: selected.id } : {}),
@@ -76,16 +79,16 @@ export function ActivityPage() {
   const stopped = plans.filter((plan) => plan.status !== 'ACTIVE');
 
   const updatesPanel = selected ? (
-    <section className="mt-2" aria-labelledby="plan-updates-title" aria-live="polite">
+    <section className="mt-3" aria-labelledby="plan-updates-title" aria-live="polite">
       <div className="mb-2 px-0.5">
-        <h2 id="plan-updates-title" className="text-[13.5px] font-semibold text-ink">
+        <h2 id="plan-updates-title" className="text-[13px] font-semibold text-ink">
           What {agentName} is doing for {intentLabel(selected.policy.intent)}
         </h2>
         <p className="text-[11.5px] text-ink-muted">
           Only decisions that affect this plan, newest first.
         </p>
       </div>
-      <div className="rounded-xl border border-line bg-surface p-4 sm:p-5">
+      <div className="rounded-lg bg-surface-muted/40 p-4">
         <div className="flex items-start gap-3">
           <span
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${brief.iconClass}`}
@@ -194,7 +197,7 @@ export function ActivityPage() {
                     plan={plan}
                     selected={plan.id === selected?.id}
                     latestExecution={newestExecutionForPlan(executions.data, plan)}
-                    onSelect={() => setChosenId(plan.id)}
+                    onSelect={() => setChosenId(plan.id === selected?.id ? 'none' : plan.id)}
                     panel={plan.id === selected?.id ? updatesPanel : null}
                   />
                 ))}
@@ -208,7 +211,7 @@ export function ActivityPage() {
                     plan={plan}
                     selected={plan.id === selected?.id}
                     latestExecution={newestExecutionForPlan(executions.data, plan)}
-                    onSelect={() => setChosenId(plan.id)}
+                    onSelect={() => setChosenId(plan.id === selected?.id ? 'none' : plan.id)}
                     panel={plan.id === selected?.id ? updatesPanel : null}
                   />
                 ))}
@@ -222,7 +225,7 @@ export function ActivityPage() {
                     plan={plan}
                     selected={plan.id === selected?.id}
                     latestExecution={newestExecutionForPlan(executions.data, plan)}
-                    onSelect={() => setChosenId(plan.id)}
+                    onSelect={() => setChosenId(plan.id === selected?.id ? 'none' : plan.id)}
                     panel={plan.id === selected?.id ? updatesPanel : null}
                   />
                 ))}
@@ -294,17 +297,20 @@ function PlanCard({
       ? 'Watching live offers · no purchase requested yet'
       : 'No agent activity';
   return (
-    <div role="listitem">
+    <div
+      role="listitem"
+      className={cn(
+        'rounded-xl border bg-surface transition-colors',
+        selected
+          ? 'border-cobalt shadow-sm shadow-cobalt/10'
+          : 'border-line hover:border-line-strong',
+      )}
+    >
       <button
         type="button"
         onClick={onSelect}
-        aria-pressed={selected}
-        className={cn(
-          'w-full rounded-xl border bg-surface p-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt/30',
-          selected
-            ? 'border-cobalt shadow-sm shadow-cobalt/10'
-            : 'border-line hover:border-line-strong',
-        )}
+        aria-expanded={selected}
+        className="w-full rounded-xl p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt/30"
       >
         <div className="flex items-start gap-3">
           <span
@@ -343,46 +349,61 @@ function PlanCard({
                   </span>
                 ) : null}
                 <MandateStatusBadge status={plan.status} />
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 text-ink-muted transition-transform',
+                    selected ? 'rotate-180' : '',
+                  )}
+                  aria-hidden
+                />
               </div>
             </div>
             <p className="mt-2 truncate text-[12.5px] text-ink-muted">{lastStep}</p>
           </div>
         </div>
       </button>
-      {revocable ? (
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
-          <p className="text-[12px] text-ink-muted">
-            {live
-              ? 'Stop this plan now. Merchants will reject any purchase attempt under it.'
-              : 'Still signed. Close it so merchants reject any further attempt under this plan.'}
-          </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={revoke.isPending}
-            onClick={() =>
-              void revoke
-                .mutateAsync({
-                  reason: live
-                    ? 'Revoked by the holder while live'
-                    : 'Closed by the holder after completion',
-                })
-                .catch(() => undefined)
-            }
-          >
-            <Ban className="h-4 w-4" aria-hidden /> {live ? 'Revoke plan' : 'Close plan'}
-          </Button>
-          {revoke.isError ? (
-            <p role="alert" className="w-full text-[12px] text-coral">
-              {revoke.error instanceof Error
-                ? revoke.error.message
-                : 'The plan could not be closed.'}
-            </p>
-          ) : null}
+      {selected ? (
+        <div className="border-t border-line px-4 pb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 pt-3">
+            <div className="min-w-0 flex-1">
+              <TryCase plan={plan} compact />
+            </div>
+            {revocable ? (
+              <div className="flex shrink-0 flex-col items-end gap-1 pt-1">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={revoke.isPending}
+                  title={
+                    live
+                      ? 'Stop this plan now. Merchants will reject any purchase attempt under it.'
+                      : 'Still signed. Close it so merchants reject any further attempt under this plan.'
+                  }
+                  onClick={() =>
+                    void revoke
+                      .mutateAsync({
+                        reason: live
+                          ? 'Revoked by the holder while live'
+                          : 'Closed by the holder after completion',
+                      })
+                      .catch(() => undefined)
+                  }
+                >
+                  <Ban className="h-4 w-4" aria-hidden /> {live ? 'Revoke plan' : 'Close plan'}
+                </Button>
+                {revoke.isError ? (
+                  <p role="alert" className="text-[12px] text-coral">
+                    {revoke.error instanceof Error
+                      ? revoke.error.message
+                      : 'The plan could not be closed.'}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          {panel}
         </div>
       ) : null}
-      {selected ? <TryCase plan={plan} /> : null}
-      {panel}
     </div>
   );
 }
