@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-29T23:53:14Z",
+  "title": "Design System: Authera Client Dashboard",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Cool Ground",
+        "tonalRamp": [
+          "oklch(15% 0.004 271.4)",
+          "oklch(27% 0.004 271.4)",
+          "oklch(39% 0.004 271.4)",
+          "oklch(51% 0.004 271.4)",
+          "oklch(63% 0.004 271.4)",
+          "oklch(75% 0.004 271.4)",
+          "oklch(87% 0.004 271.4)",
+          "oklch(95% 0.004 271.4)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White Surface",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(27% 0 0)",
+          "oklch(39% 0 0)",
+          "oklch(51% 0 0)",
+          "oklch(63% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "surface-muted": {
+        "role": "neutral",
+        "displayName": "Muted Surface",
+        "tonalRamp": [
+          "oklch(15% 0.006 264.5)",
+          "oklch(27% 0.006 264.5)",
+          "oklch(39% 0.006 264.5)",
+          "oklch(51% 0.006 264.5)",
+          "oklch(63% 0.006 264.5)",
+          "oklch(75% 0.006 264.5)",
+          "oklch(87% 0.006 264.5)",
+          "oklch(95% 0.006 264.5)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Quiet Divider",
+        "tonalRamp": [
+          "oklch(15% 0.012 264.5)",
+          "oklch(27% 0.012 264.5)",
+          "oklch(39% 0.012 264.5)",
+          "oklch(51% 0.012 264.5)",
+          "oklch(63% 0.012 264.5)",
+          "oklch(75% 0.012 264.5)",
+          "oklch(87% 0.012 264.5)",
+          "oklch(95% 0.012 264.5)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Firm Divider",
+        "tonalRamp": [
+          "oklch(15% 0.018 261.3)",
+          "oklch(27% 0.018 261.3)",
+          "oklch(39% 0.018 261.3)",
+          "oklch(51% 0.018 261.3)",
+          "oklch(63% 0.018 261.3)",
+          "oklch(75% 0.018 261.3)",
+          "oklch(87% 0.018 261.3)",
+          "oklch(95% 0.018 261.3)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Charcoal Ink",
+        "tonalRamp": [
+          "oklch(15% 0.028 269.2)",
+          "oklch(27% 0.028 269.2)",
+          "oklch(39% 0.028 269.2)",
+          "oklch(51% 0.028 269.2)",
+          "oklch(63% 0.028 269.2)",
+          "oklch(75% 0.028 269.2)",
+          "oklch(87% 0.028 269.2)",
+          "oklch(95% 0.028 269.2)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "tonalRamp": [
+          "oklch(15% 0.031 262.2)",
+          "oklch(27% 0.031 262.2)",
+          "oklch(39% 0.031 262.2)",
+          "oklch(51% 0.031 262.2)",
+          "oklch(63% 0.031 262.2)",
+          "oklch(75% 0.031 262.2)",
+          "oklch(87% 0.031 262.2)",
+          "oklch(95% 0.031 262.2)"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Faint Ink",
+        "tonalRamp": [
+          "oklch(15% 0.032 261.4)",
+          "oklch(27% 0.032 261.4)",
+          "oklch(39% 0.032 261.4)",
+          "oklch(51% 0.032 261.4)",
+          "oklch(63% 0.032 261.4)",
+          "oklch(75% 0.032 261.4)",
+          "oklch(87% 0.032 261.4)",
+          "oklch(95% 0.032 261.4)"
+        ]
+      },
+      "cobalt": {
+        "role": "primary",
+        "displayName": "Command Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.220 266.3)",
+          "oklch(27% 0.220 266.3)",
+          "oklch(39% 0.220 266.3)",
+          "oklch(51% 0.220 266.3)",
+          "oklch(63% 0.220 266.3)",
+          "oklch(75% 0.220 266.3)",
+          "oklch(87% 0.220 266.3)",
+          "oklch(95% 0.220 266.3)"
+        ]
+      },
+      "cobalt-strong": {
+        "role": "primary",
+        "displayName": "Deep Command Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.195 266.2)",
+          "oklch(27% 0.195 266.2)",
+          "oklch(39% 0.195 266.2)",
+          "oklch(51% 0.195 266.2)",
+          "oklch(63% 0.195 266.2)",
+          "oklch(75% 0.195 266.2)",
+          "oklch(87% 0.195 266.2)",
+          "oklch(95% 0.195 266.2)"
+        ]
+      },
+      "cobalt-soft": {
+        "role": "primary",
+        "displayName": "Quiet Cobalt Wash",
+        "tonalRamp": [
+          "oklch(15% 0.021 274.0)",
+          "oklch(27% 0.021 274.0)",
+          "oklch(39% 0.021 274.0)",
+          "oklch(51% 0.021 274.0)",
+          "oklch(63% 0.021 274.0)",
+          "oklch(75% 0.021 274.0)",
+          "oklch(87% 0.021 274.0)",
+          "oklch(95% 0.021 274.0)"
+        ]
+      },
+      "emerald": {
+        "role": "secondary",
+        "displayName": "Verified Emerald",
+        "tonalRamp": [
+          "oklch(15% 0.092 164.9)",
+          "oklch(27% 0.092 164.9)",
+          "oklch(39% 0.092 164.9)",
+          "oklch(51% 0.092 164.9)",
+          "oklch(63% 0.092 164.9)",
+          "oklch(75% 0.092 164.9)",
+          "oklch(87% 0.092 164.9)",
+          "oklch(95% 0.092 164.9)"
+        ]
+      },
+      "emerald-soft": {
+        "role": "secondary",
+        "displayName": "Verified Emerald Wash",
+        "tonalRamp": [
+          "oklch(15% 0.021 166.1)",
+          "oklch(27% 0.021 166.1)",
+          "oklch(39% 0.021 166.1)",
+          "oklch(51% 0.021 166.1)",
+          "oklch(63% 0.021 166.1)",
+          "oklch(75% 0.021 166.1)",
+          "oklch(87% 0.021 166.1)",
+          "oklch(95% 0.021 166.1)"
+        ]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Attention Amber",
+        "tonalRamp": [
+          "oklch(15% 0.119 65.1)",
+          "oklch(27% 0.119 65.1)",
+          "oklch(39% 0.119 65.1)",
+          "oklch(51% 0.119 65.1)",
+          "oklch(63% 0.119 65.1)",
+          "oklch(75% 0.119 65.1)",
+          "oklch(87% 0.119 65.1)",
+          "oklch(95% 0.119 65.1)"
+        ]
+      },
+      "amber-soft": {
+        "role": "tertiary",
+        "displayName": "Attention Amber Wash",
+        "tonalRamp": [
+          "oklch(15% 0.033 83.7)",
+          "oklch(27% 0.033 83.7)",
+          "oklch(39% 0.033 83.7)",
+          "oklch(51% 0.033 83.7)",
+          "oklch(63% 0.033 83.7)",
+          "oklch(75% 0.033 83.7)",
+          "oklch(87% 0.033 83.7)",
+          "oklch(95% 0.033 83.7)"
+        ]
+      },
+      "coral": {
+        "role": "tertiary",
+        "displayName": "Stop Coral",
+        "tonalRamp": [
+          "oklch(15% 0.158 28.6)",
+          "oklch(27% 0.158 28.6)",
+          "oklch(39% 0.158 28.6)",
+          "oklch(51% 0.158 28.6)",
+          "oklch(63% 0.158 28.6)",
+          "oklch(75% 0.158 28.6)",
+          "oklch(87% 0.158 28.6)",
+          "oklch(95% 0.158 28.6)"
+        ]
+      },
+      "coral-soft": {
+        "role": "tertiary",
+        "displayName": "Stop Coral Wash",
+        "tonalRamp": [
+          "oklch(15% 0.023 24.1)",
+          "oklch(27% 0.023 24.1)",
+          "oklch(39% 0.023 24.1)",
+          "oklch(51% 0.023 24.1)",
+          "oklch(63% 0.023 24.1)",
+          "oklch(75% 0.023 24.1)",
+          "oklch(87% 0.023 24.1)",
+          "oklch(95% 0.023 24.1)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Dashboard Greeting",
+        "purpose": "The client dashboard greeting only."
+      },
+      "headline": {
+        "displayName": "Purchase Headline",
+        "purpose": "Page headings and the active purchase brief."
+      },
+      "title": {
+        "displayName": "Operational Title",
+        "purpose": "Card, section, and strong state headings."
+      },
+      "body": {
+        "displayName": "Interface Body",
+        "purpose": "Explanations, narrative state, and controls."
+      },
+      "label": {
+        "displayName": "Compact Label",
+        "purpose": "Field labels, metadata, compact links, and progress labels."
+      },
+      "mono": {
+        "displayName": "Evidence Mono",
+        "purpose": "Identifiers, hashes, and reason codes after progressive disclosure."
+      }
+    },
+    "shadows": [
+      {
+        "name": "switch-thumb",
+        "value": "0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10)",
+        "purpose": "Physical separation for the moving switch knob only."
+      },
+      {
+        "name": "modal-lift",
+        "value": "0 20px 25px -5px rgba(0, 0, 0, 0.10), 0 8px 10px -6px rgba(0, 0, 0, 0.10)",
+        "purpose": "Top-layer dialog elevation above the charcoal 45% backdrop."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-transition",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Color and switch-transform state changes."
+      },
+      {
+        "name": "loading-spin",
+        "value": "1s linear infinite",
+        "purpose": "Compact loading indicator rotation."
+      },
+      {
+        "name": "loading-pulse",
+        "value": "2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "purpose": "Skeleton loading pulse; reduced-motion collapses it to one near-instant iteration."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single forward action in a local client decision.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg><span>Plan a purchase</span></button>",
+      "css": ".ds-btn-primary { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-md); background: var(--color-cobalt); color: var(--color-surface); font-family: var(--font-sans); font-size: 13.5px; font-weight: 500; transition: color 150ms cubic-bezier(.4,0,.2,1), background-color 150ms cubic-bezier(.4,0,.2,1); } .ds-btn-primary:hover { background: var(--color-cobalt-strong); } .ds-btn-primary:active { filter: brightness(.95); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; } @media (min-width: 768px) { .ds-btn-primary { min-height: 40px; } }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A safe alternative for inspection, change, cancel, or stop-entry actions.",
+      "html": "<button class=\"ds-btn-secondary\">Change or stop</button>",
+      "css": ".ds-btn-secondary { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-ink); font-family: var(--font-sans); font-size: 13.5px; font-weight: 500; transition: color 150ms cubic-bezier(.4,0,.2,1), background-color 150ms cubic-bezier(.4,0,.2,1); } .ds-btn-secondary:hover { background: var(--color-surface-muted); } .ds-btn-secondary:active { filter: brightness(.98); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; } @media (min-width: 768px) { .ds-btn-secondary { min-height: 40px; } }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Explicit revocation, rejection, and destructive confirmation.",
+      "html": "<button class=\"ds-btn-destructive\">Stop this plan</button>",
+      "css": ".ds-btn-destructive { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-md); background: var(--color-coral); color: var(--color-surface); font-family: var(--font-sans); font-size: 13.5px; font-weight: 500; transition: filter 150ms cubic-bezier(.4,0,.2,1); } .ds-btn-destructive:hover { filter: brightness(.95); } .ds-btn-destructive:active { filter: brightness(.90); } .ds-btn-destructive:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; } @media (min-width: 768px) { .ds-btn-destructive { min-height: 40px; } }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "A low-emphasis tertiary action or local navigation control.",
+      "html": "<button class=\"ds-btn-ghost\">View all</button>",
+      "css": ".ds-btn-ghost { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--color-cobalt); font-family: var(--font-sans); font-size: 13.5px; font-weight: 500; transition: background-color 150ms cubic-bezier(.4,0,.2,1); } .ds-btn-ghost:hover { background: var(--color-cobalt-soft); } .ds-btn-ghost:active { filter: brightness(.97); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; } @media (min-width: 768px) { .ds-btn-ghost { min-height: 40px; } }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "A labelled client input with a firm resting boundary and explicit cobalt focus.",
+      "html": "<label class=\"ds-field-label\" for=\"ds-max-price\">Maximum price</label><input class=\"ds-field\" id=\"ds-max-price\" value=\"150.00\" inputmode=\"decimal\" />",
+      "css": ".ds-field-label { display: block; margin-bottom: 4px; color: var(--color-ink); font-family: var(--font-sans); font-size: 12.5px; font-weight: 500; } .ds-field { width: 100%; min-height: 44px; padding: 0 10px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-ink); font-family: var(--font-sans); font-size: 13.5px; outline: none; } .ds-field:hover { border-color: var(--color-ink-faint); } .ds-field:focus { border-color: var(--color-cobalt); box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-cobalt) 30%, transparent); } .ds-field:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; } @media (min-width: 768px) { .ds-field { min-height: 40px; } }"
+    },
+    {
+      "name": "Verified Badge",
+      "kind": "chip",
+      "refersTo": "badge-verified",
+      "description": "A compact companion label for active, verified, in-limit, or completed state.",
+      "html": "<span class=\"ds-badge-verified\"><svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>Watching prices</span>",
+      "css": ".ds-badge-verified { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid color-mix(in oklab, var(--color-emerald) 20%, transparent); border-radius: 9999px; background: var(--color-emerald-soft); color: var(--color-emerald); font-family: var(--font-sans); font-size: 11.5px; font-weight: 600; white-space: nowrap; }"
+    },
+    {
+      "name": "Operational Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The default border-led container for one coherent block of client information.",
+      "html": "<section class=\"ds-card\"><header class=\"ds-card-header\"><h2>Best price right now</h2><p>This offer is inside your plan.</p></header><div class=\"ds-card-body\"><strong>USD 130.00</strong><span>Inside your price limit</span></div></section>",
+      "css": ".ds-card { overflow: hidden; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-ink); font-family: var(--font-sans); } .ds-card-header { padding: 12px 16px; border-bottom: 1px solid var(--color-line); } .ds-card-header h2 { margin: 0; font-size: 14px; font-weight: 600; } .ds-card-header p { margin: 2px 0 0; color: var(--color-ink-muted); font-size: 12.5px; } .ds-card-body { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 12px 16px; } .ds-card-body strong { color: var(--color-emerald); font-size: 26px; font-variant-numeric: tabular-nums; letter-spacing: -0.025em; } .ds-card-body span { color: var(--color-emerald); font-size: 12.5px; font-weight: 500; }"
+    },
+    {
+      "name": "Client Navigation Item",
+      "kind": "nav",
+      "description": "An actor-scoped client destination that changes from a mobile grid item to a desktop rail row.",
+      "html": "<a class=\"ds-nav-item\" href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linejoin=\"round\"/><path d=\"M9 21v-8h6v8\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/></svg><span>Home</span></a>",
+      "css": ".ds-nav-item { min-height: 44px; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 4px; border-radius: var(--radius-md); background: var(--color-cobalt-soft); color: var(--color-cobalt); font-family: var(--font-sans); font-size: 10.5px; font-weight: 500; text-decoration: none; transition: color 150ms cubic-bezier(.4,0,.2,1), background-color 150ms cubic-bezier(.4,0,.2,1); } .ds-nav-item:hover { filter: brightness(.98); } .ds-nav-item:active { filter: brightness(.95); } .ds-nav-item:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; } @media (min-width: 768px) { .ds-nav-item { min-height: 40px; flex-direction: row; justify-content: flex-start; gap: 10px; padding: 6px 10px; font-size: 13px; } }"
+    },
+    {
+      "name": "Purchase Progress Strip",
+      "kind": "custom",
+      "description": "The dashboard's three-step summary of authorization, matching, and purchase state.",
+      "html": "<ol class=\"ds-progress\"><li><span class=\"ds-progress-icon ds-progress-done\">✓</span><span><strong>Plan authorized</strong><small>Your rules are active</small></span></li><li><span class=\"ds-progress-icon ds-progress-active\">⌕</span><span><strong>Searching prices</strong><small>Best so far: USD 168</small></span></li><li><span class=\"ds-progress-icon\">○</span><span><strong>Purchase</strong><small>Only after every rule matches</small></span></li></ol>",
+      "css": ".ds-progress { display: grid; grid-template-columns: 1fr; margin: 0; padding: 0; border: 1px solid var(--color-line); border-radius: var(--radius-md); overflow: hidden; background: color-mix(in oklab, var(--color-surface-muted) 45%, transparent); color: var(--color-ink); font-family: var(--font-sans); list-style: none; } .ds-progress li { min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--color-line); } .ds-progress li:last-child { border-bottom: 0; } .ds-progress-icon { width: 32px; height: 32px; flex: 0 0 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9999px; background: var(--color-surface); color: var(--color-ink-faint); } .ds-progress-done { background: var(--color-emerald-soft); color: var(--color-emerald); } .ds-progress-active { background: var(--color-cobalt-soft); color: var(--color-cobalt); } .ds-progress strong, .ds-progress small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-progress strong { font-size: 12.5px; font-weight: 600; } .ds-progress small { margin-top: 2px; color: var(--color-ink-muted); font-size: 11.5px; } @media (min-width: 640px) { .ds-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ds-progress li { border-right: 1px solid var(--color-line); border-bottom: 0; } .ds-progress li:last-child { border-right: 0; } }"
+    },
+    {
+      "name": "Attention Alert",
+      "kind": "custom",
+      "description": "An exception panel that pauses before payment and asks for one exact human decision.",
+      "html": "<div class=\"ds-alert-attention\" role=\"status\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M12 9v4M12 17h.01\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg><div><strong>USD 168.00 — USD 18.00 above your plan</strong><p>Aria paused before paying. Your standing limit stays unchanged unless you approve this exact offer.</p><a href=\"#\">Review the offer →</a></div></div>",
+      "css": ".ds-alert-attention { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-amber) 20%, transparent); border-radius: var(--radius-md); background: var(--color-amber-soft); color: var(--color-amber); font-family: var(--font-sans); font-size: 13px; } .ds-alert-attention > svg { flex: 0 0 16px; margin-top: 2px; } .ds-alert-attention strong { font-weight: 600; } .ds-alert-attention p { margin: 2px 0 0; } .ds-alert-attention a { min-height: 44px; display: inline-flex; align-items: center; color: var(--color-amber); font-size: 12.5px; font-weight: 500; text-underline-offset: 2px; } .ds-alert-attention a:hover { text-decoration: underline; } .ds-alert-attention a:active { filter: brightness(.85); } .ds-alert-attention a:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; } @media (min-width: 768px) { .ds-alert-attention a { min-height: 40px; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Concierge Command Center",
+    "overview": "Authera's client world is a restrained operational console for a nontechnical person who delegates one bounded purchase and then supervises by exception. It should feel calm, exact, and quietly protective: the interface foregrounds the purchase outcome, current agent state, and the next human decision while keeping authorization mechanics available without making them the visual center.\n\nThis is the incumbent visual system for client routes under `/dashboard`, with `OverviewPage.tsx` as its representative artifact. Brand identity development is deliberately deferred, so the system relies on disciplined information hierarchy, semantic color, plain language, and predictable interaction rather than decorative imagery, a distinctive logo treatment, or an invented brand voice.",
+    "keyCharacteristics": [
+      "Restrained, operational, and calm.",
+      "Attention-first supervision by exception.",
+      "Plain-language authority before technical evidence.",
+      "Flat bordered surfaces with state-specific tonal color.",
+      "Responsive density with touch targets protected on mobile."
+    ],
+    "rules": [
+      {
+        "name": "The Semantic Color Rule",
+        "body": "Cobalt means action or active context, emerald means verified or complete, amber means attention, and coral means destructive or failed; never swap these roles for decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Plain-Language First Rule",
+        "body": "State what happened, why it matters, and what the person can do before showing internal IDs, signatures, hashes, or protocol fields.",
+        "section": "typography"
+      },
+      {
+        "name": "The Actor Boundary Rule",
+        "body": "`/dashboard` contains only the client navigation—Home, Plans, Activity, Purchases, and Settings. Purchasing-agent, merchant, auditor, and judge controls remain in their separate `/agent`, `/verify`, `/audit`, and `/demo` perspectives; their operational detail must not leak into the client's information architecture.",
+        "section": "layout"
+      },
+      {
+        "name": "The Mobile Density Rule",
+        "body": "Preserve touch target size before compactness: controls are at least 44px high on mobile, then may compress to the established 40px desktop density.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "Cards, dashboard sections, navigation, alerts, and fields stay border-led and shadowless at rest; elevation is reserved for modal interaction or the physical switch thumb.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Supervise-by-Exception Rule",
+        "body": "Interrupt the client only for an exact decision, a failure, or a completed record; routine search work stays visible but does not demand action.",
+        "section": "components"
+      },
+      {
+        "name": "The Progressive Evidence Rule",
+        "body": "Lead with human-readable consequences and keep cryptographic, protocol, and full audit evidence behind explicit disclosures or dedicated detail routes.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do keep the active purchase outcome, current agent state, and next consequence in one plain-language sentence.",
+      "Do put pending human decisions before routine progress and bind approval copy to the exact offer without implying the standing limit changes.",
+      "Do preserve keyboard access, visible focus, semantic headings, labelled navigation and dialogs, screen-reader loading announcements, and focus return after dialogs close.",
+      "Do keep meaningful controls at least 44px high on mobile and honor reduced-motion preferences by collapsing animation and transition durations.",
+      "Do use color together with text, icons, and state labels; never make semantic color the only status signal."
+    ],
+    "donts": [
+      "Don't expose agent, merchant, auditor, or demo controls inside the client dashboard navigation.",
+      "Don't turn the dashboard into a mock catalog, a dense technical console, or a promotional landing page.",
+      "Don't allow the LLM or conversational styling to imply authorization; the UI reports deterministic gateway state.",
+      "Don't surface raw card data, private keys, secrets, or unexplained hashes in the primary client flow.",
+      "Don't add decorative shadows, glass effects, oversized headings, excessive rounding, or an invented brand motif while identity work remains deferred."
+    ]
+  }
+}

@@ -12,9 +12,10 @@ test-results/
 .*.kate-swp
 
 # Private planning/research notes and agent context — kept local, never committed.
-# Only README.md and docs/*.md are tracked.
+# README.md, DESIGN.md, and docs/*.md are tracked.
 /*.md
 !/README.md
+!/DESIGN.md
 .superstack/
 .commandcode/
 
