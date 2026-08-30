@@ -288,6 +288,7 @@ test('13 · a dispute resolves deterministically from evidence', async ({ page, 
 test('14 · every console screen fits the viewport', async ({ page }) => {
   for (const path of [
     '/dashboard',
+    '/dashboard/activity',
     '/dashboard/mandates',
     '/dashboard/chats',
     '/dashboard/purchases',
@@ -298,7 +299,7 @@ test('14 · every console screen fits the viewport', async ({ page }) => {
     '/demo',
   ]) {
     await page.goto(path);
-    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('main').first()).toBeVisible();
     await expectNoHorizontalScroll(page);
     await page.screenshot({
       path: `test-results/screens/${path.replaceAll('/', '-').replace(/^-/, '') || 'root'}-${page.viewportSize()?.width}.png`,
@@ -310,6 +311,8 @@ test('14 · every console screen fits the viewport', async ({ page }) => {
 test('15 · perspectives stay separated and legacy links redirect', async ({ page }) => {
   await page.goto('/dashboard');
   await expect(page.getByRole('navigation', { name: /Your account navigation/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Updates' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Orders' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Agent overview' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Purchase verification' })).toHaveCount(0);
 

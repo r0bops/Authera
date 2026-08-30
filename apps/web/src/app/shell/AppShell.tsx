@@ -1,7 +1,9 @@
 import {
+  Activity,
   Bot,
   MessagesSquare,
   Plus,
+  ReceiptText,
   ShieldCheck,
   SlidersHorizontal,
   Store,
@@ -19,8 +21,16 @@ import { selectDashboardPlans } from '../../lib/mandates.js';
 export type AppPerspective = 'client' | 'agent' | 'merchant' | 'auditor' | 'demo';
 
 const CLIENT_NAV = [
+  { to: '/dashboard/activity', label: 'Updates', icon: Activity, end: true, primary: false },
   { to: '/dashboard/chats', label: 'Chats', icon: MessagesSquare, end: false, primary: false },
   { to: '/dashboard', label: 'New', icon: Plus, end: true, primary: true },
+  {
+    to: '/dashboard/purchases',
+    label: 'Orders',
+    icon: ReceiptText,
+    end: false,
+    primary: false,
+  },
   { to: '/dashboard/settings', label: 'Account', icon: UserRound, end: false, primary: false },
 ];
 
@@ -119,19 +129,22 @@ export function AppShell({
     .join('')
     .slice(0, 2)
     .toUpperCase();
-  const clientChatSurface =
+  const clientAppSurface =
     perspective === 'client' &&
-    (location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/chats'));
+    (location.pathname === '/dashboard' ||
+      location.pathname.startsWith('/dashboard/chats') ||
+      location.pathname === '/dashboard/activity' ||
+      location.pathname === '/dashboard/purchases');
 
   if (perspective === 'client') {
     return (
       <div
         className={cn(
           'bg-ground',
-          clientChatSurface ? 'h-[100dvh] overflow-hidden' : 'min-h-screen',
+          clientAppSurface ? 'h-[100dvh] overflow-hidden' : 'min-h-screen',
         )}
       >
-        {!clientChatSurface ? (
+        {!clientAppSurface ? (
           <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
             <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-5 md:px-6">
               <NavLink
@@ -166,7 +179,7 @@ export function AppShell({
         ) : null}
         <main
           className={cn(
-            clientChatSurface
+            clientAppSurface
               ? 'h-[calc(100dvh-5.75rem)] w-full overflow-hidden sm:px-4 sm:pt-4'
               : 'mx-auto w-full max-w-[1280px] px-4 pt-5 pb-32 sm:px-5 md:px-6 md:pt-6',
           )}
@@ -174,7 +187,7 @@ export function AppShell({
           {children ?? <Outlet />}
         </main>
         <nav
-          className="fixed bottom-3 left-1/2 z-40 grid w-[calc(100%-1.5rem)] max-w-[400px] -translate-x-1/2 grid-cols-3 items-end rounded-2xl border border-line-strong bg-surface/95 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-ink/10 backdrop-blur"
+          className="fixed bottom-3 left-1/2 z-40 grid w-[calc(100%-1.5rem)] max-w-[520px] -translate-x-1/2 grid-cols-5 items-end rounded-2xl border border-line-strong bg-surface/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-ink/10 backdrop-blur sm:px-3"
           aria-label="Your account navigation"
         >
           {CLIENT_NAV.map(({ primary, ...item }) => (
