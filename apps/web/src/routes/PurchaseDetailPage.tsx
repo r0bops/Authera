@@ -1,4 +1,4 @@
-import { Check, Package, Plane, X } from 'lucide-react';
+import { Check, Download, Package, Plane, X } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { usePurchase } from '../api/hooks.js';
 import { Checklist, DecisionBadge, Timeline } from '../components/status.js';
@@ -26,7 +26,7 @@ export function PurchaseDetailPage() {
   if (purchase.isError)
     return <ErrorState error={purchase.error} retry={() => void purchase.refetch()} />;
   if (purchase.isPending || !purchase.data) return <Skeleton className="h-64" />;
-  const { execution, offer, mandate, verification } = purchase.data;
+  const { execution, offer, mandate, verification, booking } = purchase.data;
   const paid = execution.amount;
   const max = mandate?.maxPerPurchase;
   const savings =
@@ -69,19 +69,43 @@ export function PurchaseDetailPage() {
                 : 'A readable record of this purchase attempt and the checks behind it.'
         }
         actions={
-          <Link
-            to={`/dashboard/disputes/new?executionId=${execution.id}`}
-            className={buttonStyles({ variant: 'secondary' })}
-          >
-            Report a problem
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {succeeded ? (
+              <a
+                href={`/api/purchases/${execution.id}/receipt.html`}
+                download
+                className={buttonStyles({ variant: 'secondary' })}
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Payment receipt
+              </a>
+            ) : null}
+            {succeeded && booking?.state === 'BOOKED' ? (
+              <a
+                href={`/api/purchases/${execution.id}/booking-confirmation.html`}
+                download
+                className={buttonStyles({ variant: 'secondary' })}
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Booking confirmation
+              </a>
+            ) : null}
+            <Link
+              to={`/dashboard/disputes/new?executionId=${execution.id}`}
+              className={buttonStyles({ variant: 'secondary' })}
+            >
+              Report a problem
+            </Link>
+          </div>
         }
       />
       {execution.state === 'FAILED' ? (
         <div className="mb-4">
-          <Alert tone="destructive" title="No money moved">
-            {execution.payment?.failureReason ?? 'The processor declined the payment'}; your plan’s
-            allowance was restored.
+          <Alert tone="destructive" title="No completed purchase">
+            {execution.reasonCode === 'BOOKING_FAILED'
+              ? 'Duffel could not confirm the flight, so Stripe’s authorization was cancelled'
+              : (execution.payment?.failureReason ?? 'The processor declined the payment')}
+            ; your plan’s allowance was restored.
           </Alert>
         </div>
       ) : null}
@@ -147,6 +171,17 @@ export function PurchaseDetailPage() {
                         ? 'Approved by you for this exact checkout'
                         : 'Automatically approved — matched every condition in your plan',
                   },
+                  ...(offer?.kind === 'flight'
+                    ? [
+                        {
+                          label: 'Booking',
+                          value:
+                            booking?.state === 'BOOKED'
+                              ? `Confirmed · ${booking.bookingReference ?? booking.providerOrderId ?? 'Duffel order'}`
+                              : (booking?.state ?? 'Not issued'),
+                        },
+                      ]
+                    : []),
                 ]}
               />
             </div>
@@ -215,6 +250,20 @@ export function PurchaseDetailPage() {
                     value: execution.payment?.providerPaymentId ?? '—',
                     mono: true,
                   },
+                  ...(booking
+                    ? [
+                        {
+                          label: 'Duffel order',
+                          value: booking.providerOrderId ?? 'Pending reconciliation',
+                          mono: true,
+                        },
+                        {
+                          label: 'Booking reference',
+                          value: booking.bookingReference ?? '—',
+                          mono: true,
+                        },
+                      ]
+                    : []),
                 ]}
               />
             </details>
@@ -276,6 +325,7 @@ function humanVerificationLabel(label: string): string {
     'Amount within authorized limit': 'Price was inside your limit',
     'Cart matched the authorized checkout': 'The final cart matched the checked offer',
     'Payment confirmed': 'Payment completed',
+    'Flight booking confirmed': 'Duffel issued the flight booking',
   };
   return labels[label] ?? label;
 }

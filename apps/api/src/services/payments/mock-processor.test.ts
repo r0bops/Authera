@@ -12,15 +12,21 @@ const purchase = (executionId: string) => ({
 });
 
 describe('MockPaymentProcessor', () => {
-  it('succeeds by default with provider ids and is idempotent per execution id', async () => {
+  it('authorizes then captures by default with stable provider ids', async () => {
     const mock = new MockPaymentProcessor(fixedClock('2026-08-30T12:00:00.000Z'));
     const first = await mock.purchase(purchase('e1'));
     const again = await mock.purchase(purchase('e1'));
-    expect(first).toMatchObject({ provider: 'mock', state: 'SUCCEEDED', failureReason: null });
+    expect(first).toMatchObject({ provider: 'mock', state: 'AUTHORIZED', failureReason: null });
     expect(first.providerPaymentId).toMatch(/^mock_pay_/);
-    expect(first.providerTransactionId).toMatch(/^mock_txn_/);
+    expect(first.providerTransactionId).toBeNull();
     expect(again).toEqual(first);
     expect(mock.calls.map((c) => c.idempotentReplay)).toEqual([false, true]);
+    const captured = await mock.capture({
+      executionId: 'e1',
+      providerPaymentId: first.providerPaymentId,
+    });
+    expect(captured).toMatchObject({ state: 'SUCCEEDED', failureReason: null });
+    expect(captured.providerTransactionId).toMatch(/^mock_txn_/);
   });
 
   it('fails when told to, with the configured reason', async () => {

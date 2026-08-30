@@ -7,6 +7,7 @@ import {
   merchants,
   paymentMethods,
   signingKeys,
+  travelerProfiles,
   users,
 } from './schema.js';
 import {
@@ -14,6 +15,7 @@ import {
   SEED_IDS,
   SEED_MERCHANTS,
   SEED_PAYMENT_METHOD,
+  SEED_TRAVELER_PROFILE,
   SEED_USER,
 } from './seed-data.js';
 
@@ -31,6 +33,22 @@ export interface SeedInput {
 /** Idempotent demo seed: safe to run on every start and after every reset. */
 export async function seedDemo(db: DbExecutor, input: SeedInput): Promise<void> {
   await db.insert(users).values(SEED_USER).onConflictDoNothing();
+  await db
+    .insert(travelerProfiles)
+    .values(SEED_TRAVELER_PROFILE)
+    .onConflictDoUpdate({
+      target: travelerProfiles.userId,
+      set: {
+        givenName: SEED_TRAVELER_PROFILE.givenName,
+        familyName: SEED_TRAVELER_PROFILE.familyName,
+        bornOn: SEED_TRAVELER_PROFILE.bornOn,
+        gender: SEED_TRAVELER_PROFILE.gender,
+        title: SEED_TRAVELER_PROFILE.title,
+        email: SEED_TRAVELER_PROFILE.email,
+        phoneNumber: SEED_TRAVELER_PROFILE.phoneNumber,
+        updatedAt: sql`now()`,
+      },
+    });
   await db
     .insert(merchants)
     .values(SEED_MERCHANTS)
@@ -106,6 +124,7 @@ const ALL_TABLES = [
   'audit_chain_heads',
   'disputes',
   'webhook_events',
+  'bookings',
   'payments',
   'approval_requests',
   'reservations',
@@ -124,6 +143,7 @@ const ALL_TABLES = [
   'merchants',
   'webauthn_credentials',
   'human_sessions',
+  'traveler_profiles',
   'users',
 ];
 

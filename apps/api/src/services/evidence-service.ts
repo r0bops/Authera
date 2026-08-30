@@ -9,6 +9,7 @@ import type {
 import {
   getAgentById,
   getAgentKeyById,
+  getBookingByExecution,
   getApprovalRequest,
   getCheckout,
   getExecution,
@@ -32,6 +33,7 @@ import { ApiProblem } from '../http/problem.js';
 import { toOfferView } from './checkout-service.js';
 import { toPaymentView } from './execution-views.js';
 import { verifyMandateJws } from './mandate-signer.js';
+import { toBookingView } from './booking-service.js';
 
 export function toDisputeView(row: DisputeRow): DisputeView {
   return {
@@ -78,6 +80,7 @@ export class EvidenceService {
       !approval && execution.checkoutId ? await this.approvalConsumedBy(executionId) : undefined;
     const reservation = await getReservationByExecution(db, executionId);
     const payment = await getPaymentByExecution(db, executionId);
+    const booking = await getBookingByExecution(db, executionId);
     const webhooks = await db
       .select()
       .from(schema.webhookEvents)
@@ -204,6 +207,7 @@ export class EvidenceService {
           }
         : null,
       payment: payment ? toPaymentView(payment) : null,
+      booking: booking ? toBookingView(booking) : null,
       webhooks: webhooks.map((w) => ({
         provider: w.provider,
         providerEventId: w.providerEventId,

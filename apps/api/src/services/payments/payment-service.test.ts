@@ -17,6 +17,10 @@ function reserved(): ReservedExecution {
     mandateVersion: 1,
     checkoutId: 'checkout-1',
     offerId: 'offer-1',
+    offerKind: 'flight',
+    offerSource: 'demo',
+    providerOfferId: null,
+    humanId: 'human-1',
     amountMinor: 13_000,
     currency: 'USD',
     paymentMethodRef: 'pm_ref',
@@ -53,8 +57,15 @@ describe('PaymentService', () => {
     expect(store.counters.consumedCount).toBe(1);
     expect(store.events.map((e) => e.eventType)).toEqual([
       'PAYMENT_REQUESTED',
+      'PAYMENT_PENDING',
       'USAGE_CONSUMED',
       'PAYMENT_SUCCEEDED',
+    ]);
+    expect(processor.captureCalls).toEqual([
+      {
+        executionId: EXECUTION,
+        providerPaymentId: processor.resultFor(EXECUTION)?.providerPaymentId,
+      },
     ]);
   });
 
@@ -152,6 +163,28 @@ describe('PaymentService', () => {
     ).toBe('REJECTED');
   });
 
+  it('preserves BOOKING_FAILED if Stripe cancellation wins the settlement race', async () => {
+    processor.setBehavior(EXECUTION, { outcome: 'pending' });
+    await service.executeReserved(reserved());
+    const execution = store.executions.get(EXECUTION)!;
+    execution.bookingState = 'FAILED';
+
+    await expect(
+      service.handleWebhook(
+        processor.buildEvent({
+          executionId: EXECUTION,
+          amount: { currency: 'USD', minor: 13_000 },
+          type: 'PAYMENT_FAILED',
+          eventId: 'stripe-canceled-after-booking-failure',
+        }),
+      ),
+    ).resolves.toBe('processed');
+    expect(execution).toMatchObject({ state: 'FAILED', reasonCode: 'BOOKING_FAILED' });
+    expect(store.payments.get(EXECUTION)).toMatchObject({
+      failureReason: 'booking_failed_authorization_canceled',
+    });
+  });
+
   it('a provider outage leaves a recoverable PAYMENT_PENDING, never a guessed success', async () => {
     const failing = {
       provider: 'mock' as const,
@@ -160,11 +193,71 @@ describe('PaymentService', () => {
       purchase: async () => {
         throw new Error('timeout');
       },
+      capture: processor.capture.bind(processor),
+      cancel: processor.cancel.bind(processor),
     };
     const broken = new PaymentService({ store, processor: failing, clock, logger });
     const result = await broken.executeReserved(reserved());
     expect(result).toMatchObject({ state: 'PAYMENT_PENDING' });
     expect(store.counters.reservedCount).toBe(1);
     expect(store.counters.consumedCount).toBe(0);
+  });
+
+  it('books a Duffel flight between authorization and capture', async () => {
+    const live = { ...reserved(), offerSource: 'duffel' as const, providerOfferId: 'off_test' };
+    const fulfill = vi.fn(async () => ({ state: 'BOOKED' as const, bookingId: 'booking-1' }));
+    service = new PaymentService({ store, processor, clock, logger, fulfill });
+
+    await expect(service.executeReserved(live)).resolves.toMatchObject({ state: 'SUCCEEDED' });
+    expect(fulfill).toHaveBeenCalledWith(live, processor.resultFor(EXECUTION)?.providerPaymentId);
+    expect(processor.captureCalls).toHaveLength(1);
+    expect(processor.cancelCalls).toHaveLength(0);
+  });
+
+  it('cancels the authorization and releases usage after a definitive booking failure', async () => {
+    const fulfill = vi.fn(async () => ({
+      state: 'FAILED' as const,
+      bookingId: 'booking-1',
+      failureReason: 'duffel_422',
+    }));
+    service = new PaymentService({ store, processor, clock, logger, fulfill });
+
+    await expect(service.executeReserved(reserved())).resolves.toMatchObject({
+      state: 'FAILED',
+      reasonCode: 'BOOKING_FAILED',
+    });
+    expect(processor.cancelCalls).toHaveLength(1);
+    expect(processor.captureCalls).toHaveLength(0);
+    expect(store.counters.reservedCount).toBe(0);
+    expect(store.counters.consumedCount).toBe(0);
+  });
+
+  it('retains authorization and reservation when booking needs reconciliation', async () => {
+    const fulfill = vi.fn(async () => ({
+      state: 'PENDING' as const,
+      bookingId: 'booking-1',
+      failureReason: 'AbortError',
+    }));
+    service = new PaymentService({ store, processor, clock, logger, fulfill });
+
+    await expect(service.executeReserved(reserved())).resolves.toMatchObject({
+      state: 'PAYMENT_PENDING',
+    });
+    expect(processor.captureCalls).toHaveLength(0);
+    expect(processor.cancelCalls).toHaveLength(0);
+    expect(store.counters.reservedCount).toBe(1);
+  });
+
+  it('retains authorization when fulfillment throws unexpectedly', async () => {
+    const fulfill = vi.fn(async () => {
+      throw new Error('database unavailable');
+    });
+    service = new PaymentService({ store, processor, clock, logger, fulfill });
+
+    await expect(service.executeReserved(reserved())).resolves.toMatchObject({
+      state: 'PAYMENT_PENDING',
+    });
+    expect(processor.captureCalls).toHaveLength(0);
+    expect(processor.cancelCalls).toHaveLength(0);
   });
 });

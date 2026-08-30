@@ -428,6 +428,7 @@ describe('reason code coverage', () => {
     'REQUEST_EXPIRED',
     'REPLAY_DETECTED',
     'RESERVATION_CONFLICT',
+    'BOOKING_FAILED',
     'PAYMENT_FAILED',
   ];
 

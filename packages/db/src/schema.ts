@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -27,6 +28,24 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey(),
   email: text('email').notNull().unique(),
   displayName: text('display_name').notNull(),
+  ...timestamps,
+});
+
+/** Passenger identity stays server-side and is never sent to the purchasing model. */
+export const travelerProfiles = pgTable('traveler_profiles', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id)
+    .unique(),
+  givenName: text('given_name').notNull(),
+  familyName: text('family_name').notNull(),
+  bornOn: text('born_on').notNull(),
+  gender: text('gender').notNull(),
+  title: text('title').notNull(),
+  email: text('email').notNull(),
+  phoneNumber: text('phone_number').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   ...timestamps,
 });
 
@@ -361,6 +380,40 @@ export const payments = pgTable('payments', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   ...timestamps,
 });
+
+/** Provider fulfillment is distinct from payment: a Stripe success alone is not a flight. */
+export const bookings = pgTable(
+  'bookings',
+  {
+    id: uuid('id').primaryKey(),
+    executionId: uuid('execution_id')
+      .notNull()
+      .references(() => executions.id)
+      .unique(),
+    offerId: uuid('offer_id')
+      .notNull()
+      .references(() => offers.id),
+    provider: text('provider').notNull(),
+    providerOrderId: text('provider_order_id'),
+    bookingReference: text('booking_reference'),
+    state: text('state').notNull().default('PENDING'),
+    liveMode: boolean('live_mode'),
+    amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
+    currency: text('currency').notNull(),
+    documents: jsonb('documents')
+      .$type<Array<{ type: string; uniqueIdentifier: string | null }>>()
+      .notNull()
+      .default([]),
+    failureReason: text('failure_reason'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('bookings_provider_order_uq').on(t.provider, t.providerOrderId),
+    index('bookings_offer_idx').on(t.offerId),
+    check('bookings_amount_ck', sql`${t.amountMinor} >= 0`),
+  ],
+);
 
 export const webhookEvents = pgTable(
   'webhook_events',

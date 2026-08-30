@@ -5,6 +5,8 @@ import type { PaymentRecord, PaymentStore } from '../services/payments/payment-s
 
 export interface MemoryExecution {
   state: string;
+  reasonCode?: 'PAYMENT_FAILED' | 'BOOKING_FAILED';
+  bookingState?: string | null;
   checkoutId: string | null;
   mandateId: string | null;
   mandateVersion: number | null;
@@ -100,6 +102,7 @@ export class MemoryPaymentStore implements PaymentStore {
       amountMinor: settled.reservation.amountMinor,
     };
     execution.state = input.outcome === 'succeeded' ? 'SUCCEEDED' : 'FAILED';
+    execution.reasonCode = input.reasonCode;
     payment.state = input.outcome === 'succeeded' ? 'SUCCEEDED' : 'FAILED';
     payment.providerPaymentId = input.providerPaymentId;
     payment.providerTransactionId = input.providerTransactionId;
@@ -158,6 +161,7 @@ export class MemoryPaymentStore implements PaymentStore {
           mandateId: execution.mandateId,
           mandateVersion: execution.mandateVersion,
           state: execution.state,
+          bookingState: execution.bookingState ?? null,
         }
       : undefined;
   }

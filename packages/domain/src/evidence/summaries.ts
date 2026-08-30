@@ -51,6 +51,8 @@ const REASON_TEMPLATES: Record<ReasonCode, (ctx: ReasonContext) => string> = {
   CHECKOUT_HASH_MISMATCH: () => 'Blocked: the cart changed after it was authorized.',
   APPROVAL_INVALID: () => 'Blocked: the human approval does not cover this exact checkout.',
   RESERVATION_CONFLICT: () => 'Blocked: another purchase used the mandate allowance first.',
+  BOOKING_FAILED: () =>
+    'The flight could not be booked; the payment authorization was cancelled and the mandate allowance was released.',
   PAYMENT_FAILED: () => 'Payment failed at the processor; the mandate allowance was released.',
   INTERNAL_FAIL_CLOSED: () =>
     'Blocked: the request could not be evaluated safely, so it was denied by default.',
@@ -81,6 +83,10 @@ const EVENT_TEMPLATES: Record<AuditEventType, string> = {
   PAYMENT_PENDING: 'Payment pending at the processor',
   PAYMENT_SUCCEEDED: 'Payment succeeded',
   PAYMENT_FAILED: 'Payment failed',
+  BOOKING_REQUESTED: 'Flight booking requested from Duffel',
+  BOOKING_PENDING: 'Flight booking outcome pending reconciliation',
+  BOOKING_CONFIRMED: 'Flight booking confirmed',
+  BOOKING_FAILED: 'Flight booking failed',
   WEBHOOK_RECEIVED: 'Provider webhook received',
   WEBHOOK_DUPLICATE: 'Duplicate provider webhook ignored',
   DISPUTE_OPENED: 'Dispute opened',

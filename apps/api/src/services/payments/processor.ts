@@ -28,9 +28,15 @@ export interface PaymentResult {
   provider: PaymentProvider;
   providerPaymentId: string;
   providerTransactionId: string | null;
-  state: 'PENDING' | 'SUCCEEDED' | 'FAILED';
+  /** AUTHORIZED means funds are held but must not be captured until fulfillment succeeds. */
+  state: 'AUTHORIZED' | 'PENDING' | 'SUCCEEDED' | 'FAILED';
   failureReason: string | null;
   eventId: string;
+}
+
+export interface AuthorizedPaymentInput {
+  executionId: string;
+  providerPaymentId: string;
 }
 
 /** Provider boundary (CLAUDE_IMPLEMENTATION_SPEC.md §13). Adapters never hold a database transaction. */
@@ -38,6 +44,8 @@ export interface PaymentProcessor {
   readonly provider: PaymentProvider;
   createCheckoutSession(input: CheckoutSessionInput): Promise<CheckoutSessionResult>;
   purchase(input: PurchaseInput): Promise<PaymentResult>;
+  capture(input: AuthorizedPaymentInput): Promise<PaymentResult>;
+  cancel(input: AuthorizedPaymentInput): Promise<PaymentResult>;
   parseWebhook(rawBody: Uint8Array, headers: Headers): Promise<PaymentEvent>;
 }
 

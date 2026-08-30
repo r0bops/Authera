@@ -4,6 +4,7 @@ import { PaymentEventSchema } from '@authera/contracts';
 import type {
   CheckoutSessionInput,
   CheckoutSessionResult,
+  AuthorizedPaymentInput,
   PaymentProcessor,
   PaymentResult,
   PurchaseInput,
@@ -60,9 +61,9 @@ interface StripeErrorBody {
 }
 
 /**
- * Stripe PaymentIntents adapter (test mode). One `POST /v1/payment_intents` per execution with
- * `confirm=true`, `off_session=true`, and the execution id as Stripe's Idempotency-Key, so a retry
- * returns the original intent instead of charging twice. Never holds a database transaction.
+ * Stripe PaymentIntents adapter (test mode). It authorizes with manual capture, allowing the
+ * Duffel sandbox order to be confirmed before funds are captured. Every provider mutation has a
+ * stable execution-derived idempotency key. Never holds a database transaction.
  */
 export class StripePaymentProcessor implements PaymentProcessor {
   readonly provider = 'stripe' as const;
@@ -95,6 +96,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
       currency: input.amount.currency.toLowerCase(),
       confirm: 'true',
       off_session: 'true',
+      capture_method: 'manual',
       payment_method: paymentMethod,
       description: input.description,
       'automatic_payment_methods[enabled]': 'true',
@@ -136,6 +138,40 @@ export class StripePaymentProcessor implements PaymentProcessor {
     return this.toResult(intent);
   }
 
+  async capture(input: AuthorizedPaymentInput): Promise<PaymentResult> {
+    return this.intentAction(input, 'capture');
+  }
+
+  async cancel(input: AuthorizedPaymentInput): Promise<PaymentResult> {
+    return this.intentAction(input, 'cancel');
+  }
+
+  private async intentAction(
+    input: AuthorizedPaymentInput,
+    action: 'capture' | 'cancel',
+  ): Promise<PaymentResult> {
+    const response = await this.fetchImpl(
+      `${this.baseUrl}/v1/payment_intents/${encodeURIComponent(input.providerPaymentId)}/${action}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.config.secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': `${input.executionId}:${action}`,
+        },
+        body: '',
+        signal: AbortSignal.timeout(this.timeoutMs),
+      },
+    );
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Stripe payment_intent ${action} failed with HTTP ${response.status}: ${text.slice(0, 200)}`,
+      );
+    }
+    return this.toResult((await response.json()) as StripePaymentIntent);
+  }
+
   private toResult(intent: StripePaymentIntent): PaymentResult {
     const base = {
       provider: 'stripe' as const,
@@ -148,8 +184,9 @@ export class StripePaymentProcessor implements PaymentProcessor {
         return { ...base, state: 'SUCCEEDED', failureReason: null };
       case 'processing':
       case 'requires_action':
-      case 'requires_capture':
         return { ...base, state: 'PENDING', failureReason: null };
+      case 'requires_capture':
+        return { ...base, state: 'AUTHORIZED', failureReason: null };
       default:
         return {
           ...base,
@@ -236,6 +273,7 @@ function mapEventType(type: string): PaymentEventType | null {
     case 'payment_intent.canceled':
       return 'PAYMENT_FAILED';
     case 'payment_intent.processing':
+    case 'payment_intent.amount_capturable_updated':
       return 'PAYMENT_PENDING';
     default:
       return null;

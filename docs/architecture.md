@@ -10,8 +10,10 @@ flowchart LR
   API --> TS[Trusted surface<br/>EdDSA mandate signer]
   API --> MG[Mandate Gateway]
   MG --> PE[Pure policy engine<br/>packages/domain]
-  MG --> DB[(PostgreSQL 18<br/>mandate_runtime · nonces · executions<br/>reservations · payments · audit chain)]
+  MG --> DB[(PostgreSQL 18<br/>mandates · executions · reservations<br/>payments · bookings · audit chain)]
   MG --> PAY[Payment service]
+  PAY --> BOOK[Booking service]
+  BOOK --> DUFFEL[Duffel Flights<br/>test-mode orders]
   PAY --> PP{PaymentProcessor}
   PP --> MOCK[Mock processor<br/>demo controls]
   PP --> STRIPE[Stripe<br/>test-mode PaymentIntents]
@@ -35,7 +37,9 @@ Authority lives in exactly two places: the **pure policy engine** (deterministic
 
 ### Live markets (`FlightMarketProvider`)
 
-`apps/api/src/services/flight-market/` defines a provider port with two methods, `search` and `revalidate`, and a Duffel implementation (test mode). `CheckoutService.searchFlights` queries every configured provider with an 8 s budget, stores what came back as `offers` rows (`source = 'duffel'`, `provider_offer_id`, provider expiry) under the "Duffel Marketplace" merchant, expires live offers the provider no longer returns, and only then reads the catalog back from PostgreSQL. A provider failure is logged and skipped — discovery never depends on it. When a checkout session is created for a live offer, the provider is asked again for that exact offer: a new price is written to the row before the cart hash is computed, and a missing or expired offer raises `OFFER_NOT_AVAILABLE`. The purchasing agent drops any offer whose checkout fails and continues with the rest, so a stale live offer can never reach the gateway.
+`apps/api/src/services/flight-market/` defines a provider port for `search` and `revalidate`, with a Duffel implementation in test mode. `CheckoutService.searchFlights` queries every configured provider with an 8 s budget, stores what came back as `offers` rows (`source = 'duffel'`, `provider_offer_id`, provider expiry) under the "Duffel Marketplace" merchant, expires live offers the provider no longer returns, and only then reads the catalog back from PostgreSQL. A provider failure is logged and skipped — discovery never depends on it. When a checkout session is created for a live offer, Duffel is asked again for that exact offer: a new price is written before the cart hash is computed, and a missing or expired offer raises `OFFER_NOT_AVAILABLE`.
+
+Fulfillment is a separate server-side step. `BookingService` loads the traveler profile by the mandate's human id (the profile never enters an LLM tool), creates a `PENDING` booking, and asks Duffel for an instant order paid from its test balance. The request uses the passenger id attached to the reloaded offer and records the execution/Stripe ids as metadata. A validated test-mode order becomes `BOOKED`; a definite 4xx rejection becomes `FAILED`; a timeout, 5xx, or malformed 2xx stays `PENDING` because an airline order may already exist. The latter is never blindly retried.
 
 ## Purchase sequence
 
@@ -44,7 +48,8 @@ sequenceDiagram
   participant Agent
   participant API as Authera API
   participant DB as PostgreSQL
-  participant Pay as PaymentProcessor
+  participant Stripe as Stripe test mode
+  participant Duffel as Duffel test mode
 
   Agent->>API: POST /api/purchase-attempts (signed; executionId, mandateId, offerId, checkoutId)
   API->>API: Verify Content-Digest, components, created/expires, keyid → pinned key, tag
@@ -55,9 +60,26 @@ sequenceDiagram
   alt ALLOW
     API->>DB: UPDATE mandate_runtime … WHERE status='ACTIVE' AND validity AND caps (+ consume approval)
     alt one row updated
-      API->>Pay: purchase(executionId as idempotency key) — no transaction open
-      Pay-->>API: SUCCEEDED / FAILED / PENDING
-      API->>DB: settleExecution: consume or release exactly once, payment + execution + audit
+      API->>Stripe: confirm manual-capture PaymentIntent (executionId idempotency key)
+      Stripe-->>API: AUTHORIZED / FAILED / PENDING
+      alt Stripe authorized and live Duffel flight
+        API->>DB: create PENDING booking + BOOKING_REQUESTED
+        API->>Duffel: reload offer; POST /air/orders (instant, test balance)
+        Duffel-->>API: confirmed order / definite rejection / ambiguous outcome
+        alt booking confirmed
+          API->>DB: BOOKED + provider order/reference
+          API->>Stripe: capture PaymentIntent
+          API->>DB: consume reservation; payment SUCCEEDED
+        else definite booking rejection
+          API->>Stripe: cancel authorization
+          API->>DB: release reservation; BOOKING_FAILED
+        else ambiguous
+          API->>DB: keep booking/payment/reservation PENDING for reconciliation
+        end
+      else non-Duffel fulfillment or mock
+        API->>Stripe: capture when authorization succeeds
+        API->>DB: settleExecution: consume or release exactly once
+      end
       API-->>Agent: ALLOW, state, paymentId, evidenceId
     else zero rows
       API-->>Agent: BLOCK (MANDATE_REVOKED / USAGE_EXHAUSTED / RESERVATION_CONFLICT …)
@@ -102,7 +124,9 @@ sequenceDiagram
 | Policy engine | `packages/domain/src/policy/evaluate.ts` | Pure evaluator, ordered checklist, reason codes |
 | Reservation / settlement | `packages/db/src/repositories/reservations.ts` | Atomic `UPDATE` predicate; idempotent consume/release |
 | Payments | `apps/api/src/services/payments/*` | `PaymentProcessor` boundary, mock + Stripe adapters, webhook handling |
-| Payment processors | `apps/api/src/services/payments/{mock,stripe}-processor.ts` | One `PaymentProcessor` port; mock (demo controls), Stripe test mode (real PaymentIntents). Any PSP that can charge a vaulted method with an idempotency key fits the same three-method port |
+| Payment processors | `apps/api/src/services/payments/{mock,stripe}-processor.ts` | Authorize, capture, and cancel behind one port; Stripe adapter accepts test keys only |
+| Flight booking | `apps/api/src/services/booking-service.ts`, `flight-market/duffel-provider.ts` | Server-side traveler binding, Duffel sandbox order, definite/ambiguous failure classification |
+| Purchase documents | `apps/api/src/services/purchase-documents.ts` | Escaped, printable payment receipt and booking confirmation; terminal-state gated and explicitly not a boarding pass/tax invoice |
 | Purchasing agent | `packages/purchasing-agent` | Scripted watcher + OpenAI agent with `search_flights` / `request_purchase` |
 | Agent runner + demo | `apps/api/src/services/agent-runner.ts`, `routes/demo` | Runs the agent over signed HTTP; direct/forged/replayed/concurrent attempts |
 | Approvals / disputes / evidence | `apps/api/src/services/{approval,dispute,evidence}-service.ts` | Checkout-scoped approvals, deterministic resolver, role-filtered bundles |
@@ -131,7 +155,7 @@ flowchart TB
 
 ## Data model (essentials)
 
-`mandates` → `mandate_versions` (append-only signed policies) → `mandate_runtime` (the hot row: status, validity, caps, reserved/consumed counters). `executions` (one per signed attempt; id doubles as idempotency key) → `reservations` (unique per execution) → `payments` (unique per execution) ← `webhook_events` (unique per provider event). `nonces` unique per agent key. `approval_requests` bound to a checkout hash. `audit_events` with `previous_hash`/`hash` and a serialized `audit_chain_heads` row.
+`mandates` → `mandate_versions` (append-only signed policies) → `mandate_runtime` (the hot row: status, validity, caps, reserved/consumed counters). `executions` (one per signed attempt; id doubles as Stripe idempotency key) → unique `reservations`, `payments`, and `bookings`; the booking retains Duffel order/reference/documents independently from payment. `traveler_profiles` belongs to users and is joined only inside the API. `webhook_events` is unique per provider event; `nonces` is unique per agent key; `approval_requests` bind to a checkout hash; `audit_events` link through a serialized chain head.
 
 ## Build and deployment
 

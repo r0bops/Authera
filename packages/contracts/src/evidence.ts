@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AuditEventSchema } from './audit.js';
 import { CheckoutCartSchema } from './checkout.js';
 import { ExecutionStateSchema } from './execution.js';
-import { FlightOfferViewSchema, PaymentViewSchema } from './gateway.js';
+import { BookingViewSchema, FlightOfferViewSchema, PaymentViewSchema } from './gateway.js';
 import { MandatePolicyV1Schema, MandateStateSchema } from './mandate.js';
 import { MoneySchema } from './money.js';
 import { DecisionSchema, PolicyCheckSchema, ReasonCodeSchema } from './policy.js';
@@ -170,6 +170,7 @@ export const EvidenceBundleSchema = z.object({
     })
     .nullable(),
   payment: PaymentViewSchema.nullable(),
+  booking: BookingViewSchema.nullable(),
   webhooks: z.array(
     z.object({
       provider: z.string(),

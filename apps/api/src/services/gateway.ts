@@ -30,6 +30,10 @@ export interface ReservedExecution {
   mandateVersion: number;
   checkoutId: string;
   offerId: string;
+  offerKind: 'flight' | 'goods';
+  offerSource: 'demo' | 'duffel' | 'shopify';
+  providerOfferId: string | null;
+  humanId: string;
   amountMinor: number;
   currency: Money['currency'];
   paymentMethodRef: string;
@@ -281,6 +285,10 @@ export class MandateGateway {
       mandateVersion: mandate.version.version,
       checkoutId: checkout.id,
       offerId: offer.id,
+      offerKind: offer.kind,
+      offerSource: offer.source,
+      providerOfferId: offer.providerOfferId ?? null,
+      humanId: policy.humanId,
       amountMinor: checkout.total.minor,
       currency: checkout.total.currency,
       paymentMethodRef: policy.paymentMethodRef,

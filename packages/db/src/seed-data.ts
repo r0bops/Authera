@@ -12,12 +12,26 @@ export const SEED_IDS = {
   trustedSurfaceKey: '99999999-9999-4999-8999-000000000001',
   merchantKey: '99999999-9999-4999-8999-000000000002',
   paymentMethod: '77777777-7777-4777-8777-777777777777',
+  travelerProfile: '88888888-8888-4888-8888-888888888888',
 } as const;
 
 export const SEED_USER = {
   id: SEED_IDS.marta,
   email: 'marta@example.com',
   displayName: 'Marta Ledezma',
+};
+
+/** Fictional sandbox passenger. It never enters model prompts, logs, or public discovery. */
+export const SEED_TRAVELER_PROFILE = {
+  id: SEED_IDS.travelerProfile,
+  userId: SEED_IDS.marta,
+  givenName: 'Marta',
+  familyName: 'Ledezma',
+  bornOn: '1990-01-15',
+  gender: 'f',
+  title: 'ms',
+  email: 'marta@example.com',
+  phoneNumber: '+442080160508',
 };
 
 export interface SeedMerchant {
@@ -50,6 +64,3 @@ export const SEED_PAYMENT_METHOD = {
   displayBrand: 'Visa',
   displayLast4: '4242',
 };
-
-
-

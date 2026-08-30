@@ -139,6 +139,7 @@ export interface SettleExecutionInput {
   };
   actorType?: 'SYSTEM' | 'PROVIDER';
   actorId?: string | null;
+  failureReasonCode?: Extract<ReasonCode, 'PAYMENT_FAILED' | 'BOOKING_FAILED'>;
 }
 
 export interface SettleExecutionResult {
@@ -245,7 +246,10 @@ export async function settleExecution(
       .update(executions)
       .set({
         state: executionState,
-        reasonCode: input.outcome === 'failed' ? 'PAYMENT_FAILED' : execution.reasonCode,
+        reasonCode:
+          input.outcome === 'failed'
+            ? (input.failureReasonCode ?? 'PAYMENT_FAILED')
+            : execution.reasonCode,
         updatedAt: sql`now()`,
       })
       .where(eq(executions.id, input.executionId));
@@ -269,7 +273,7 @@ export async function settleExecution(
       mandateVersion: reservation.version,
       executionId: input.executionId,
       paymentId,
-      reasonCode: input.outcome === 'failed' ? 'PAYMENT_FAILED' : null,
+      reasonCode: input.outcome === 'failed' ? (input.failureReasonCode ?? 'PAYMENT_FAILED') : null,
       detail: input.outcome === 'failed' ? (input.payment.failureReason ?? undefined) : undefined,
       payload: {
         provider: input.payment.provider,

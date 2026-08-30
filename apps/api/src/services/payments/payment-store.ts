@@ -54,6 +54,7 @@ export interface PaymentStore {
     providerTransactionId: string | null;
     eventId: string | null;
     failureReason: string | null;
+    reasonCode?: 'PAYMENT_FAILED' | 'BOOKING_FAILED';
     actorType: 'SYSTEM' | 'PROVIDER';
     checkoutId: string | null;
   }): Promise<SettleExecutionResult>;
@@ -66,6 +67,7 @@ export interface PaymentStore {
         mandateId: string | null;
         mandateVersion: number | null;
         state: string;
+        bookingState: string | null;
       }
     | undefined
   >;
@@ -157,6 +159,7 @@ export function databasePaymentStore(db: Database): PaymentStore {
           failureReason: input.failureReason,
         },
         actorType: input.actorType,
+        failureReasonCode: input.reasonCode,
       });
       if (result.applied && input.outcome === 'succeeded' && input.checkoutId) {
         await updateCheckoutStatus(db, input.checkoutId, 'COMPLETED');
@@ -188,14 +191,16 @@ export function databasePaymentStore(db: Database): PaymentStore {
     },
     markWebhook: (id, state) => markWebhookProcessed(db, id, state),
     async getExecutionContext(executionId) {
-      const { getExecution } = await import('@authera/db');
+      const { getBookingByExecution, getExecution } = await import('@authera/db');
       const row = await getExecution(db, executionId);
+      const booking = row ? await getBookingByExecution(db, executionId) : undefined;
       return row
         ? {
             checkoutId: row.checkoutId,
             mandateId: row.mandateId,
             mandateVersion: row.mandateVersion,
             state: row.state,
+            bookingState: booking?.state ?? null,
           }
         : undefined;
     },

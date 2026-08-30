@@ -2,6 +2,7 @@ import type { PaymentEvent, PurchaseAttemptResponse } from '@authera/contracts';
 import type { Clock } from '../../clock.js';
 import type { Logger } from '../../logger.js';
 import type { ReservedExecution } from '../gateway.js';
+import type { BookingOutcome } from '../booking-service.js';
 import type { PaymentRecord, PaymentStore } from './payment-store.js';
 import type { PaymentProcessor } from './processor.js';
 
@@ -10,6 +11,8 @@ export interface PaymentServiceDependencies {
   processor: PaymentProcessor;
   clock: Clock;
   logger: Logger;
+  /** Called only after a processor authorization and before capture. */
+  fulfill?: (reserved: ReservedExecution, providerPaymentId: string) => Promise<BookingOutcome>;
 }
 
 export type WebhookOutcome = 'processed' | 'duplicate' | 'ignored' | 'unknown_execution';
@@ -86,6 +89,84 @@ export class PaymentService {
       return { paymentId: payment.id, state: 'PAYMENT_PENDING' };
     }
 
+    if (result.state === 'AUTHORIZED') {
+      await store.markPending({
+        executionId: reserved.executionId,
+        providerPaymentId: result.providerPaymentId,
+        eventId: result.eventId,
+        mandateId: reserved.mandateId,
+        mandateVersion: reserved.mandateVersion,
+      });
+      let fulfillment: BookingOutcome;
+      try {
+        fulfillment = this.deps.fulfill
+          ? await this.deps.fulfill(reserved, result.providerPaymentId)
+          : { state: 'NOT_REQUIRED' };
+      } catch (error) {
+        logger.error(
+          { err: error, executionId: reserved.executionId },
+          'fulfillment call failed; authorization retained for reconciliation',
+        );
+        return { paymentId: payment.id, state: 'PAYMENT_PENDING' };
+      }
+      if (fulfillment.state === 'PENDING') {
+        return { paymentId: payment.id, state: 'PAYMENT_PENDING' };
+      }
+      if (fulfillment.state === 'FAILED') {
+        try {
+          await processor.cancel({
+            executionId: reserved.executionId,
+            providerPaymentId: result.providerPaymentId,
+          });
+        } catch (error) {
+          logger.error(
+            { err: error, executionId: reserved.executionId },
+            'payment authorization cancellation failed; reconciliation required',
+          );
+          return { paymentId: payment.id, state: 'PAYMENT_PENDING' };
+        }
+        const settled = await store.settle({
+          executionId: reserved.executionId,
+          outcome: 'failed',
+          provider: processor.provider,
+          providerPaymentId: result.providerPaymentId,
+          providerTransactionId: null,
+          eventId: result.eventId,
+          failureReason: fulfillment.failureReason,
+          reasonCode: 'BOOKING_FAILED',
+          actorType: 'SYSTEM',
+          checkoutId: reserved.checkoutId,
+        });
+        return {
+          paymentId: payment.id,
+          state: settled.executionState,
+          reasonCode: 'BOOKING_FAILED',
+        };
+      }
+
+      let captured;
+      try {
+        captured = await processor.capture({
+          executionId: reserved.executionId,
+          providerPaymentId: result.providerPaymentId,
+        });
+      } catch (error) {
+        logger.error(
+          { err: error, executionId: reserved.executionId },
+          'payment capture failed after fulfillment; reconciliation required',
+        );
+        return { paymentId: payment.id, state: 'PAYMENT_PENDING' };
+      }
+      if (captured.state !== 'SUCCEEDED') {
+        logger.error(
+          { executionId: reserved.executionId, paymentState: captured.state },
+          'payment capture returned a non-terminal result after fulfillment',
+        );
+        return { paymentId: payment.id, state: 'PAYMENT_PENDING' };
+      }
+      result = captured;
+    }
+
     const settled = await store.settle({
       executionId: reserved.executionId,
       outcome: result.state === 'SUCCEEDED' ? 'succeeded' : 'failed',
@@ -94,6 +175,7 @@ export class PaymentService {
       providerTransactionId: result.providerTransactionId,
       eventId: result.eventId,
       failureReason: result.failureReason,
+      reasonCode: result.state === 'FAILED' ? 'PAYMENT_FAILED' : undefined,
       actorType: 'SYSTEM',
       checkoutId: reserved.checkoutId,
     });
@@ -147,6 +229,18 @@ export class PaymentService {
       );
       return 'ignored';
     }
+    if (
+      event.eventType === 'PAYMENT_SUCCEEDED' &&
+      ctx.bookingState !== null &&
+      ctx.bookingState !== 'BOOKED'
+    ) {
+      await store.markWebhook(recorded.id, 'REJECTED');
+      logger.warn(
+        { executionId: event.executionId, eventId: event.eventId, bookingState: ctx.bookingState },
+        'payment success ignored because flight booking is not confirmed',
+      );
+      return 'ignored';
+    }
     if (event.eventType === 'PAYMENT_PENDING') {
       await store.markPending({
         executionId: event.executionId,
@@ -165,7 +259,18 @@ export class PaymentService {
       providerPaymentId: event.providerPaymentId,
       providerTransactionId: null,
       eventId: event.eventId,
-      failureReason: event.eventType === 'PAYMENT_FAILED' ? 'provider_reported_failure' : null,
+      failureReason:
+        event.eventType === 'PAYMENT_FAILED'
+          ? ctx.bookingState === 'FAILED'
+            ? 'booking_failed_authorization_canceled'
+            : 'provider_reported_failure'
+          : null,
+      reasonCode:
+        event.eventType === 'PAYMENT_FAILED'
+          ? ctx.bookingState === 'FAILED'
+            ? 'BOOKING_FAILED'
+            : 'PAYMENT_FAILED'
+          : undefined,
       actorType: 'PROVIDER',
       checkoutId: ctx.checkoutId,
     });

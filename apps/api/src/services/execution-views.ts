@@ -11,6 +11,7 @@ import type {
 import {
   getAgentById,
   getAgentKeyById,
+  getBookingByExecution,
   getCheckout,
   getExecution,
   getMandateVersion,
@@ -25,6 +26,7 @@ import { describeReason, hashCanonical } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 import { effectiveRuntimeStatus } from './mandate-service.js';
+import { toBookingView } from './booking-service.js';
 
 export function toPaymentView(row: PaymentRow): PaymentView {
   return {
@@ -48,6 +50,7 @@ export class ExecutionViews {
     const row = await getExecution(db, id);
     if (!row) throw ApiProblem.notFound('execution');
     const payment = await getPaymentByExecution(db, id);
+    const booking = await getBookingByExecution(db, id);
     const reservation = await getReservationByExecution(db, id);
     const timeline = await listAuditEvents(db, { executionId: id });
     const amount: Money | null =
@@ -75,6 +78,7 @@ export class ExecutionViews {
       checklist: (row.checklist as PolicyCheck[] | null) ?? [],
       approvalRequestId: row.approvalRequestId,
       payment: payment ? toPaymentView(payment) : null,
+      booking: booking ? toBookingView(booking) : null,
       reservationState: reservation?.state ?? null,
       evidenceId: row.evidenceId,
       createdAt: row.createdAt.toISOString(),
@@ -96,6 +100,7 @@ export class ExecutionViews {
     const checkout = row.checkoutId ? await getCheckout(db, row.checkoutId) : undefined;
     const reservation = await getReservationByExecution(db, executionId);
     const payment = await getPaymentByExecution(db, executionId);
+    const booking = await getBookingByExecution(db, executionId);
     const amount: Money | null =
       row.amountMinor !== null && row.currency
         ? { currency: row.currency as Money['currency'], minor: row.amountMinor }
@@ -162,6 +167,7 @@ export class ExecutionViews {
           }
         : null,
       payment: payment ? toPaymentView(payment) : null,
+      booking: booking ? toBookingView(booking) : null,
     };
   }
 
@@ -191,6 +197,7 @@ export async function listExecutionSummaries(
   for (const row of rows) {
     const offer = row.offerId ? await getOffer(deps.db, row.offerId) : undefined;
     const payment = await getPaymentByExecution(deps.db, row.id);
+    const booking = await getBookingByExecution(deps.db, row.id);
     const amount: Money | null =
       row.amountMinor !== null && row.currency
         ? { currency: row.currency as Money['currency'], minor: row.amountMinor }
@@ -209,6 +216,7 @@ export async function listExecutionSummaries(
       checkoutId: row.checkoutId,
       amount,
       paymentState: (payment?.state as ExecutionSummary['paymentState']) ?? null,
+      bookingState: (booking?.state as ExecutionSummary['bookingState']) ?? null,
       approvalRequestId: row.approvalRequestId,
       evidenceId: row.evidenceId,
       createdAt: row.createdAt.toISOString(),
@@ -301,7 +309,20 @@ export async function purchaseReceipt(
       detail: execution.payment?.providerPaymentId ?? null,
     },
   ];
-  return { execution, offer: offer ? toOfferViewLocal(offer) : null, mandate, verification };
+  if (offer?.kind === 'flight' && offer.source === 'duffel') {
+    verification.push({
+      label: 'Flight booking confirmed',
+      ok: execution.booking?.state === 'BOOKED',
+      detail: execution.booking?.bookingReference ?? execution.booking?.providerOrderId ?? null,
+    });
+  }
+  return {
+    execution,
+    offer: offer ? toOfferViewLocal(offer) : null,
+    mandate,
+    verification,
+    booking: execution.booking,
+  };
 }
 
 function toOfferViewLocal(offer: NonNullable<Awaited<ReturnType<typeof getOffer>>>) {

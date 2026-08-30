@@ -5,6 +5,7 @@ import type { Clock } from '../../clock.js';
 import type {
   CheckoutSessionInput,
   CheckoutSessionResult,
+  AuthorizedPaymentInput,
   PaymentProcessor,
   PaymentResult,
   PurchaseInput,
@@ -41,6 +42,8 @@ export interface RecordedCall {
 export class MockPaymentProcessor implements PaymentProcessor {
   readonly provider = 'mock' as const;
   readonly calls: RecordedCall[] = [];
+  readonly captureCalls: AuthorizedPaymentInput[] = [];
+  readonly cancelCalls: AuthorizedPaymentInput[] = [];
   private readonly results = new Map<string, PaymentResult>();
   private readonly behaviors = new Map<string, MockBehavior>();
   private defaultBehavior: MockBehavior = { outcome: 'succeed' };
@@ -69,6 +72,8 @@ export class MockPaymentProcessor implements PaymentProcessor {
 
   reset(): void {
     this.calls.length = 0;
+    this.captureCalls.length = 0;
+    this.cancelCalls.length = 0;
     this.results.clear();
     this.behaviors.clear();
     this.defaultBehavior = { outcome: 'succeed' };
@@ -108,8 +113,8 @@ export class MockPaymentProcessor implements PaymentProcessor {
       case 'succeed':
         result = {
           ...base,
-          providerTransactionId: `mock_txn_${randomUUID().slice(0, 12)}`,
-          state: 'SUCCEEDED',
+          providerTransactionId: null,
+          state: 'AUTHORIZED',
           failureReason: null,
         };
         break;
@@ -128,6 +133,44 @@ export class MockPaymentProcessor implements PaymentProcessor {
         }
         break;
     }
+    this.results.set(input.executionId, result);
+    return result;
+  }
+
+  async capture(input: AuthorizedPaymentInput): Promise<PaymentResult> {
+    this.captureCalls.push(input);
+    const known = this.results.get(input.executionId);
+    if (!known || known.providerPaymentId !== input.providerPaymentId) {
+      throw new Error('mock authorization not found');
+    }
+    if (known.state === 'SUCCEEDED') return known;
+    if (known.state !== 'AUTHORIZED') throw new Error(`mock payment cannot capture ${known.state}`);
+    const result: PaymentResult = {
+      ...known,
+      providerTransactionId: `mock_txn_${randomUUID().slice(0, 12)}`,
+      state: 'SUCCEEDED',
+      failureReason: null,
+      eventId: `mock_evt_${randomUUID().slice(0, 12)}`,
+    };
+    this.results.set(input.executionId, result);
+    return result;
+  }
+
+  async cancel(input: AuthorizedPaymentInput): Promise<PaymentResult> {
+    this.cancelCalls.push(input);
+    const known = this.results.get(input.executionId);
+    if (!known || known.providerPaymentId !== input.providerPaymentId) {
+      throw new Error('mock authorization not found');
+    }
+    if (known.state === 'FAILED') return known;
+    if (known.state !== 'AUTHORIZED') throw new Error(`mock payment cannot cancel ${known.state}`);
+    const result: PaymentResult = {
+      ...known,
+      providerTransactionId: null,
+      state: 'FAILED',
+      failureReason: 'authorization_canceled',
+      eventId: `mock_evt_${randomUUID().slice(0, 12)}`,
+    };
     this.results.set(input.executionId, result);
     return result;
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   DuffelFlightMarketProvider,
+  DuffelOrderError,
   departureDates,
   mapDuffelOffer,
   type DuffelOffer,
@@ -15,6 +16,7 @@ function duffelOffer(overrides: Partial<DuffelOffer> = {}): DuffelOffer {
     total_currency: 'USD',
     expires_at: '2099-01-01T00:00:00.000000Z',
     owner: { name: 'Copa Airlines', iata_code: 'CM' },
+    passengers: [{ id: 'pas_0000A3tQSmKyqOrcySrGbo', type: 'adult' }],
     slices: [
       {
         segments: [
@@ -155,5 +157,149 @@ describe('DuffelFlightMarketProvider', () => {
     });
     await expect(provider.revalidate('off_x')).resolves.toEqual({ available: false });
     await expect(provider.revalidate('off_x')).resolves.toMatchObject({ available: false });
+  });
+
+  it('creates one test-mode balance order bound to the offer passenger and execution', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const provider = new DuffelFlightMarketProvider({
+      accessToken: 'duffel_test_secret',
+      merchantId: MERCHANT,
+      fetch: (async (url: string | URL | Request, init?: RequestInit) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        if (String(url).endsWith('/air/offers/off_test')) {
+          return jsonResponse(200, { data: duffelOffer({ id: 'off_test' }) });
+        }
+        return jsonResponse(201, {
+          data: {
+            id: 'ord_test',
+            booking_reference: 'TEST42',
+            live_mode: false,
+            offer_id: 'off_test',
+            total_amount: '192.42',
+            total_currency: 'USD',
+            documents: [{ type: 'electronic_ticket', unique_identifier: 'ET123' }],
+          },
+        });
+      }) as typeof fetch,
+    });
+
+    await expect(
+      provider.createOrder({
+        providerOfferId: 'off_test',
+        executionId: '00000000-0000-4000-8000-000000000001',
+        stripePaymentIntentId: 'pi_test',
+        amountMinor: 19_242,
+        currency: 'USD',
+        traveler: {
+          givenName: 'Marta',
+          familyName: 'Ledezma',
+          bornOn: '1990-01-15',
+          gender: 'f',
+          title: 'ms',
+          email: 'marta@example.com',
+          phoneNumber: '+442080160508',
+        },
+      }),
+    ).resolves.toEqual({
+      providerOrderId: 'ord_test',
+      bookingReference: 'TEST42',
+      liveMode: false,
+      documents: [{ type: 'electronic_ticket', uniqueIdentifier: 'ET123' }],
+    });
+    expect(calls.map((call) => call.url)).toEqual([
+      'https://api.duffel.com/air/offers/off_test',
+      'https://api.duffel.com/air/orders',
+    ]);
+    expect(JSON.parse(String(calls[1]!.init.body))).toEqual({
+      data: {
+        type: 'instant',
+        selected_offers: ['off_test'],
+        payments: [{ type: 'balance', currency: 'USD', amount: '192.42' }],
+        passengers: [
+          {
+            id: 'pas_0000A3tQSmKyqOrcySrGbo',
+            given_name: 'Marta',
+            family_name: 'Ledezma',
+            born_on: '1990-01-15',
+            gender: 'f',
+            title: 'ms',
+            email: 'marta@example.com',
+            phone_number: '+442080160508',
+          },
+        ],
+        metadata: {
+          execution_id: '00000000-0000-4000-8000-000000000001',
+          stripe_payment_intent_id: 'pi_test',
+        },
+      },
+    });
+  });
+
+  it('refuses order creation with any non-test Duffel token', async () => {
+    const fetchImpl = vi.fn();
+    const provider = new DuffelFlightMarketProvider({
+      accessToken: 'duffel_live_secret',
+      merchantId: MERCHANT,
+      fetch: fetchImpl as unknown as typeof fetch,
+    });
+    await expect(
+      provider.createOrder({
+        providerOfferId: 'off_test',
+        executionId: 'execution',
+        stripePaymentIntentId: 'pi_test',
+        amountMinor: 1,
+        currency: 'USD',
+        traveler: {
+          givenName: 'Marta',
+          familyName: 'Ledezma',
+          bornOn: '1990-01-15',
+          gender: 'f',
+          title: 'ms',
+          email: 'marta@example.com',
+          phoneNumber: '+442080160508',
+        },
+      }),
+    ).rejects.toMatchObject({ definitive: true });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('classifies a provider rejection as definite and a server error as ambiguous', async () => {
+    for (const [status, definitive] of [
+      [422, true],
+      [500, false],
+    ] as const) {
+      const responses = [
+        jsonResponse(200, { data: duffelOffer({ id: 'off_test' }) }),
+        jsonResponse(status, { errors: [{ title: 'booking failed' }] }),
+      ];
+      const provider = new DuffelFlightMarketProvider({
+        accessToken: 'duffel_test_secret',
+        merchantId: MERCHANT,
+        fetch: (async () => responses.shift()!) as typeof fetch,
+      });
+      try {
+        await provider.createOrder({
+          providerOfferId: 'off_test',
+          executionId: 'execution',
+          stripePaymentIntentId: 'pi_test',
+          amountMinor: 19_242,
+          currency: 'USD',
+          traveler: {
+            givenName: 'Marta',
+            familyName: 'Ledezma',
+            bornOn: '1990-01-15',
+            gender: 'f',
+            title: 'ms',
+            email: 'marta@example.com',
+            phoneNumber: '+442080160508',
+          },
+        });
+        throw new Error('expected Duffel order creation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(DuffelOrderError);
+        expect(error).toMatchObject({ status, definitive });
+        expect((error as Error).message).toContain('booking failed');
+      }
+    }
   });
 });

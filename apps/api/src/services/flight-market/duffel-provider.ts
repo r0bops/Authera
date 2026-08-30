@@ -4,6 +4,7 @@ import type { FlightMarketProvider, MarketOffer, RevalidatedOffer } from './prov
 export const DUFFEL_BASE_URL = 'https://api.duffel.com';
 const DUFFEL_VERSION = 'v2';
 const DEFAULT_TIMEOUT_MS = 8_000;
+const ORDER_TIMEOUT_MS = 130_000;
 const MAX_OFFERS = 40;
 
 export interface DuffelProviderOptions {
@@ -23,7 +24,7 @@ export interface DuffelOffer {
   total_currency: string;
   expires_at: string;
   owner: { name: string; iata_code?: string | null };
-  passengers?: Array<{ type?: string }>;
+  passengers?: Array<{ id?: string; type?: string }>;
   slices: Array<{
     segments: Array<{
       departing_at: string;
@@ -45,6 +46,35 @@ export class DuffelApiError extends Error {
     super(message);
     this.name = 'DuffelApiError';
   }
+}
+
+export class DuffelOrderError extends DuffelApiError {
+  constructor(
+    status: number,
+    message: string,
+    /** False means the airline may have received the request; do not guess or retry blindly. */
+    readonly definitive: boolean,
+  ) {
+    super(status, message);
+    this.name = 'DuffelOrderError';
+  }
+}
+
+export interface DuffelTraveler {
+  givenName: string;
+  familyName: string;
+  bornOn: string;
+  gender: 'm' | 'f';
+  title: 'mr' | 'ms' | 'mrs' | 'miss' | 'dr';
+  email: string;
+  phoneNumber: string;
+}
+
+export interface DuffelOrderResult {
+  providerOrderId: string;
+  bookingReference: string | null;
+  liveMode: boolean;
+  documents: Array<{ type: string; uniqueIdentifier: string | null }>;
 }
 
 /**
@@ -117,6 +147,134 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
     };
   }
 
+  /** Create one paid Duffel sandbox order after Stripe has authorized the same amount. */
+  async createOrder(input: {
+    providerOfferId: string;
+    executionId: string;
+    stripePaymentIntentId: string;
+    amountMinor: number;
+    currency: Currency;
+    traveler: DuffelTraveler;
+  }): Promise<DuffelOrderResult> {
+    if (!this.options.accessToken.startsWith('duffel_test_')) {
+      throw new DuffelOrderError(
+        400,
+        'Flight ordering is restricted to Duffel test-mode tokens',
+        true,
+      );
+    }
+    const offerResponse = await this.request(
+      'GET',
+      `/air/offers/${encodeURIComponent(input.providerOfferId)}`,
+      undefined,
+      undefined,
+    );
+    if (offerResponse.status === 404 || offerResponse.status === 410) {
+      throw new DuffelOrderError(offerResponse.status, 'Duffel offer is no longer bookable', true);
+    }
+    if (!offerResponse.ok) {
+      throw new DuffelOrderError(
+        offerResponse.status,
+        'Duffel offer lookup failed before booking',
+        isDefinitiveOrderFailure(offerResponse.status),
+      );
+    }
+    const offer = ((await offerResponse.json()) as { data: DuffelOffer }).data;
+    const mapped = mapDuffelOffer(offer, { passengerCount: 1, cabin: 'economy' });
+    const passenger = offer.passengers?.[0];
+    if (
+      !mapped ||
+      mapped.providerOfferId !== input.providerOfferId ||
+      mapped.amountMinor !== input.amountMinor ||
+      mapped.currency !== input.currency ||
+      offer.passengers?.length !== 1 ||
+      !passenger?.id
+    ) {
+      throw new DuffelOrderError(
+        409,
+        'Duffel offer price, currency, or passenger binding changed before booking',
+        true,
+      );
+    }
+
+    const response = await this.request(
+      'POST',
+      '/air/orders',
+      {
+        data: {
+          type: 'instant',
+          selected_offers: [input.providerOfferId],
+          payments: [
+            {
+              type: 'balance',
+              currency: input.currency,
+              amount: minorToDecimal(input.amountMinor),
+            },
+          ],
+          passengers: [
+            {
+              id: passenger.id,
+              given_name: input.traveler.givenName,
+              family_name: input.traveler.familyName,
+              born_on: input.traveler.bornOn,
+              gender: input.traveler.gender,
+              title: input.traveler.title,
+              email: input.traveler.email,
+              phone_number: input.traveler.phoneNumber,
+            },
+          ],
+          metadata: {
+            execution_id: input.executionId,
+            stripe_payment_intent_id: input.stripePaymentIntentId,
+          },
+        },
+      },
+      undefined,
+      ORDER_TIMEOUT_MS,
+    );
+    if (!response.ok) {
+      const detail = await duffelErrorDetail(response);
+      throw new DuffelOrderError(
+        response.status,
+        `Duffel order creation failed with HTTP ${response.status}${detail ? `: ${detail}` : ''}`,
+        isDefinitiveOrderFailure(response.status),
+      );
+    }
+    const order = (
+      (await response.json()) as {
+        data: {
+          id?: string;
+          booking_reference?: string | null;
+          live_mode?: boolean;
+          offer_id?: string;
+          total_amount?: string;
+          total_currency?: string;
+          documents?: Array<{ type?: string; unique_identifier?: string | null }>;
+        };
+      }
+    ).data;
+    const totalMinor = decimalToMinor(order.total_amount);
+    if (
+      !order.id ||
+      order.live_mode !== false ||
+      (order.offer_id !== undefined && order.offer_id !== input.providerOfferId) ||
+      totalMinor !== input.amountMinor ||
+      order.total_currency?.toUpperCase() !== input.currency
+    ) {
+      // A 2xx order may exist. Leave this for reconciliation instead of charging or retrying.
+      throw new DuffelOrderError(500, 'Duffel returned an ambiguous order confirmation', false);
+    }
+    return {
+      providerOrderId: order.id,
+      bookingReference: order.booking_reference ?? null,
+      liveMode: false,
+      documents: (order.documents ?? []).map((document) => ({
+        type: document.type ?? 'unknown',
+        uniqueIdentifier: document.unique_identifier ?? null,
+      })),
+    };
+  }
+
   private async offerRequest(
     query: FlightSearchQuery,
     departureDate: string,
@@ -155,8 +313,9 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
     path: string,
     body: unknown,
     signal: AbortSignal | undefined,
+    timeoutMs = this.timeoutMs,
   ): Promise<Response> {
-    const timeout = AbortSignal.timeout(this.timeoutMs);
+    const timeout = AbortSignal.timeout(timeoutMs);
     return this.fetchImpl(`${this.baseUrl}${path}`, {
       method,
       headers: {
@@ -169,6 +328,39 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
   }
+}
+
+async function duffelErrorDetail(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as {
+      errors?: Array<{ code?: string; title?: string; message?: string }>;
+    };
+    return (
+      body.errors
+        ?.slice(0, 3)
+        .map((error) => [error.code, error.title, error.message].filter(Boolean).join(': '))
+        .filter(Boolean)
+        .join('; ')
+        .slice(0, 500) || null
+    );
+  } catch {
+    return null;
+  }
+}
+
+function minorToDecimal(minor: number): string {
+  return `${Math.trunc(minor / 100)}.${String(minor % 100).padStart(2, '0')}`;
+}
+
+function decimalToMinor(value: string | undefined): number | null {
+  if (!value || !/^\d+\.\d{2}$/.test(value)) return null;
+  const [whole, fraction] = value.split('.');
+  const result = Number(whole) * 100 + Number(fraction);
+  return Number.isSafeInteger(result) ? result : null;
+}
+
+function isDefinitiveOrderFailure(status: number): boolean {
+  return status >= 400 && status < 500 && ![408, 409, 425, 429].includes(status);
 }
 
 /** Pick up to three departure dates inside the window: start, middle, end. */

@@ -59,6 +59,23 @@ export const PaymentViewSchema = z.object({
 });
 export type PaymentView = z.infer<typeof PaymentViewSchema>;
 
+export const BookingStateSchema = z.enum(['PENDING', 'BOOKED', 'FAILED', 'CANCELLED']);
+export type BookingState = z.infer<typeof BookingStateSchema>;
+
+export const BookingViewSchema = z.object({
+  id: z.uuid(),
+  provider: z.literal('duffel'),
+  state: BookingStateSchema,
+  providerOrderId: z.string().nullable(),
+  bookingReference: z.string().nullable(),
+  liveMode: z.boolean().nullable(),
+  documents: z.array(z.object({ type: z.string(), uniqueIdentifier: z.string().nullable() })),
+  failureReason: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type BookingView = z.infer<typeof BookingViewSchema>;
+
 export const ExecutionViewSchema = z.object({
   id: z.uuid(),
   state: ExecutionStateSchema,
@@ -74,6 +91,7 @@ export const ExecutionViewSchema = z.object({
   checklist: z.array(PolicyCheckSchema),
   approvalRequestId: z.uuid().nullable(),
   payment: PaymentViewSchema.nullable(),
+  booking: BookingViewSchema.nullable(),
   reservationState: z.string().nullable(),
   evidenceId: z.string(),
   createdAt: z.iso.datetime(),
@@ -122,6 +140,7 @@ export const VerificationViewSchema = z.object({
     .nullable(),
   reservation: z.object({ state: z.string(), amount: MoneySchema }).nullable(),
   payment: PaymentViewSchema.nullable(),
+  booking: BookingViewSchema.nullable(),
 });
 export type VerificationView = z.infer<typeof VerificationViewSchema>;
 
@@ -139,6 +158,7 @@ export const ExecutionSummarySchema = z.object({
   checkoutId: z.uuid().nullable(),
   amount: MoneySchema.nullable(),
   paymentState: PaymentStateSchema.nullable(),
+  bookingState: BookingStateSchema.nullable(),
   approvalRequestId: z.uuid().nullable(),
   evidenceId: z.string(),
   createdAt: z.iso.datetime(),
@@ -176,5 +196,6 @@ export const PurchaseReceiptSchema = z.object({
   verification: z.array(
     z.object({ label: z.string(), ok: z.boolean(), detail: z.string().nullable() }),
   ),
+  booking: BookingViewSchema.nullable(),
 });
 export type PurchaseReceipt = z.infer<typeof PurchaseReceiptSchema>;
