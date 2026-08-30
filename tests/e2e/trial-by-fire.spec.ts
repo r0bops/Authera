@@ -44,7 +44,8 @@ test('2 · create the USD 150 Córdoba mandate through the conversation', async 
       'Watch a flight from Caracas to Córdoba next month under $150, valid until the end of the month. Ask me if it is outside the rules.',
     );
   await page.getByRole('button', { name: /send message/i }).click();
-  await expect(page.getByText(/your plan is ready/i)).toBeVisible();
+  // The model has up to 30 s server-side; give the first reply room instead of failing on latency.
+  await expect(page.getByText(/your plan is ready/i)).toBeVisible({ timeout: 45_000 });
   await expect(page.getByText(/USD 150\.00/).first()).toBeVisible();
   await expect(page).toHaveURL(/\/chats\/[0-9a-f-]+$/i);
   chatId = page.url().split('/').at(-1) ?? '';
