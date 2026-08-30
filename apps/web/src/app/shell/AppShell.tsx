@@ -1,13 +1,14 @@
 import {
   Activity,
   Bot,
-  House,
   ListChecks,
+  MessageCircle,
   ReceiptText,
-  Settings,
   ShieldCheck,
   SlidersHorizontal,
   Store,
+  UserRound,
+  type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
@@ -20,11 +21,11 @@ import { selectDashboardPlans } from '../../lib/mandates.js';
 export type AppPerspective = 'client' | 'agent' | 'merchant' | 'auditor' | 'demo';
 
 const CLIENT_NAV = [
-  { to: '/dashboard', label: 'Home', icon: House, end: true },
-  { to: '/dashboard/mandates', label: 'Plans', icon: ListChecks },
-  { to: '/dashboard/activity', label: 'Activity', icon: Activity },
-  { to: '/dashboard/purchases', label: 'Purchases', icon: ReceiptText },
-  { to: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { to: '/dashboard/settings', label: 'Profile', icon: UserRound, end: false, primary: false },
+  { to: '/dashboard/mandates', label: 'Plans', icon: ListChecks, end: false, primary: false },
+  { to: '/dashboard', label: 'Chat', icon: MessageCircle, end: true, primary: true },
+  { to: '/dashboard/purchases', label: 'Orders', icon: ReceiptText, end: false, primary: false },
+  { to: '/dashboard/activity', label: 'Activity', icon: Activity, end: false, primary: false },
 ];
 
 const PERSPECTIVE_CONFIG = {
@@ -57,7 +58,7 @@ const PERSPECTIVE_CONFIG = {
   AppPerspective,
   {
     section: string;
-    nav: Array<{ to: string; label: string; icon: typeof House; end?: boolean }>;
+    nav: Array<{ to: string; label: string; icon: LucideIcon; end?: boolean }>;
     footer: string;
   }
 >;
@@ -70,7 +71,7 @@ function NavItem({
 }: {
   to: string;
   label: string;
-  icon: typeof House;
+  icon: LucideIcon;
   end?: boolean;
 }) {
   return (
@@ -122,6 +123,89 @@ export function AppShell({
     .slice(0, 2)
     .toUpperCase();
 
+  if (perspective === 'client') {
+    return (
+      <div className="min-h-screen bg-ground">
+        <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
+          <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-5 md:px-6">
+            <NavLink
+              to="/dashboard"
+              className="flex min-h-11 items-center gap-2 rounded-md font-semibold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
+            >
+              <span className="h-2.5 w-2.5 rounded-sm bg-cobalt" aria-hidden />
+              Authera
+            </NavLink>
+            <div className="flex items-center gap-2">
+              {active ? (
+                <Badge tone="verified">{agentName} is watching</Badge>
+              ) : completed ? (
+                <Badge tone="verified">Plan complete</Badge>
+              ) : (
+                <Badge tone="neutral">Ready</Badge>
+              )}
+              {me.data?.demoMode ? <Badge tone="info">Demo</Badge> : null}
+              {me.isError ? <Badge tone="destructive">API unreachable</Badge> : null}
+              <NavLink
+                to="/dashboard/settings"
+                aria-label={`Open ${humanName}'s profile`}
+                className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cobalt-soft text-[11.5px] font-semibold text-cobalt">
+                  {initials || '··'}
+                </span>
+              </NavLink>
+            </div>
+          </div>
+        </header>
+        <main className="mx-auto w-full max-w-[1280px] px-4 pt-5 pb-36 sm:px-5 md:px-6 md:pt-6">
+          {children ?? <Outlet />}
+        </main>
+        <nav
+          className="fixed bottom-3 left-1/2 z-40 grid w-[calc(100%-1.5rem)] max-w-[560px] -translate-x-1/2 grid-cols-5 items-end rounded-lg border border-line-strong bg-surface/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-ink/10 backdrop-blur"
+          aria-label="Your account navigation"
+        >
+          {CLIENT_NAV.map(({ primary, ...item }) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              aria-label={item.label}
+              className={({ isActive }) =>
+                cn(
+                  'group flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-[10.5px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt',
+                  primary && '-mt-7',
+                  !primary &&
+                    (isActive
+                      ? 'text-cobalt'
+                      : 'text-ink-muted hover:bg-surface-muted hover:text-ink'),
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={cn(
+                      'flex items-center justify-center',
+                      primary
+                        ? 'h-14 w-14 rounded-full bg-cobalt text-white shadow-md shadow-cobalt/20 transition-transform group-hover:-translate-y-0.5'
+                        : 'h-6 w-8 rounded-md',
+                      !primary && isActive && 'bg-cobalt-soft',
+                    )}
+                  >
+                    <item.icon className={primary ? 'h-5 w-5' : 'h-4 w-4'} aria-hidden />
+                  </span>
+                  <span className={cn(primary ? 'text-cobalt' : isActive ? 'text-cobalt' : '')}>
+                    {item.label}
+                  </span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+    );
+  }
+
   return (
     <div className="grid min-h-screen grid-cols-1 md:grid-cols-[208px_1fr]">
       <aside className="flex min-w-0 flex-col border-b border-line bg-surface md:border-r md:border-b-0">
@@ -150,20 +234,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-col">
         <header className="flex min-h-12 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2 md:px-5 md:py-0">
           <div className="flex items-center gap-2 text-[13px]">
-            {perspective === 'client' ? (
-              <>
-                <span className="text-ink-muted">{agentName}</span>
-                {active ? (
-                  <Badge tone="verified">Watching prices</Badge>
-                ) : completed ? (
-                  <Badge tone="verified">Plan complete</Badge>
-                ) : (
-                  <Badge tone="neutral">Ready for a new plan</Badge>
-                )}
-              </>
-            ) : (
-              <span className="font-medium text-ink">{config.section}</span>
-            )}
+            <span className="font-medium text-ink">{config.section}</span>
             {me.data?.demoMode ? <Badge tone="info">Demo mode</Badge> : null}
           </div>
           <div className="flex items-center gap-3">

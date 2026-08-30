@@ -13,6 +13,8 @@ import type {
   ExecutionSummary,
   FlightOfferView,
   MandateView,
+  MandateChatRequest,
+  MandateChatResponse,
   MeResponse,
   PurchaseReceipt,
   ReviseMandateRequest,
@@ -155,6 +157,14 @@ export function useCreateMandate() {
     mutationFn: (input: CreateMandateRequest) =>
       api<MandateView>('/api/mandates', { method: 'POST', body: input }),
     onSuccess: invalidate,
+    retry: false,
+  });
+}
+
+export function useInterpretMandateChat() {
+  return useMutation({
+    mutationFn: (input: MandateChatRequest) =>
+      api<MandateChatResponse>('/api/chat/interpret', { method: 'POST', body: input }),
     retry: false,
   });
 }

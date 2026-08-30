@@ -51,6 +51,8 @@ import { PaymentService } from './services/payments/payment-service.js';
 import type { PaymentProcessor } from './services/payments/processor.js';
 import { MandateSigner } from './services/mandate-signer.js';
 import { BookingService } from './services/booking-service.js';
+import { MandateChatService } from './services/mandate-chat.js';
+import { humanChatRoutes } from './routes/human/chat.js';
 
 export interface AppServices {
   db: Database;
@@ -217,6 +219,8 @@ export function createApp(deps: AppDependencies): App {
       '/api/disputes/*',
       '/api/evidence/*',
       '/api/audit/*',
+      '/api/chat',
+      '/api/chat/*',
       '/api/demo',
       '/api/demo/*',
     ]) {
@@ -224,6 +228,12 @@ export function createApp(deps: AppDependencies): App {
       app.use(path, csrfGuard({ publicBaseUrl: deps.config.publicBaseUrl }));
     }
     app.route('/api/me', meRoutes(sessionDeps));
+    app.route(
+      '/api/chat',
+      humanChatRoutes({
+        chat: new MandateChatService({ agent: deps.config.agent, clock, logger: deps.logger }),
+      }),
+    );
     app.route('/api/mandates', humanMandateRoutes({ db, mandates }));
     app.route('/api', consoleReadRoutes({ db, clock, views, checkout }));
     const evidence = new EvidenceService({ db, clock });

@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  H[Marta's browser<br/>React console] -->|cookie session + CSRF + Idempotency-Key| API[Hono application<br/>Node.js 24]
+  H[Marta's browser<br/>chat-first React trusted surface] -->|cookie session + CSRF + Idempotency-Key| API[Hono application<br/>Node.js 24]
   A[Purchasing agent<br/>scripted or OpenAI] -->|RFC 9421 signed request<br/>identifiers only| API
   API --> SIG[Signature middleware<br/>digest · components · nonce · key]
   API --> TS[Trusted surface<br/>EdDSA mandate signer]
@@ -22,6 +22,8 @@ flowchart LR
 ```
 
 Authority lives in exactly two places: the **pure policy engine** (deterministic, clock injected, fails closed) and the **PostgreSQL reservation predicate** (one conditional `UPDATE` on `mandate_runtime` that revocation contends with). Nothing else — not the agent, not the browser, not the LLM — can produce `ALLOW`.
+
+The client UX is conversational, but chat is not an authorization channel. `POST /api/chat/interpret` uses a deterministic parser for complete common requests and an OpenAI structured-output interpreter for ambiguity and follow-ups. It returns a nullable draft only. The browser renders that draft as a normalized mandate card; a separate trusted confirmation calls `POST /api/mandates`, where the server validates, hashes, signs, stores, and activates the exact policy. OpenAI failure falls back to a specific missing-field question and never creates authority. Conversation status cards are projections of mandates, provider offers, approvals, executions, purchases, and audit events—not model-authored payment claims.
 
 ## Discovery across markets
 
@@ -97,8 +99,12 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant Marta
+  participant Chat as Chat interpreter
   participant API as Trusted surface
   participant DB as PostgreSQL
+  Marta->>Chat: Natural-language purchase request
+  Chat-->>Marta: Nullable structured draft + one missing-field question
+  Note over Chat,API: Draft has no authority
   Marta->>API: POST /api/mandates (intent, limits, validity, payment method)
   API->>API: Validate → canonical policy → SHA-256 hash → EdDSA JWS (cnf.jkt = agent key)
   API->>DB: mandates + mandate_versions (append-only) + mandate_runtime ACTIVE + audit, one transaction
@@ -119,6 +125,7 @@ sequenceDiagram
 | Signature middleware | `apps/api/src/middleware/agent-signature.ts` + `packages/domain/crypto/http-signatures.ts` | RFC 9421 verification, nonce replay, active-key checks, audit |
 | Mandate signer | `apps/api/src/services/mandate-signer.ts` | Trusted-surface JWS issue/verify (jose) |
 | Mandate service | `apps/api/src/services/mandate-service.ts` | Create/list/get/revoke/revise; plain-language summaries |
+| Mandate chat interpreter | `apps/api/src/services/mandate-chat.ts`, `routes/human/chat.ts` | Natural language → validated draft only; deterministic fast path + OpenAI ambiguity handling |
 | Checkout service | `apps/api/src/services/checkout-service.ts` | Server-owned offers, canonical carts and hashes |
 | Mandate Gateway | `apps/api/src/services/gateway.ts` (+ `gateway-store.ts`) | Orchestration from signed request to committed reservation |
 | Policy engine | `packages/domain/src/policy/evaluate.ts` | Pure evaluator, ordered checklist, reason codes |
@@ -131,7 +138,7 @@ sequenceDiagram
 | Agent runner + demo | `apps/api/src/services/agent-runner.ts`, `routes/demo` | Runs the agent over signed HTTP; direct/forged/replayed/concurrent attempts |
 | Approvals / disputes / evidence | `apps/api/src/services/{approval,dispute,evidence}-service.ts` | Checkout-scoped approvals, deterministic resolver, role-filtered bundles |
 | Audit chain | `packages/db/src/repositories/audit.ts` | Serialized append with hash linking; verification |
-| Console | `apps/web` | Perspective-separated route trees: client `/dashboard`, agent `/agent`, merchant `/verify`, auditor `/audit`, demo `/demo` |
+| Console | `apps/web` | Chat-first client `/dashboard` with bottom dock; separate agent `/agent`, merchant `/verify`, auditor `/audit`, demo `/demo` perspectives |
 
 ## Package boundaries
 

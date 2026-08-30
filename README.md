@@ -18,7 +18,7 @@ Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Cór
 
 | Guarantee | How |
 |---|---|
-| The LLM never authorizes anything | The purchasing agent has two tools (`search_flights`, `request_purchase`) and submits ids only; `evaluatePolicy` is a pure function and PostgreSQL holds live state |
+| The LLM never authorizes anything | The chat interpreter may draft structured rules and the purchasing agent may search/request, but neither can activate a mandate or produce `ALLOW`; `evaluatePolicy` is a pure function and PostgreSQL holds live state |
 | The agent really watches | A background price watcher re-runs discovery for every active mandate every `PRICE_WATCH_INTERVAL_MS` (new mandates within ~30 s), so the catalog and the price chart follow the live market. Discovery only: no checkout, no gateway call — buying stays an explicit agent run |
 | More than flights | A mandate's `intent` is a discriminated union: `flight` (route, cabin, dates, passengers) or `goods` (“what to buy”, max quantity). Goods are discovered on a real public Shopify storefront (`SHOPIFY_STOREFRONT_URL`, Allbirds in the demo) and the gateway checks `INTENT_KIND`, `INTENT_QUERY` (the offer must have been found under the mandate's exact query) and `INTENT_QUANTITY` before the money limits. Transport is a roadmap intent: no keyless, real, bookable source exists yet |
 | Live market, same guarantees | With a `duffel_test_…` token, discovery queries Duffel, stores offers server-side, and re-prices the winner before checkout. After Stripe authorization, Authera creates an instant Duffel test-balance order using a server-side traveler profile; only a confirmed `ord_…` result permits capture. Changed offers fail closed and ambiguous order responses stay pending for reconciliation |
@@ -54,7 +54,7 @@ The API runs migrations and seeds only the people and connections (Marta, Aria, 
 
 One deployment exposes separate route trees for each perspective while sharing the same event stream:
 
-- **Marta — `/dashboard`**: overview, guided mandate wizard, mandate detail with revoke/revise, purchases and receipts, approvals, disputes.
+- **Marta — `/dashboard`**: chat-first mandate drafting and provider-backed status, with a persistent bottom dock for Profile, Plans, Chat, Orders, and Activity. Structured confirmation, revoke/revise, approvals, receipts, and disputes remain trusted surfaces outside free-form chat.
 - **Agent — `/agent`**: price watch, offers considered, signed requests, gateway decisions.
 - **Merchant — `/verify`**: identity → mandate → constraint checklist → checkout binding → reservation/payment for any execution.
 - **Auditor — `/audit`**: filterable hash-chained ledger with live chain verification and evidence export.
@@ -70,7 +70,7 @@ The route separation is a local product boundary, not a replacement for role-spe
 | Discovery | `GET /.well-known/ucp`, `GET /.well-known/http-message-signatures-directory`, `GET /agents/:id/profile` |
 | Signed agent (browse) | `GET /api/flights` (cross-merchant, cross-market catalog), `GET /api/products?q=` (live storefront search), `POST /ucp/v1/checkout-sessions`, `GET /ucp/v1/checkout-sessions/:id` |
 | Signed agent (payment) | `POST /api/purchase-attempts` — body is `{ executionId, mandateId, offerId, checkoutId }` and nothing else |
-| Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]` (including printable payment receipt and Duffel booking confirmation), `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
+| Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `POST /api/chat/interpret` (draft only), `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]` (including printable payment receipt and Duffel booking confirmation), `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
 | Demo (DEMO_MODE) | `/api/demo/*` |
 | Webhooks | `POST /webhooks/stripe` (raw-body `Stripe-Signature` check), `POST /webhooks/mock/:executionId` (demo) |
 

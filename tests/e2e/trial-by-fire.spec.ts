@@ -31,24 +31,26 @@ test('1 · reset demo', async ({ request }) => {
   expect(await paymentCalls(request)).toBe(0);
 });
 
-test('2 · create the USD 150 Córdoba mandate through the wizard', async ({ page }) => {
+test('2 · create the USD 150 Córdoba mandate through the conversation', async ({
+  page,
+  request,
+}) => {
   await page.goto('/dashboard');
   await page
-    .getByRole('link', { name: /plan a purchase/i })
-    .first()
-    .click();
-  await expect(page.getByRole('heading', { name: /plan a purchase/i })).toBeVisible();
-  await page.getByLabel('Flying from').selectOption('CCS');
-  await page.getByLabel('Flying to').selectOption('COR');
-  await page.getByRole('button', { name: /continue/i }).click();
-  await page.getByLabel(/spend up to/i).fill('150.00');
-  await page.getByRole('button', { name: /continue/i }).click();
+    .getByLabel(/message aria/i)
+    .fill(
+      'Watch a flight from Caracas to Córdoba next month under $150, valid until the end of the month. Ask me if it is outside the rules.',
+    );
+  await page.getByRole('button', { name: /send message/i }).click();
+  await expect(page.getByText(/ready to review/i)).toBeVisible();
   await expect(page.getByText(/USD 150\.00/).first()).toBeVisible();
-  await page.getByRole('button', { name: /authorize and start/i }).click();
-  await expect(page).toHaveURL(/\/dashboard\/mandates\/[0-9a-f-]{36}$/);
-  await expect(page.getByText('Active').first()).toBeVisible();
+  await page.getByRole('button', { name: /review and authorize/i }).click();
+  await expect(page.getByRole('heading', { name: /authorize this purchase plan/i })).toBeVisible();
+  await page.getByRole('button', { name: /authorize plan/i }).click();
+  await expect(page.getByText(/signed and active/i)).toBeVisible();
   await expectNoHorizontalScroll(page);
-  mandateId = page.url().split('/').at(-1)!;
+  const mandates = await get<Array<{ id: string; status: string }>>(request, '/api/mandates');
+  mandateId = mandates.data?.find((mandate) => mandate.status === 'ACTIVE')?.id ?? '';
   expect(mandateId).toBeTruthy();
 });
 

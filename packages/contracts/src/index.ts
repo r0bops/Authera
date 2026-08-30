@@ -13,3 +13,4 @@ export * from './gateway.js';
 export * from './demo.js';
 export * from './evidence.js';
 export * from './ap2.js';
+export * from './chat.js';

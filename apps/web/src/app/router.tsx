@@ -4,7 +4,7 @@ import { AppShell } from './shell/AppShell.js';
 const dashboardChildren = [
   {
     index: true,
-    lazy: async () => ({ Component: (await import('../routes/OverviewPage.js')).OverviewPage }),
+    lazy: async () => ({ Component: (await import('../routes/ChatPage.js')).ChatPage }),
   },
   {
     path: 'mandates',

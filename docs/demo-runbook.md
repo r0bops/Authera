@@ -19,13 +19,15 @@ Open `/demo` → **Reset scenario**. State panel shows `Processor calls: 0`, no 
 
 ## 2. Create the mandate (as Marta)
 
-Overview → **Create mandate** → keep the defaults (CCS → COR, economy, 1 passenger), set maximum **150.00**, one purchase, valid until end of month, payment Visa •••• 4242 → Continue → **Authorize mandate**.
+In Chat, send: **Buy one economy flight from Caracas to Córdoba next month for at most $150, valid until the end of this month. Ask me before going outside those rules.** The assistant returns a structured plan marked **Ready to review**. Open **Review and authorize**, verify the normalized route, dates, all-in limit, payment Visa •••• 4242, and escalation rule, then select **Authorize mandate**.
+
+Emphasize that the chat message only creates a draft. The signed authorization is created by the separate confirmation dialog, and the deterministic gateway—not the language model—enforces it.
 
 Point at the detail page: status ACTIVE, agent key thumbprint, payment reference (not a card), plain-language limits, signed JWS collapsed under Evidence.
 
 ## 3. Inject USD 130 and let the agent buy
 
-Demo control → Inject an offer: price **130.00**, CCS → COR, economy → **Inject**. Then **Run agent** (scripted). Last result shows `ALLOW · ALLOW_WITHIN_MANDATE` and `PURCHASED`.
+Demo control → Inject an offer: price **130.00**, CCS → COR, economy → **Inject**. Then **Run agent** (scripted). Last result shows `ALLOW · ALLOW_WITHIN_MANDATE` and `PURCHASED`. Return to Chat to show the provider-labelled offer, purchase record, and gateway activity in the same conversation.
 
 Show, in order:
 - Merchant view (link in the result): identity ✓ → mandate ✓ → checklist all green → cart bound → reservation CONSUMED → payment SUCCEEDED.
@@ -52,7 +54,7 @@ Mandate detail → **Revoke** → confirm. Demo control → **Direct attempt** a
 
 ## 8. Escalation (optional, 1 minute)
 
-Create a mandate with "Pause for my approval" on. Inject **168.00** → Direct attempt → `REQUIRE_HUMAN`. Overview shows the amber banner → **Review and decide** → **Approve this purchase only** → Direct attempt with the *same checkout* (Demo control keeps the selected offer; use "Direct attempt" once more) → `ALLOW · ALLOW_CHECKOUT_APPROVAL`, purchased once. A second attempt is not allowed again; a changed cart is `CHECKOUT_HASH_MISMATCH`.
+Create a mandate whose chat request says **Ask me before going outside those rules**. Inject **168.00** → Direct attempt → `REQUIRE_HUMAN`. Chat shows the pending approval → **Review and decide** → **Approve this purchase only** → Direct attempt with the *same checkout* (Demo control keeps the selected offer; use "Direct attempt" once more) → `ALLOW · ALLOW_CHECKOUT_APPROVAL`, purchased once. A second attempt is not allowed again; a changed cart is `CHECKOUT_HASH_MISMATCH`.
 
 ## 9. Dispute (optional)
 
