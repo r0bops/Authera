@@ -24,6 +24,8 @@ export function draftFromPolicy(policy: MandatePolicyV1): MandateChatDraft | nul
     dateFlexibilityDays: policy.intent.dateFlexibilityDays ?? 0,
     departureTimeFrom: policy.intent.departureTimeFrom ?? null,
     departureTimeTo: policy.intent.departureTimeTo ?? null,
+    maxDurationMinutes: policy.intent.maxDurationMinutes ?? null,
+    maxStops: policy.intent.maxStops ?? null,
     passengerCount: policy.intent.passengerCount,
     maxPerPurchaseMinor: policy.limits.maxPerPurchaseMinor,
     currency: policy.limits.currency,
@@ -50,6 +52,8 @@ export function pinSignedDraft(
     passengerCount: proposed.passengerCount ?? stored.passengerCount,
     departureTimeFrom: proposed.departureTimeFrom ?? stored.departureTimeFrom,
     departureTimeTo: proposed.departureTimeTo ?? stored.departureTimeTo,
+    maxDurationMinutes: proposed.maxDurationMinutes ?? stored.maxDurationMinutes,
+    maxStops: proposed.maxStops ?? stored.maxStops,
     maxPerPurchaseMinor: proposed.maxPerPurchaseMinor ?? stored.maxPerPurchaseMinor,
     maxFulfillments: proposed.maxFulfillments ?? stored.maxFulfillments,
     validUntil: proposed.validUntil ?? stored.validUntil,
@@ -132,7 +136,12 @@ export function pendingRevisionFor(
   const timeChanged =
     (draft.departureTimeFrom ?? null) !== (current.departureTimeFrom ?? null) ||
     (draft.departureTimeTo ?? null) !== (current.departureTimeTo ?? null);
+  const durationChanged =
+    (draft.maxDurationMinutes ?? null) !== (current.maxDurationMinutes ?? null);
+  const stopsChanged = (draft.maxStops ?? null) !== (current.maxStops ?? null);
   const intentChanged =
+    durationChanged ||
+    stopsChanged ||
     draft.departureDateFrom !== current.departureDateFrom ||
     draft.departureDateTo !== current.departureDateTo ||
     flexibility !== (current.dateFlexibilityDays ?? 0) ||
@@ -154,6 +163,19 @@ export function pendingRevisionFor(
       from: `${current.dateFlexibilityDays ?? 0} day(s)`,
       to: `${flexibility} day(s)`,
     });
+  }
+  if (durationChanged) {
+    const hours = (v: number | null | undefined) => (v ? `${Math.round(v / 60)} h` : 'any length');
+    changes.push({
+      field: 'maxDuration',
+      from: hours(current.maxDurationMinutes),
+      to: hours(draft.maxDurationMinutes),
+    });
+  }
+  if (stopsChanged) {
+    const label = (v: number | null | undefined) =>
+      v === null || v === undefined ? 'any' : v === 0 ? 'direct only' : `${v} stop(s)`;
+    changes.push({ field: 'maxStops', from: label(current.maxStops), to: label(draft.maxStops) });
   }
   if (timeChanged) {
     changes.push({
@@ -183,6 +205,8 @@ export function pendingRevisionFor(
       ...(draft.departureTimeFrom && draft.departureTimeTo
         ? { departureTimeFrom: draft.departureTimeFrom, departureTimeTo: draft.departureTimeTo }
         : { departureTimeFrom: undefined, departureTimeTo: undefined }),
+      maxDurationMinutes: draft.maxDurationMinutes ?? undefined,
+      maxStops: draft.maxStops ?? undefined,
     };
   }
   if (changes.length === 0) return null;
@@ -203,6 +227,8 @@ const LABELS: Record<ChatRevisionChange['field'], string> = {
   dateFlexibility: 'date flexibility',
   passengerCount: 'passengers',
   departureTime: 'departure time',
+  maxDuration: 'total travel time',
+  maxStops: 'stopovers',
 };
 
 function money(minor: number, currency: string): string {

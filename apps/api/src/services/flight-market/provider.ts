@@ -11,6 +11,8 @@ export interface MarketOffer {
   cabin: Cabin;
   departureAt: Date;
   arrivalAt: Date;
+  /** Connections on the slice (0 = direct). */
+  stops: number;
   passengerCount: number;
   amountMinor: number;
   currency: Currency;

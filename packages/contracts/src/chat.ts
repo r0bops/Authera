@@ -32,6 +32,8 @@ export const MandateChatDraftSchema = z.strictObject({
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
     .nullable(),
+  maxDurationMinutes: z.number().int().min(30).max(4320).nullable(),
+  maxStops: z.number().int().min(0).max(3).nullable(),
   passengerCount: z.number().int().min(1).max(9).nullable(),
   maxPerPurchaseMinor: z.number().int().min(1).nullable(),
   currency: CurrencySchema.nullable(),

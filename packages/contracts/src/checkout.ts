@@ -26,6 +26,8 @@ export const OfferSchema = z.strictObject({
   cabin: CabinSchema.optional(),
   departureAt: z.iso.datetime().optional(),
   arrivalAt: z.iso.datetime().optional(),
+  /** Connections (0 = direct); absent when the source did not say. */
+  stops: z.number().int().min(0).optional(),
   passengerCount: z.number().int().min(1).optional(),
   /** Goods: product title as the store publishes it. */
   title: z.string().min(1).optional(),

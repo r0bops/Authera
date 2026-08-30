@@ -212,6 +212,33 @@ describe('evaluatePolicy — escalation', () => {
     });
   });
 
+  it('keeps duration and stop limits: a long or connecting itinerary asks or blocks', () => {
+    const direct8h = { intent: { maxDurationMinutes: 480, maxStops: 0 } };
+    const unknownStops = evaluatePolicy(policyInputFixture({ mandate: direct8h }));
+    expect(unknownStops.checks.find((c) => c.code === 'INTENT_STOPS')?.passed).toBe(false);
+    // fixture departs 08:00 with no arrival on record: give it a 5 h 30 itinerary
+    const arrivalAt = '2026-09-15T13:30:00.000Z';
+    const ok = evaluatePolicy(
+      policyInputFixture({ mandate: direct8h, offer: { stops: 0, arrivalAt } }),
+    );
+    expect(ok.reasonCode).toBe('ALLOW_WITHIN_MANDATE');
+    const oneStop = evaluatePolicy(
+      policyInputFixture({ mandate: direct8h, offer: { stops: 1, arrivalAt } }),
+    );
+    expect(oneStop).toMatchObject({ decision: 'BLOCK', reasonCode: 'INTENT_MISMATCH' });
+    const tooLong = evaluatePolicy(
+      policyInputFixture({
+        mandate: { ...direct8h, escalation: 'require_human' },
+        offer: { stops: 0, arrivalAt: '2026-09-15T22:00:00.000Z' },
+      }),
+    );
+    expect(tooLong).toMatchObject({
+      decision: 'REQUIRE_HUMAN',
+      reasonCode: 'REQUIRE_HUMAN_CONDITION',
+    });
+    expect(tooLong.checks.find((c) => c.code === 'INTENT_DURATION')?.passed).toBe(false);
+  });
+
   it('never escalates a usage-count exhaustion', () => {
     const verdict = evaluatePolicy(
       policyInputFixture({

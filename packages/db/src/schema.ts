@@ -250,6 +250,8 @@ export const offers = pgTable(
     cabin: text('cabin'),
     departureAt: timestamp('departure_at', { withTimezone: true }),
     arrivalAt: timestamp('arrival_at', { withTimezone: true }),
+    /** Connections on the itinerary (0 = direct); null when the source did not say. */
+    stops: integer('stops'),
     passengerCount: integer('passenger_count'),
     title: text('title'),
     quantity: integer('quantity').notNull().default(1),

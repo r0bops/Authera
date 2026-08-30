@@ -33,6 +33,10 @@ export const FlightIntentSchema = z
       .string()
       .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
       .optional(),
+    /** Longest acceptable itinerary, departure to arrival, in minutes. */
+    maxDurationMinutes: z.number().int().min(30).max(4320).optional(),
+    /** Most connections allowed (0 = direct only). */
+    maxStops: z.number().int().min(0).max(3).optional(),
   })
   .refine(
     (intent) =>
@@ -72,6 +76,16 @@ export function departureTimeAllowed(intent: FlightIntent, departureAtIso: strin
   if (!intent.departureTimeFrom || !intent.departureTimeTo) return true;
   const hhmm = departureLocalTime(departureAtIso);
   return hhmm >= intent.departureTimeFrom && hhmm <= intent.departureTimeTo;
+}
+
+/** Itinerary length in minutes from the stored wall-clock timestamps; null when either is missing. */
+export function flightDurationMinutes(
+  departureAtIso: string | undefined,
+  arrivalAtIso: string | undefined,
+): number | null {
+  if (!departureAtIso || !arrivalAtIso) return null;
+  const minutes = Math.round((Date.parse(arrivalAtIso) - Date.parse(departureAtIso)) / 60_000);
+  return Number.isFinite(minutes) && minutes >= 0 ? minutes : null;
 }
 
 export function effectiveFlightDateWindow(intent: FlightIntent): { from: string; to: string } {

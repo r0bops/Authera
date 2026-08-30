@@ -151,7 +151,7 @@ export function bookingConfirmationHtml(receipt: PurchaseReceipt): string {
   <section class="body">
     <div class="leg">
       <div><div class="code">${escapeHtml(offer.origin ?? '—')}</div><div class="time">${escapeHtml(dep.time)}</div><div class="date">${escapeHtml(dep.date)}</div></div>
-      <div class="mid"><div class="fl">${escapeHtml(flight)}</div>${escapeHtml(titleCase(offer.cabin ?? 'economy'))}<br/>→</div>
+      <div class="mid"><div class="fl">${escapeHtml(flight)}</div>${escapeHtml(titleCase(offer.cabin ?? 'economy'))}<br/>${escapeHtml(legSummary(offer.departureAt, offer.arrivalAt, offer.stops))}</div>
       <div style="text-align:right"><div class="code">${escapeHtml(offer.destination ?? '—')}</div><div class="time">${escapeHtml(arr.time)}</div><div class="date">${escapeHtml(arr.date)}</div></div>
     </div>
     <div class="grid">
@@ -170,6 +170,18 @@ export function bookingConfirmationHtml(receipt: PurchaseReceipt): string {
     <footer>Booking confirmation · Execution ${escapeHtml(execution.id)} · Evidence ${escapeHtml(execution.evidenceId)}</footer>
   </section>
 </main></body></html>`;
+}
+
+function legSummary(dep?: string, arr?: string, stops?: number): string {
+  const parts: string[] = [];
+  if (dep && arr) {
+    const minutes = Math.round((Date.parse(arr) - Date.parse(dep)) / 60_000);
+    if (Number.isFinite(minutes) && minutes > 0)
+      parts.push(`${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`);
+  }
+  if (stops !== undefined)
+    parts.push(stops === 0 ? 'Direct' : `${stops} stop${stops === 1 ? '' : 's'}`);
+  return parts.join(' · ') || '→';
 }
 
 function splitDateTime(value: string | null | undefined): { date: string; time: string } {

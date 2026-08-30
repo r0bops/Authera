@@ -31,6 +31,7 @@ export function toOffer({ offer: row, merchantName, market }: OfferWithMerchantR
     cabin: opt(row.cabin as Cabin | null),
     departureAt: row.departureAt?.toISOString(),
     arrivalAt: row.arrivalAt?.toISOString(),
+    stops: opt(row.stops),
     passengerCount: opt(row.passengerCount),
     title: opt(row.title),
     quantity: row.quantity,
@@ -115,6 +116,7 @@ export interface InsertOfferInput {
   cabin?: Cabin;
   departureAt?: Date;
   arrivalAt?: Date;
+  stops?: number;
   passengerCount?: number;
   title?: string;
   quantity?: number;

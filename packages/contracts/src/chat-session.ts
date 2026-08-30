@@ -37,6 +37,8 @@ export const ChatRevisionChangeSchema = z.strictObject({
     'dateFlexibility',
     'passengerCount',
     'departureTime',
+    'maxDuration',
+    'maxStops',
   ]),
   from: z.string(),
   to: z.string(),

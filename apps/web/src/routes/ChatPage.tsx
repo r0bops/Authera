@@ -602,6 +602,10 @@ function requestFromDraft(draft: MandateChatDraft, me: MeResponse): CreateMandat
       ...(draft.departureTimeFrom && draft.departureTimeTo
         ? { departureTimeFrom: draft.departureTimeFrom, departureTimeTo: draft.departureTimeTo }
         : {}),
+      ...(draft.maxDurationMinutes ? { maxDurationMinutes: draft.maxDurationMinutes } : {}),
+      ...(draft.maxStops !== null && draft.maxStops !== undefined
+        ? { maxStops: draft.maxStops }
+        : {}),
     },
     limits: {
       currency: draft.currency,
@@ -867,6 +871,8 @@ const REVISION_LABELS: Record<ChatPendingRevision['changes'][number]['field'], s
   dateFlexibility: 'Date flexibility',
   passengerCount: 'Passengers',
   departureTime: 'Departure time',
+  maxDuration: 'Total travel time',
+  maxStops: 'Stopovers',
 };
 
 function CompletedTripCard({
@@ -952,10 +958,18 @@ function flightSummary(draft: MandateChatDraft): string {
     draft.departureDateFrom && draft.departureDateTo
       ? `leaving between ${formatDate(draft.departureDateFrom)} and ${formatDate(draft.departureDateTo)}`
       : 'on the dates you choose';
-  const hours =
+  const extras = [
     draft.departureTimeFrom && draft.departureTimeTo
-      ? ` (departing ${draft.departureTimeFrom}–${draft.departureTimeTo})`
-      : '';
+      ? `departing ${draft.departureTimeFrom}–${draft.departureTimeTo}`
+      : null,
+    draft.maxStops === 0
+      ? 'direct only'
+      : draft.maxStops
+        ? `at most ${draft.maxStops} stop(s)`
+        : null,
+    draft.maxDurationMinutes ? `under ${Math.round(draft.maxDurationMinutes / 60)} h` : null,
+  ].filter(Boolean);
+  const hours = extras.length ? ` (${extras.join(', ')})` : '';
   const maximum =
     draft.maxPerPurchaseMinor && draft.currency
       ? formatMoney({ currency: draft.currency, minor: draft.maxPerPurchaseMinor })
@@ -989,6 +1003,21 @@ function DraftSummary({ draft }: { draft: MandateChatDraft }) {
               : 'Not specified',
         },
         { label: 'Passengers', value: draft.passengerCount ?? 'Not specified' },
+        {
+          label: 'Stopovers',
+          value:
+            draft.maxStops === 0
+              ? 'Direct only'
+              : draft.maxStops
+                ? `At most ${draft.maxStops}`
+                : 'Any',
+        },
+        {
+          label: 'Travel time',
+          value: draft.maxDurationMinutes
+            ? `Under ${Math.round(draft.maxDurationMinutes / 60)} h`
+            : 'Any',
+        },
         {
           label: 'Departure time',
           value:

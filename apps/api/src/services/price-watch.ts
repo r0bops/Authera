@@ -1,6 +1,7 @@
 import {
   departureTimeAllowed,
   effectiveFlightDateWindow,
+  flightDurationMinutes,
   type MandatePolicyV1,
 } from '@authera/contracts';
 import { approvalTolerance } from '@authera/domain';
@@ -206,6 +207,16 @@ export class PriceWatcher {
             !o.departureAt ||
             departureTimeAllowed(intent, o.departureAt),
         )
+        .filter((o) => {
+          if (intent.type !== 'flight') return true;
+          if (intent.maxStops !== undefined && (o.stops === undefined || o.stops > intent.maxStops))
+            return false;
+          if (intent.maxDurationMinutes !== undefined) {
+            const minutes = flightDurationMinutes(o.departureAt, o.arrivalAt);
+            if (minutes === null || minutes > intent.maxDurationMinutes) return false;
+          }
+          return true;
+        })
         .sort((a, b) => a.total.minor - b.total.minor);
       const cheapest = available[0];
       if (!cheapest) continue;

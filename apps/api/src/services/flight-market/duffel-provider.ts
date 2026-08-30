@@ -416,6 +416,7 @@ export function mapDuffelOffer(
     cabin: context.cabin,
     departureAt,
     arrivalAt,
+    stops: Math.max(0, slice.segments.length - 1),
     passengerCount: context.passengerCount,
     amountMinor: Math.round(amount * 100),
     currency: currency as Currency,

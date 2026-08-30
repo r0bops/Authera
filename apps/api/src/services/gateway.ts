@@ -208,6 +208,8 @@ export class MandateGateway {
         ...(offer.destination !== undefined ? { destination: offer.destination } : {}),
         ...(offer.cabin !== undefined ? { cabin: offer.cabin } : {}),
         ...(offer.departureAt !== undefined ? { departureAt: offer.departureAt } : {}),
+        ...(offer.arrivalAt !== undefined ? { arrivalAt: offer.arrivalAt } : {}),
+        ...(offer.stops !== undefined ? { stops: offer.stops } : {}),
         ...(offer.passengerCount !== undefined ? { passengerCount: offer.passengerCount } : {}),
         ...(offer.title !== undefined ? { title: offer.title } : {}),
         quantity: offer.quantity,

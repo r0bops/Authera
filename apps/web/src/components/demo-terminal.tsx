@@ -81,6 +81,11 @@ const SCENARIO_GROUPS: Array<{ title: string; blurb: string; items: Scenario[] }
       { cmd: 'race', label: 'Race two attempts', proves: 'a one-use mandate allows exactly one' },
       { cmd: 'tamper', label: 'Tampered cart', proves: 'a cart changed after approval is blocked' },
       {
+        cmd: 'slow',
+        label: 'Long, with a stop',
+        proves: 'an 11-hour, one-stop fare is not bought on a direct / under-N-hours plan',
+      },
+      {
         cmd: 'late',
         label: 'Wrong departure time',
         proves: 'a fare outside the plan’s departure hours is not bought on its own',
@@ -373,6 +378,34 @@ export function DemoTerminal() {
       );
       print('muted', `retrying the ${usd(offer.total.minor)} offer under the new version…`);
       await direct(revised, offer.id);
+      return refresh();
+    }
+    if (cmd === 'slow') {
+      if (plan.policy.intent.type !== 'flight') throw new Error('slow works on flight plans');
+      const rule =
+        plan.policy.intent.maxStops !== undefined ||
+        plan.policy.intent.maxDurationMinutes !== undefined;
+      if (!rule)
+        print(
+          'warn',
+          'this plan has no stopover / travel-time rule (say "direct only" or "under 8 hours" in the chat) — expect ALLOW',
+        );
+      const merchant = (me.data?.merchants ?? []).find((m) => m.slug === 'duffel');
+      const offer = await api<FlightOfferView>('/api/demo/offers', {
+        method: 'POST',
+        body: {
+          ...(merchant ? { merchantId: merchant.id } : {}),
+          amountMinor: Math.max(100, cap - 2000),
+          origin: plan.policy.intent.origin,
+          destination: plan.policy.intent.destination,
+          departureAt: `${plan.policy.intent.departureDateFrom}T09:00:00.000Z`,
+          durationMinutes: 660,
+          stops: 1,
+          expiresInMinutes: 1440,
+        },
+      });
+      print('warn', `injected ${offer.summary} — 11 h, 1 stop`);
+      await direct(plan, offer.id);
       return refresh();
     }
     if (cmd === 'late') {

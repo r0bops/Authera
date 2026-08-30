@@ -70,6 +70,8 @@ const CHECK_LABELS: Record<string, string> = {
   INTENT_QUERY: 'Matches what was asked for',
   INTENT_QUANTITY: 'Quantity within the mandate',
   INTENT_TIME: 'Departure time within the window',
+  INTENT_DURATION: 'Total travel time within the limit',
+  INTENT_STOPS: 'Stopovers within the limit',
   INTENT_ROUTE: 'Route matches the plan',
   INTENT_CABIN: 'Cabin matches the plan',
   INTENT_PASSENGERS: 'Passengers match the plan',

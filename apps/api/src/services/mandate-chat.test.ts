@@ -1,7 +1,7 @@
 import { mandateChatSuggestions } from '@authera/contracts';
 import { describe, expect, it } from 'vitest';
 import type { MandateChatDraft, MandateChatRequest } from '@authera/contracts';
-import { departureTimeWindow, scriptedMandateChat } from './mandate-chat.js';
+import { departureTimeWindow, scriptedMandateChat, travelConstraints } from './mandate-chat.js';
 
 const emptyDraft: MandateChatDraft = {
   category: null,
@@ -12,6 +12,8 @@ const emptyDraft: MandateChatDraft = {
   dateFlexibilityDays: null,
   departureTimeFrom: null,
   departureTimeTo: null,
+  maxDurationMinutes: null,
+  maxStops: null,
   passengerCount: null,
   maxPerPurchaseMinor: null,
   currency: null,
@@ -55,6 +57,21 @@ describe('departure-time window grounding', () => {
     expect(departureTimeWindow('before 10:30')).toEqual({ from: '00:00', to: '10:30' });
     expect(departureTimeWindow('valid for the next 3 days')).toBeNull();
     expect(departureTimeWindow('tomorrow morning is fine for the answer')).toBeNull();
+  });
+});
+
+describe('stopover and duration grounding', () => {
+  it('reads direct/nonstop, "one stop max" and "under N hours" in English and Spanish', () => {
+    expect(travelConstraints('Direct flights only, under 8 hours please')).toEqual({
+      maxStops: 0,
+      maxDurationMinutes: 480,
+    });
+    expect(travelConstraints('one stop max is fine')).toEqual({ maxStops: 1 });
+    expect(travelConstraints('sin escalas, máximo 6 horas')).toEqual({
+      maxStops: 0,
+      maxDurationMinutes: 360,
+    });
+    expect(travelConstraints('valid for 3 days')).toEqual({});
   });
 });
 
@@ -143,6 +160,8 @@ describe('scripted mandate chat fallback', () => {
         dateFlexibilityDays: 0,
         departureTimeFrom: null,
         departureTimeTo: null,
+        maxDurationMinutes: null,
+        maxStops: null,
         passengerCount: 1,
         maxPerPurchaseMinor: 30_000,
         currency: 'USD',
@@ -188,6 +207,8 @@ describe('scripted mandate chat fallback', () => {
         dateFlexibilityDays: 0,
         departureTimeFrom: null,
         departureTimeTo: null,
+        maxDurationMinutes: null,
+        maxStops: null,
         passengerCount: 1,
         maxPerPurchaseMinor: 15_000,
         currency: 'USD',

@@ -21,6 +21,9 @@ export const DemoInjectOfferRequestSchema = z.strictObject({
   passengerCount: z.number().int().min(1).max(9).default(1),
   /** Defaults to the merchant's display name. */
   airline: z.string().min(1).max(40).optional(),
+  /** Itinerary length (default 5 h 30) and connections (default direct) for the injected fare. */
+  durationMinutes: z.number().int().min(30).max(4320).optional(),
+  stops: z.number().int().min(0).max(3).optional(),
   flightNumber: z.string().min(1).max(10).optional(),
   /** Minutes until the offer expires (default 24 h). */
   expiresInMinutes: z

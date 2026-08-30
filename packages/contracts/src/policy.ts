@@ -79,6 +79,8 @@ export const PolicyInputSchema = z.strictObject({
     destination: z.string().min(1).optional(),
     cabin: z.string().min(1).optional(),
     departureAt: z.iso.datetime().optional(),
+    arrivalAt: z.iso.datetime().optional(),
+    stops: z.number().int().min(0).optional(),
     passengerCount: z.number().int().min(1).optional(),
     title: z.string().min(1).optional(),
     quantity: z.number().int().min(1).default(1),

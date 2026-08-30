@@ -20,6 +20,8 @@ const EMPTY_DRAFT: MandateChatDraft = {
   departureDateFrom: null,
   departureTimeFrom: null,
   departureTimeTo: null,
+  maxDurationMinutes: null,
+  maxStops: null,
   departureDateTo: null,
   dateFlexibilityDays: null,
   passengerCount: null,
@@ -199,6 +201,7 @@ export function buildInstructions(context: MandateChatContext): string {
     '5. `state.missingFields` is computed by the system and is authoritative. Do not claim the plan is complete while it is non-empty.',
     '6. In `draft`, money is integer minor units (USD 150 = 15000), always the all-in total including taxes and fees. In the reply, write money only as the person would say it (USD 150.00); never mention cents, minor units or field names.',
     '7. `validUntil` is when the authorization expires, not a travel date. Resolve relative dates against `currentTime`.',
+    '7c. Stopovers and total travel time are optional too: "direct"/"nonstop"/"sin escalas" → `maxStops` 0, "one stop max" → 1; "under 8 hours"/"máximo 6 horas" → `maxDurationMinutes`. Only when the person says so; never ask.',
     '7b. A departure-time preference is optional: only when the person says it ("mornings", "after 6 pm", "between 8 and 11 am"), set `departureTimeFrom`/`departureTimeTo` as HH:mm local time (morning 05:00–11:59, afternoon 12:00–17:59, evening/night 18:00–23:59). Never ask for it.',
     '8. Resolve city names to the city’s main IATA code (Caracas = CCS, Córdoba = COR, Bogotá = BOG, Medellín = MDE, Madrid = MAD, Miami = MIA). Never ask which airport of a city to use unless the person mentions airports themselves.',
     '9. Reply in the language the person is using. Under 45 words. Plain sentences: no markdown, no bullet lists, no headings.',
@@ -235,6 +238,9 @@ function describeDraft(draft: MandateChatDraft): string {
     parts.push(`travel ${draft.departureDateFrom} to ${draft.departureDateTo}`);
   if (draft.departureTimeFrom && draft.departureTimeTo)
     parts.push(`departing ${draft.departureTimeFrom}–${draft.departureTimeTo}`);
+  if (draft.maxStops !== null && draft.maxStops !== undefined)
+    parts.push(draft.maxStops === 0 ? 'direct only' : `at most ${draft.maxStops} stop(s)`);
+  if (draft.maxDurationMinutes) parts.push(`under ${Math.round(draft.maxDurationMinutes / 60)} h`);
   if (draft.passengerCount) parts.push(`${draft.passengerCount} traveller(s)`);
   if (draft.maxPerPurchaseMinor && draft.currency)
     parts.push(`max ${draft.currency} ${(draft.maxPerPurchaseMinor / 100).toFixed(2)} all-in`);
@@ -308,6 +314,10 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
     const endpoints = routeCodes(latest);
     if (endpoints.origin) draft.origin = endpoints.origin;
     if (endpoints.destination) draft.destination = endpoints.destination;
+    const travel = travelConstraints(latest);
+    if (travel.maxDurationMinutes !== undefined)
+      draft.maxDurationMinutes = travel.maxDurationMinutes;
+    if (travel.maxStops !== undefined) draft.maxStops = travel.maxStops;
     const timeWindow = departureTimeWindow(latest);
     if (timeWindow) {
       draft.departureTimeFrom = timeWindow.from;
@@ -587,4 +597,28 @@ export function departureTimeWindow(text: string): { from: string; to: string } 
   if (/\b(evening|evenings|night|nights|noche|late)\b/.test(t))
     return { from: '18:00', to: '23:59' };
   return null;
+}
+
+/** "direct", "nonstop", "sin escalas", "one stop max", "under 8 hours", "máximo 6 horas". */
+export function travelConstraints(text: string): {
+  maxDurationMinutes?: number;
+  maxStops?: number;
+} {
+  const t = text.toLowerCase();
+  const out: { maxDurationMinutes?: number; maxStops?: number } = {};
+  if (/\b(direct|non-?stop|nonstop|sin escalas?|directo|vuelo directo)\b/.test(t)) out.maxStops = 0;
+  const stops = t.match(
+    /\b(?:at most|max(?:imum)?|up to|m[aá]ximo|hasta)\s+(one|1|two|2)\s+(?:stop|stops|escala|escalas|connection|connections)\b/,
+  );
+  const stopsAfter = t.match(
+    /\b(one|1|two|2)\s+(?:stop|stops|escala|escalas|connection|connections)\s+(?:max(?:imum)?|at most|m[aá]ximo|tops)\b/,
+  );
+  const stopsWord = stops?.[1] ?? stopsAfter?.[1];
+  if (stopsWord) out.maxStops = /^(one|1)$/.test(stopsWord) ? 1 : 2;
+  const hours = t.match(
+    /\b(?:under|less than|at most|max(?:imum)?|no more than|menos de|m[aá]ximo|hasta)\s+(\d{1,2})(?:\.(\d))?\s*(?:h|hr|hrs|hours?|horas?)\b/,
+  );
+  if (hours)
+    out.maxDurationMinutes = Math.round((Number(hours[1]) + Number(hours[2] ?? 0) / 10) * 60);
+  return out;
 }

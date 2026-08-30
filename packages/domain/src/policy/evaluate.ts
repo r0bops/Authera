@@ -10,6 +10,7 @@ import {
   departureLocalTime,
   departureTimeAllowed,
   effectiveFlightDateWindow,
+  flightDurationMinutes,
   normalizeQuery,
 } from '@authera/contracts';
 import { equalMoney } from '../money/index.js';
@@ -162,6 +163,8 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
     const intent = mandate.intent;
     let dateOk = true;
     let timeOk = true;
+    let durationOk = true;
+    let stopsOk = true;
     if (!check('INTENT_KIND', offer.kind === intent.type, intent.type, offer.kind)) {
       return block('INTENT_MISMATCH');
     }
@@ -222,6 +225,16 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
           departureLocalTime(offer.departureAt ?? ''),
         );
       }
+      if (intent.maxDurationMinutes !== undefined) {
+        const minutes = flightDurationMinutes(offer.departureAt, offer.arrivalAt);
+        durationOk = minutes !== null && minutes <= intent.maxDurationMinutes;
+        check('INTENT_DURATION', durationOk, intent.maxDurationMinutes, minutes);
+      }
+      if (intent.maxStops !== undefined) {
+        // An itinerary whose connections are unknown cannot claim to be direct.
+        stopsOk = offer.stops !== undefined && offer.stops <= intent.maxStops;
+        check('INTENT_STOPS', stopsOk, intent.maxStops, offer.stops ?? null);
+      }
     } else {
       // Goods: the offer must have been discovered under this mandate's exact query (the
       // server records the query at discovery time; the agent cannot relabel an offer).
@@ -265,12 +278,14 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
     check('AMOUNT_TOTAL', totalOk, mandate.limits.maxTotalMinor, projectedTotal);
 
     const exceptions: Array<
-      'AMOUNT_PER_PURCHASE' | 'AMOUNT_TOTAL' | 'DATE_WINDOW' | 'TIME_WINDOW'
+      'AMOUNT_PER_PURCHASE' | 'AMOUNT_TOTAL' | 'DATE_WINDOW' | 'TIME_WINDOW' | 'DURATION' | 'STOPS'
     > = [];
     if (!perPurchaseOk) exceptions.push('AMOUNT_PER_PURCHASE');
     if (!totalOk) exceptions.push('AMOUNT_TOTAL');
     if (!dateOk) exceptions.push('DATE_WINDOW');
     if (!timeOk) exceptions.push('TIME_WINDOW');
+    if (!durationOk) exceptions.push('DURATION');
+    if (!stopsOk) exceptions.push('STOPS');
 
     // 10. A checkout-scoped approval applies only to this exact checkout hash, while active.
     let approvalValid = false;

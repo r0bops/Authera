@@ -43,6 +43,13 @@
       "when": 1788061660684,
       "tag": "0005_ambitious_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788093497626,
+      "tag": "0006_flimsy_makkari",
+      "breakpoints": true
     }
   ]
 }
