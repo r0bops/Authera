@@ -16,6 +16,7 @@ import {
   Label,
   PageHeader,
   Select,
+  Stepper,
 } from '../components/ui/primitives.js';
 import { cn } from '../lib/cn.js';
 import { AIRPORTS, airportLabel } from '../lib/airports.js';
@@ -276,12 +277,13 @@ export function NewMandatePage() {
                   </div>
                   <div>
                     <Label htmlFor="qty">Up to how many?</Label>
-                    <Input
+                    <Stepper
                       id="qty"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      {...form.register('maxQuantity')}
+                      value={Number(values.maxQuantity)}
+                      min={1}
+                      max={10}
+                      aria-label="Maximum quantity"
+                      onChange={(v) => form.setValue('maxQuantity', v, { shouldValidate: true })}
                     />
                     <FieldError message={form.formState.errors.maxQuantity?.message} />
                   </div>
@@ -327,12 +329,13 @@ export function NewMandatePage() {
                 </div>
                 <div>
                   <Label htmlFor="pax">Travellers</Label>
-                  <Input
+                  <Stepper
                     id="pax"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    {...form.register('passengerCount')}
+                    value={Number(values.passengerCount)}
+                    min={1}
+                    max={9}
+                    aria-label="Travellers"
+                    onChange={(v) => form.setValue('passengerCount', v, { shouldValidate: true })}
                   />
                   <FieldError message={form.formState.errors.passengerCount?.message} />
                 </div>
@@ -365,12 +368,13 @@ export function NewMandatePage() {
                   <Label htmlFor="uses" hint="how many times it may buy">
                     Number of purchases
                   </Label>
-                  <Input
+                  <Stepper
                     id="uses"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    {...form.register('maxFulfillments')}
+                    value={Number(values.maxFulfillments)}
+                    min={1}
+                    max={10}
+                    aria-label="Number of purchases"
+                    onChange={(v) => form.setValue('maxFulfillments', v, { shouldValidate: true })}
                   />
                   <FieldError message={form.formState.errors.maxFulfillments?.message} />
                 </div>
@@ -433,13 +437,15 @@ export function NewMandatePage() {
                       Search date tolerance
                     </Label>
                     <div className="flex items-center gap-2">
-                      <Input
+                      <Stepper
                         id="dateFlexibility"
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="max-w-24"
-                        {...form.register('dateFlexibilityDays')}
+                        value={flexibilityDays}
+                        min={0}
+                        max={30}
+                        aria-label="Search date tolerance in days"
+                        onChange={(v) =>
+                          form.setValue('dateFlexibilityDays', v, { shouldValidate: true })
+                        }
                       />
                       <span className="text-[13px] text-ink-muted">
                         day{flexibilityDays === 1 ? '' : 's'} before or after

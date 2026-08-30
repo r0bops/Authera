@@ -6,7 +6,7 @@ import type {
   TextareaHTMLAttributes,
 } from 'react';
 import { useEffect, useId, useRef } from 'react';
-import { AlertTriangle, CheckCircle2, Info, Loader2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, Loader2, Minus, Plus, XCircle } from 'lucide-react';
 import { cn } from '../../lib/cn.js';
 
 export type Tone = 'neutral' | 'verified' | 'attention' | 'destructive' | 'info';
@@ -157,6 +157,71 @@ const fieldClass =
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(fieldClass, className)} />;
+}
+
+/** Small-integer control: − [n] + with hard bounds. Typing is still allowed inside the box. */
+export function Stepper({
+  id,
+  value,
+  min,
+  max,
+  onChange,
+  className,
+  'aria-label': ariaLabel,
+}: {
+  id?: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (next: number) => void;
+  className?: string;
+  'aria-label'?: string;
+}) {
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
+  const step = (delta: number) => onChange(clamp((Number.isFinite(value) ? value : min) + delta));
+  const buttonClass =
+    'flex h-9 w-9 shrink-0 items-center justify-center text-ink-muted hover:bg-surface-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40';
+  return (
+    <div
+      className={cn(
+        'inline-flex h-9 items-stretch overflow-hidden rounded-md border border-line bg-surface focus-within:border-cobalt focus-within:ring-2 focus-within:ring-cobalt/20',
+        className,
+      )}
+    >
+      <button
+        type="button"
+        className={buttonClass}
+        onClick={() => step(-1)}
+        disabled={value <= min}
+        aria-label="Decrease"
+      >
+        <Minus className="h-3.5 w-3.5" aria-hidden />
+      </button>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        aria-label={ariaLabel}
+        value={Number.isFinite(value) ? String(value) : ''}
+        onChange={(e) => {
+          const n = Number.parseInt(e.target.value, 10);
+          if (Number.isFinite(n)) onChange(clamp(n));
+          else if (e.target.value === '') onChange(min);
+        }}
+        className="tabular w-12 border-x border-line bg-transparent text-center text-[13.5px] font-medium text-ink outline-none"
+      />
+      <button
+        type="button"
+        className={buttonClass}
+        onClick={() => step(1)}
+        disabled={value >= max}
+        aria-label="Increase"
+      >
+        <Plus className="h-3.5 w-3.5" aria-hidden />
+      </button>
+    </div>
+  );
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
