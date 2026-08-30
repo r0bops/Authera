@@ -621,9 +621,9 @@ function ResultSummary({ value }: { value: unknown }) {
               </p>
               <Link
                 className="mt-1.5 inline-block font-medium text-cobalt hover:underline"
-                to={`/dashboard/mandates/${v.recommendation.mandateId}`}
+                to={`/audit?mandateId=${v.recommendation.mandateId}`}
               >
-                Review and change the signed limit
+                Inspect the signed limit in the audit view
               </Link>
             </Alert>
           ) : null}

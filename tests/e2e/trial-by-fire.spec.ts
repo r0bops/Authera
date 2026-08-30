@@ -176,10 +176,16 @@ test('9 · racing two attempts on a one-use mandate allows exactly one', async (
 test('10 · live revocation blocks the immediate retry', async ({ page, request }) => {
   const fresh = await createMandate(request, { paymentMethodId });
   const offer = await injectOffer(request, 12_000);
-  await page.goto(`/dashboard/mandates/${fresh.id}`);
-  await page.getByRole('button', { name: /stop aria/i }).click();
-  await page.getByRole('button', { name: /stop aria now/i }).click();
-  await expect(page.getByText('Plan stopped').first()).toBeVisible();
+  // The chat is the human's only surface for a plan: link it, then stop it from there.
+  const chat = await post<{ id: string }>(request, '/api/chats', {
+    message: 'Flight from Caracas to Córdoba next month, max $150.',
+  });
+  await post(request, `/api/chats/${chat.id}/mandate`, { mandateId: fresh.id });
+  await page.goto(`/dashboard/chats/${chat.id}`);
+  await expect(page.getByText(/signed and active/i).first()).toBeVisible();
+  await post(request, `/api/chats/${chat.id}/revoke`, {});
+  await page.reload();
+  await expect(page.getByText(/revoked/i).first()).toBeVisible();
   const result = await directAttempt(request, { mandateId: fresh.id, offerId: offer.id });
   expect(result.purchase).toMatchObject({ decision: 'BLOCK', reasonCode: 'MANDATE_REVOKED' });
   await expectNoHorizontalScroll(page);
@@ -289,7 +295,6 @@ test('14 · every console screen fits the viewport', async ({ page }) => {
   for (const path of [
     '/dashboard',
     '/dashboard/activity',
-    '/dashboard/mandates',
     '/dashboard/chats',
     '/dashboard/purchases',
     '/dashboard/settings',
@@ -326,7 +331,7 @@ test('15 · perspectives stay separated and legacy links redirect', async ({ pag
   await expect(page).toHaveURL(/\/dashboard$/);
 
   await page.goto(`/mandates/${mandateId}`);
-  await expect(page).toHaveURL(new RegExp(`/dashboard/mandates/${mandateId}$`));
+  await expect(page).toHaveURL(/\/dashboard\/chats$/);
 
   await page.goto(`/merchant?executionId=${purchasedExecutionId}`);
   await expect(page).toHaveURL(

@@ -1,9 +1,16 @@
 import type { AuditEvent, ExecutionSummary, MandateView } from '@authera/contracts';
 import { Bot, CheckCircle2, Clock3, Radar, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuditEvents, useExecutions, useMandates, useMe } from '../api/hooks.js';
 import { Timeline } from '../components/status.js';
-import { EmptyState, ErrorState, Skeleton, buttonStyles } from '../components/ui/primitives.js';
+import {
+  EmptyState,
+  ErrorState,
+  Select,
+  Skeleton,
+  buttonStyles,
+} from '../components/ui/primitives.js';
 import { formatMoney, friendlyAgentName } from '../lib/format.js';
 import { intentLabel } from '../lib/intent.js';
 import { selectDashboardPlans } from '../lib/mandates.js';
@@ -32,15 +39,27 @@ export function ActivityPage() {
   const me = useMe();
   const mandates = useMandates();
   const executions = useExecutions(undefined, 100);
-  const events = useAuditEvents({ limit: 400 });
+  // "all" | "mandate:<id>" | "execution:<id>" — narrows the timeline to one plan or one order.
+  const [scope, setScope] = useState('all');
+  const [scopeKind, scopeId] = scope.includes(':') ? scope.split(':', 2) : ['all', ''];
+  const events = useAuditEvents({
+    limit: 400,
+    ...(scopeKind === 'mandate' ? { mandateId: scopeId } : {}),
+    ...(scopeKind === 'execution' ? { executionId: scopeId } : {}),
+  });
   const { livePlan, completedPlan } = selectDashboardPlans(mandates.data);
   const agentName = friendlyAgentName(me.data?.agents[0]?.displayName);
   const latestExecution = newestExecutionForPlan(executions.data, livePlan ?? completedPlan);
   const brief = agentBrief(agentName, livePlan, completedPlan, latestExecution);
   const BriefIcon = brief.icon;
-  const importantEvents = (events.data ?? []).filter((event) =>
-    IMPORTANT_EVENTS.has(event.eventType),
+  const importantEvents = (events.data ?? []).filter(
+    (event) =>
+      IMPORTANT_EVENTS.has(event.eventType) &&
+      (scopeKind !== 'mandate' || event.mandateId === scopeId) &&
+      (scopeKind !== 'execution' || event.executionId === scopeId),
   );
+  const plans = mandates.data ?? [];
+  const orders = (executions.data ?? []).filter((execution) => execution.offerSummary);
   const isError = mandates.isError || executions.isError || events.isError;
 
   return (
@@ -118,13 +137,46 @@ export function ActivityPage() {
                   Only decisions that affect your trip.
                 </p>
               </div>
+              {plans.length > 0 || orders.length > 0 ? (
+                <div className="w-full max-w-[18rem]">
+                  <label htmlFor="activity-scope" className="sr-only">
+                    Show updates for
+                  </label>
+                  <Select
+                    id="activity-scope"
+                    value={scope}
+                    onChange={(event) => setScope(event.target.value)}
+                    aria-label="Show updates for"
+                  >
+                    <option value="all">All plans and orders</option>
+                    {plans.length > 0 ? (
+                      <optgroup label="Plans">
+                        {plans.map((plan) => (
+                          <option key={plan.id} value={`mandate:${plan.id}`}>
+                            {intentLabel(plan.policy.intent)} · {plan.status.toLowerCase()}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    {orders.length > 0 ? (
+                      <optgroup label="Orders">
+                        {orders.map((order) => (
+                          <option key={order.id} value={`execution:${order.id}`}>
+                            {order.offerSummary} · {formatMoney(order.amount)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                  </Select>
+                </div>
+              ) : null}
             </div>
             <div className="rounded-xl border border-line bg-surface px-4 py-1 sm:px-5">
               {events.isPending ? <Skeleton className="my-4 h-32" /> : null}
               {!events.isPending && importantEvents.length === 0 ? (
                 <div className="py-4">
                   <EmptyState
-                    title="No updates yet"
+                    title={scope === 'all' ? 'No updates yet' : 'No updates for this selection'}
                     action={
                       <Link to="/dashboard" className={buttonStyles()}>
                         Start a trip

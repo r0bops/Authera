@@ -1,27 +1,22 @@
 import { createBrowserRouter, Navigate, redirect } from 'react-router';
 import { AppShell } from './shell/AppShell.js';
 
+function preserveQueryRedirect(target: string) {
+  return ({ request }: { request: Request }) => {
+    const current = new URL(request.url);
+    return redirect(`${target}${current.search}`);
+  };
+}
+
 const dashboardChildren = [
   {
     index: true,
     lazy: async () => ({ Component: (await import('../routes/ChatPage.js')).ChatPage }),
   },
-  {
-    path: 'mandates',
-    lazy: async () => ({ Component: (await import('../routes/MandatesPage.js')).MandatesPage }),
-  },
-  {
-    path: 'mandates/new',
-    lazy: async () => ({
-      Component: (await import('../routes/NewMandatePage.js')).NewMandatePage,
-    }),
-  },
-  {
-    path: 'mandates/:id',
-    lazy: async () => ({
-      Component: (await import('../routes/MandateDetailPage.js')).MandateDetailPage,
-    }),
-  },
+  // Plans are created, inspected and stopped in the chat: the wizard, list and detail pages are gone.
+  { path: 'mandates', loader: preserveQueryRedirect('/dashboard/chats') },
+  { path: 'mandates/new', loader: preserveQueryRedirect('/dashboard') },
+  { path: 'mandates/:id', loader: preserveQueryRedirect('/dashboard/chats') },
   {
     path: 'activity',
     lazy: async () => ({ Component: (await import('../routes/ActivityPage.js')).ActivityPage }),
@@ -67,13 +62,6 @@ const dashboardChildren = [
     lazy: async () => ({ Component: (await import('../routes/DisputePages.js')).DisputePage }),
   },
 ];
-
-function preserveQueryRedirect(target: string) {
-  return ({ request }: { request: Request }) => {
-    const current = new URL(request.url);
-    return redirect(`${target}${current.search}`);
-  };
-}
 
 function dashboardResourceRedirect(resource: string) {
   return ({
@@ -141,9 +129,9 @@ export const router = createBrowserRouter([
 
   // Local compatibility while bookmarks and older demo recordings move to the new route tree.
   { path: '/overview', loader: preserveQueryRedirect('/dashboard') },
-  { path: '/mandates', loader: preserveQueryRedirect('/dashboard/mandates') },
-  { path: '/mandates/new', loader: preserveQueryRedirect('/dashboard/mandates/new') },
-  { path: '/mandates/:id', loader: dashboardResourceRedirect('mandates') },
+  { path: '/mandates', loader: preserveQueryRedirect('/dashboard/chats') },
+  { path: '/mandates/new', loader: preserveQueryRedirect('/dashboard') },
+  { path: '/mandates/:id', loader: preserveQueryRedirect('/dashboard/chats') },
   { path: '/activity', loader: preserveQueryRedirect('/dashboard/activity') },
   { path: '/purchases', loader: preserveQueryRedirect('/dashboard/purchases') },
   { path: '/purchases/:id', loader: dashboardResourceRedirect('purchases') },

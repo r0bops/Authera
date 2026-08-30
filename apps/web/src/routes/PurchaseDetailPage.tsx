@@ -201,11 +201,8 @@ export function PurchaseDetailPage() {
                     {
                       label: 'Plan',
                       value: (
-                        <Link
-                          className="text-cobalt hover:underline"
-                          to={`/dashboard/mandates/${mandate.id}`}
-                        >
-                          Open purchase plan
+                        <Link className="text-cobalt hover:underline" to="/dashboard/chats">
+                          Open the plan chat
                         </Link>
                       ),
                     },

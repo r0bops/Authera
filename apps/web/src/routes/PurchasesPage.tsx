@@ -173,7 +173,7 @@ function OrderCard({ purchase, chat }: { purchase: ExecutionSummary; chat?: Chat
             <Download className="h-4 w-4" aria-hidden /> Booking
           </a>
         ) : null}
-        {chat ? (
+        {chat && !succeeded ? (
           <Link
             to={`/dashboard/chats/${chat.id}`}
             className={buttonStyles({ variant: 'ghost', size: 'sm' })}

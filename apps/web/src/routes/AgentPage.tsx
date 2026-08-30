@@ -58,7 +58,7 @@ export function AgentPage() {
                   value: active ? (
                     <Link
                       className="text-cobalt hover:underline"
-                      to={`/dashboard/mandates/${active.id}`}
+                      to={`/audit?mandateId=${active.id}`}
                     >
                       {intentTitle(active.policy.intent)}
                     </Link>

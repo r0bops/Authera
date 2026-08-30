@@ -108,11 +108,8 @@ export function ApprovalPage() {
                   {
                     label: 'Plan',
                     value: (
-                      <Link
-                        className="text-cobalt hover:underline"
-                        to={`/dashboard/mandates/${a.mandateId}`}
-                      >
-                        View plan
+                      <Link className="text-cobalt hover:underline" to="/dashboard/chats">
+                        Open the plan chat
                       </Link>
                     ),
                   },
@@ -190,10 +187,10 @@ export function ApprovalPage() {
                     Reject
                   </Button>
                   <Link
-                    to="/dashboard/mandates/new"
+                    to="/dashboard"
                     className="text-center text-[12.5px] text-cobalt hover:underline"
                   >
-                    Make a different plan
+                    Start a new plan in the chat
                   </Link>
                 </div>
                 {decide.isError ? (
