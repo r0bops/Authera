@@ -65,9 +65,6 @@ export function ChatPage() {
   const revokeMandate = useRevokeChatMandate(chatId);
   const revision = useChatRevision(chatId);
   const approvals = useApprovals();
-  const pendingApprovals = (approvals.data ?? []).filter(
-    (a) => a.mandateId === session?.mandateId && a.state === 'PENDING',
-  );
   const [input, setInput] = useState('');
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
@@ -76,6 +73,9 @@ export function ChatPage() {
   const composer = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const session = chat.data;
+  const pendingApprovals = (approvals.data ?? []).filter(
+    (a) => a.mandateId === session?.mandateId && a.state === 'PENDING',
+  );
   const draft = session?.draft ?? null;
   const agentName = friendlyAgentName(me.data?.agents[0]?.displayName);
   const firstName = me.data?.user.displayName.split(' ')[0] ?? 'there';

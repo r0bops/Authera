@@ -140,6 +140,30 @@ export interface DirectResult {
   checkoutId?: string;
 }
 
+/** After an approval the agent retries by itself: wait for that execution to appear. */
+export async function waitForExecution(
+  request: APIRequestContext,
+  mandateId: string,
+  match: (e: {
+    id: string;
+    state: string;
+    decision: string | null;
+    reasonCode: string | null;
+  }) => boolean,
+  timeoutMs = 20_000,
+): Promise<{ id: string; state: string; decision: string | null; reasonCode: string | null }> {
+  const started = Date.now();
+  for (;;) {
+    const list = await get<
+      Array<{ id: string; state: string; decision: string | null; reasonCode: string | null }>
+    >(request, `/api/executions?mandateId=${mandateId}&limit=50`);
+    const hit = (list.data ?? []).find(match);
+    if (hit) return hit;
+    if (Date.now() - started > timeoutMs) throw new Error('no matching execution appeared in time');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
 export async function directAttempt(
   request: APIRequestContext,
   input: { mandateId: string; offerId: string; checkoutId?: string; impersonate?: boolean },

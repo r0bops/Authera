@@ -1,6 +1,7 @@
 import type {
   ApprovalView,
   DemoAttemptResult,
+  ExecutionSummary,
   DemoDirectAttemptResult,
   DisputeView,
   FlightOfferView,
@@ -505,23 +506,34 @@ export function DemoTerminal() {
       const approvals = await api<ApprovalView[]>('/api/approvals');
       const pending = approvals.find((a) => a.executionId === first.purchase?.executionId);
       if (!pending) throw new Error('no approval request found');
-      await api(`/api/approvals/${pending.id}/decision`, {
-        method: 'POST',
-        body: { decision: 'APPROVED', note: 'Approved from the terminal' },
-      });
-      print('ok', `approved once for checkout ${first.result.checkoutId?.slice(0, 8) ?? '?'} only`);
       if (cmd === 'tamper' && first.result.checkoutId) {
         await api(`/api/demo/checkouts/${first.result.checkoutId}/tamper`, {
           method: 'POST',
           body: {},
         });
-        print('warn', 'cart modified after approval (price +0.01, hash unchanged)');
+        print('warn', 'cart modified while you were deciding (price +0.01, stored hash unchanged)');
       }
-      await direct(
-        plan,
-        offer.id,
-        first.result.checkoutId ? { checkoutId: first.result.checkoutId } : {},
-      );
+      await api(`/api/approvals/${pending.id}/decision`, {
+        method: 'POST',
+        body: { decision: 'APPROVED', note: 'Approved from the terminal' },
+      });
+      print('ok', `approved once for checkout ${first.result.checkoutId?.slice(0, 8) ?? '?'} only`);
+      print('muted', 'the agent retries that exact cart by itself…');
+      const pausedId = first.purchase?.executionId;
+      let retry: ExecutionSummary | undefined;
+      for (let i = 0; i < 40 && !retry; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        const list = await api<ExecutionSummary[]>(`/api/executions?mandateId=${plan.id}&limit=50`);
+        retry = list.find((e) => e.id !== pausedId && e.decision !== null);
+      }
+      if (!retry) throw new Error('the automatic retry did not show up in 20 s');
+      verdict({
+        executionId: retry.id,
+        decision: retry.decision!,
+        reasonCode: retry.reasonCode!,
+        state: retry.state,
+        evidenceId: retry.evidenceId,
+      });
       return refresh();
     }
     if (cmd === 'poison') {

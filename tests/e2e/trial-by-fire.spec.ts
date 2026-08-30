@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   createMandate,
   directAttempt,
+  waitForExecution,
   expectNoHorizontalScroll,
   get,
   injectOffer,
@@ -232,16 +233,13 @@ test('11 · USD 168 escalates, one approval completes the exact checkout once', 
   await expect(page.getByText(/Approved/).first()).toBeVisible();
   await expectNoHorizontalScroll(page);
 
-  const bought = await directAttempt(request, {
-    mandateId: escalating.id,
-    offerId: offer.id,
-    checkoutId,
-  });
-  expect(bought.purchase).toMatchObject({
-    decision: 'ALLOW',
-    reasonCode: 'ALLOW_CHECKOUT_APPROVAL',
-    state: 'SUCCEEDED',
-  });
+  // Approving is enough: the agent retries that exact cart by itself and the approval is consumed.
+  const bought = await waitForExecution(
+    request,
+    escalating.id,
+    (e) => e.reasonCode === 'ALLOW_CHECKOUT_APPROVAL' && e.state === 'SUCCEEDED',
+  );
+  expect(bought.decision).toBe('ALLOW');
 
   const again = await directAttempt(request, {
     mandateId: escalating.id,
@@ -257,21 +255,20 @@ test('12 · a checkout modified after approval is blocked', async ({ request }) 
   const paused = await directAttempt(request, { mandateId: escalating.id, offerId: offer.id });
   const approvalId = paused.purchase!.approvalRequestId!;
   const checkoutId = paused.checkoutId!;
+  // The cart changes between what the human saw and the agent's retry: the approval is bound to
+  // the original hash, so the automatic retry after approval must be blocked.
+  const tampered = await post(request, `/api/demo/checkouts/${checkoutId}/tamper`);
+  expect(tampered.status).toBe(200);
   const decision = await post(request, `/api/approvals/${approvalId}/decision`, {
     decision: 'APPROVED',
   });
   expect(decision.status).toBe(200);
-  const tampered = await post(request, `/api/demo/checkouts/${checkoutId}/tamper`);
-  expect(tampered.status).toBe(200);
-  const result = await directAttempt(request, {
-    mandateId: escalating.id,
-    offerId: offer.id,
-    checkoutId,
-  });
-  expect(result.purchase).toMatchObject({
-    decision: 'BLOCK',
-    reasonCode: 'CHECKOUT_HASH_MISMATCH',
-  });
+  const result = await waitForExecution(
+    request,
+    escalating.id,
+    (e) => e.id !== paused.purchase!.executionId && e.decision !== null,
+  );
+  expect(result).toMatchObject({ decision: 'BLOCK', reasonCode: 'CHECKOUT_HASH_MISMATCH' });
 });
 
 test('13 · a dispute resolves deterministically from evidence', async ({ page, request }) => {
