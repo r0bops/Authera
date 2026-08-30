@@ -9,6 +9,7 @@ import type {
 import { Check, X } from 'lucide-react';
 import { formatTime, shortHash, shortId } from '../lib/format.js';
 import { Badge, Table, Td, Th, type Tone } from './ui/primitives.js';
+import { checkLabel, reasonLabel } from '../lib/labels.js';
 
 function mandateTone(status: MandateState): Tone {
   switch (status) {
@@ -99,11 +100,13 @@ export function DecisionBadge({
     PENDING: 'Pending',
   };
   const label = plainLanguage ? (plainLabels[rawLabel] ?? rawLabel) : rawLabel;
+  const reason = reasonLabel(reasonCode);
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <Badge tone={decisionTone(decision, state)}>{label}</Badge>
+      {reason && showReasonCode ? <span className="text-[12.5px] text-ink">{reason}</span> : null}
       {reasonCode && showReasonCode ? (
-        <code className="font-mono text-[11.5px] text-ink-muted">{reasonCode}</code>
+        <code className="font-mono text-[11px] text-ink-faint">{reasonCode}</code>
       ) : null}
     </span>
   );
@@ -137,7 +140,10 @@ export function Checklist({
                 <X className="h-4 w-4 text-coral" aria-label="failed" />
               )}
             </Td>
-            <Td mono>{check.code}</Td>
+            <Td>
+              <span className="text-ink">{checkLabel(check.code)}</span>
+              <code className="ml-2 font-mono text-[11px] text-ink-faint">{check.code}</code>
+            </Td>
             {!compact ? <Td mono>{renderValue(check.expected)}</Td> : null}
             {!compact ? <Td mono>{renderValue(check.actual)}</Td> : null}
           </tr>

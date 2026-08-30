@@ -13,7 +13,10 @@ import {
   Select,
   Skeleton,
 } from '../components/ui/primitives.js';
-import { formatDateTime, formatMoney, shortHash, shortId } from '../lib/format.js';
+import type { VerificationView } from '@authera/contracts';
+import { cn } from '../lib/cn.js';
+import { formatDate, formatDateTime, formatMoney, shortHash, shortId } from '../lib/format.js';
+import { decisionLabel, reasonLabel } from '../lib/labels.js';
 
 export function MerchantPage() {
   const [params, setParams] = useSearchParams();
@@ -60,6 +63,7 @@ export function MerchantPage() {
         <ErrorState error={verification.error} retry={() => void verification.refetch()} />
       ) : null}
       {verification.isPending && selected ? <Skeleton className="h-48" /> : null}
+      {v ? <VerificationSummary v={v} /> : null}
       {v ? (
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-4 flex flex-col gap-4">
@@ -160,5 +164,88 @@ export function MerchantPage() {
         </div>
       ) : null}
     </>
+  );
+}
+
+/** What VuelaYa needs to know before accepting, in the brief's words; details follow below. */
+function VerificationSummary({ v }: { v: VerificationView }) {
+  const check = (code: string) => v.policyChecks.find((c) => c.code === code);
+  const passed = (code: string) => check(code)?.passed;
+  const perPurchase = check('AMOUNT_PER_PURCHASE');
+  const expected = perPurchase?.expected;
+  const maxMinor = typeof expected === 'number' ? expected : null;
+  const rows: Array<{ label: string; value: string; ok: boolean | null }> = [
+    {
+      label: 'Agent identity',
+      value: v.agentIdentity.ok ? 'Verified' : 'Rejected',
+      ok: v.agentIdentity.ok,
+    },
+    {
+      label: 'Human mandate',
+      value: v.mandate ? `Signature valid · v${v.mandate.version}` : 'Not found',
+      ok: v.mandate ? (passed('MANDATE_SIGNATURE') ?? true) : false,
+    },
+    {
+      label: 'Mandate status',
+      value: v.mandate ? v.mandate.status.charAt(0) + v.mandate.status.slice(1).toLowerCase() : '—',
+      ok: v.mandate ? v.mandate.status === 'ACTIVE' : null,
+    },
+    {
+      label: 'Category',
+      value: passed('INTENT_KIND') === false ? 'Forbidden' : 'Allowed',
+      ok: passed('INTENT_KIND') ?? null,
+    },
+    {
+      label: 'Price',
+      value: v.checkout
+        ? `${formatMoney(v.checkout.total)}${maxMinor !== null ? ` / ${formatMoney({ minor: maxMinor, currency: v.checkout.total.currency })} max` : ''}`
+        : '—',
+      ok: passed('AMOUNT_PER_PURCHASE') ?? null,
+    },
+    {
+      label: 'Validity',
+      value: v.mandate ? `until ${formatDate(v.mandate.validUntil)}` : '—',
+      ok: passed('VALID_UNTIL') ?? null,
+    },
+    {
+      label: 'Usage',
+      value: passed('USAGE_RESERVATION') === false ? 'Exhausted' : 'Within limit',
+      ok: passed('USAGE_RESERVATION') ?? null,
+    },
+    {
+      label: 'Quote binding',
+      value: v.checkout ? (v.checkout.bound ? 'Match' : 'Mismatch') : '—',
+      ok: v.checkout ? v.checkout.bound : null,
+    },
+  ];
+  return (
+    <Card className="mb-4" title="Verification at a glance">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 md:grid-cols-4">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-baseline gap-2">
+            <dt className="text-[12px] uppercase tracking-wide text-ink-muted">{row.label}</dt>
+            <dd
+              className={cn(
+                'font-medium',
+                row.ok === true && 'text-emerald',
+                row.ok === false && 'text-coral',
+              )}
+            >
+              {row.ok === true ? '✓ ' : row.ok === false ? '✕ ' : ''}
+              {row.value}
+            </dd>
+          </div>
+        ))}
+        <div className="col-span-2 flex items-baseline gap-2 md:col-span-4">
+          <dt className="text-[12px] uppercase tracking-wide text-ink-muted">Decision</dt>
+          <dd className="font-semibold">
+            {decisionLabel(v.decision)}
+            {v.reasonCode ? (
+              <span className="ml-2 font-normal text-ink-muted">{reasonLabel(v.reasonCode)}</span>
+            ) : null}
+          </dd>
+        </div>
+      </dl>
+    </Card>
   );
 }

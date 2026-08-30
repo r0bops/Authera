@@ -31,6 +31,11 @@ const SCENARIOS: Array<{ cmd: string; label: string; proves: string }> = [
   },
   { cmd: 'revoke', label: 'Live revocation', proves: 'revoke, then the very next attempt fails' },
   {
+    cmd: 'category',
+    label: 'Forbidden category',
+    proves: 'a purchase outside what the plan allows (goods, or another trip) is blocked',
+  },
+  {
     cmd: 'limit 100',
     label: 'Change a limit',
     proves: 'the plan is re-signed as a new version and the next attempt is judged by it',
@@ -60,6 +65,7 @@ const HELP = [
   'inject <usd> [merchant]   put an offer on the plan route at that price',
   'run                       let the agent search, choose and request a purchase',
   'over <usd>                inject above the limit and attempt it directly',
+  'category                  attempt something the plan does not allow (goods or another trip)',
   'revoke                    revoke the plan, then retry a purchase',
   'limit <usd> · until <date> · uses <n>   revise the plan (new signed version), then retry',
   'expire                    push the demo clock past validity, attempt, restore',
@@ -289,6 +295,35 @@ export function DemoTerminal() {
       );
       print('muted', `retrying the ${usd(offer.total.minor)} offer under the new version…`);
       await direct(revised, offer.id);
+      return refresh();
+    }
+    if (cmd === 'category') {
+      if (plan.policy.intent.type !== 'flight') throw new Error('category works on flight plans');
+      const all = await api<FlightOfferView[]>('/api/offers');
+      const goods = all.find((o) => o.kind === 'goods' && o.status === 'AVAILABLE');
+      let offer = goods;
+      if (offer) {
+        print('muted', `attempting a goods purchase (${offer.summary}) under a flight plan…`);
+      } else {
+        const elsewhere = plan.policy.intent.destination === 'MAD' ? 'MIA' : 'MAD';
+        print(
+          'muted',
+          `no goods offer in the catalog — attempting a flight to ${elsewhere} instead of ${plan.policy.intent.destination}…`,
+        );
+        const merchant = (me.data?.merchants ?? []).find((m) => m.slug === 'duffel');
+        offer = await api<FlightOfferView>('/api/demo/offers', {
+          method: 'POST',
+          body: {
+            ...(merchant ? { merchantId: merchant.id } : {}),
+            amountMinor: Math.max(100, plan.policy.limits.maxPerPurchaseMinor - 2000),
+            origin: plan.policy.intent.origin,
+            destination: elsewhere,
+            departureAt: `${plan.policy.intent.departureDateFrom}T09:00:00.000Z`,
+            expiresInMinutes: 1440,
+          },
+        });
+      }
+      await direct(plan, offer.id);
       return refresh();
     }
     if (cmd === 'revoke') {
