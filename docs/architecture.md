@@ -3,7 +3,6 @@
 ## System overview
 
 ```mermaid
-```mermaid
 flowchart TB
   Human[Persona usuaria<br/>Marta]
   Agent[Agente de compras<br/>scripted u OpenAI]
@@ -40,7 +39,6 @@ flowchart TB
   API -->|autoriza, captura y recibe webhooks| Stripe
   Stripe -->|webhook firmado| API
   API -->|pagos deterministas de demo| Mock
-```
 ```
 
 Authority lives in exactly two places: the **pure policy engine** (deterministic, clock injected, fails closed) and the **PostgreSQL reservation predicate** (one conditional `UPDATE` on `mandate_runtime` that revocation contends with). Nothing else — not the agent, not the browser, not the LLM — can produce `ALLOW`.
