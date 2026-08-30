@@ -5,7 +5,6 @@ import {
   agentKeys,
   agents,
   merchants,
-  offers,
   paymentMethods,
   signingKeys,
   users,
@@ -14,8 +13,6 @@ import {
   SEED_AGENT,
   SEED_IDS,
   SEED_MERCHANTS,
-  SEED_OFFERS,
-  SEED_OFFER_EXPIRY,
   SEED_PAYMENT_METHOD,
   SEED_USER,
 } from './seed-data.js';
@@ -101,20 +98,6 @@ export async function seedDemo(db: DbExecutor, input: SeedInput): Promise<void> 
   await db
     .insert(paymentMethods)
     .values({ ...SEED_PAYMENT_METHOD, userId: SEED_USER.id })
-    .onConflictDoNothing();
-  if (SEED_OFFERS.length === 0) return;
-  await db
-    .insert(offers)
-    .values(
-      SEED_OFFERS.map((offer) => ({
-        ...offer,
-        departureAt: new Date(offer.departureAt),
-        arrivalAt: new Date(offer.arrivalAt),
-        expiresAt: new Date(SEED_OFFER_EXPIRY),
-        status: 'AVAILABLE',
-        source: 'seed',
-      })),
-    )
     .onConflictDoNothing();
 }
 

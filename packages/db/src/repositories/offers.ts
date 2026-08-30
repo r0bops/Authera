@@ -123,7 +123,7 @@ export interface InsertOfferInput {
   amountMinor: number;
   currency: Currency;
   expiresAt: Date;
-  source: 'seed' | 'demo' | 'duffel' | 'shopify';
+  source: 'demo' | 'duffel' | 'shopify';
   providerOfferId?: string;
   status?: OfferStatus;
 }

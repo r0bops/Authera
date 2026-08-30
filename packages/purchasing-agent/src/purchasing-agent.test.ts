@@ -114,14 +114,14 @@ describe('scripted purchasing agent', () => {
       {
         ...offer(ID.offer145, ID.checkout145, 14_500, '2026-09-03T10:00:00.000Z'),
         merchantId: '00000000-0000-4000-8000-000000000011',
-        merchantName: 'AeroSur',
+        merchantName: 'Alpha Market',
         market: 'AR',
       },
       offer(ID.offer300, ID.checkout300, 30_000, '2026-09-04T10:00:00.000Z'),
       {
         ...offer(ID.offer130, ID.checkout130, 13_000, '2026-09-05T10:00:00.000Z'),
         merchantId: '00000000-0000-4000-8000-000000000012',
-        merchantName: 'AndesGo Travel',
+        merchantName: 'Beta Market',
         market: 'CO',
       },
     ];
@@ -135,8 +135,8 @@ describe('scripted purchasing agent', () => {
       marketsSearched: ['CO', 'AR', 'VE'],
     });
     expect(execution.result.selectionReason).toContain('3 offers across 3 markets');
-    expect(execution.result.selectionReason).toContain('AndesGo Travel (CO) at USD 130.00');
-    expect(execution.result.selectionReason).toContain('AeroSur (AR)');
+    expect(execution.result.selectionReason).toContain('Beta Market (CO) at USD 130.00');
+    expect(execution.result.selectionReason).toContain('Alpha Market (AR)');
     expect(execution.trace.map((e) => e.event)).toContain('OFFER_SELECTED');
     // The justification never reaches the gateway: identifiers only.
     expect(gateway.purchases).toEqual([
@@ -150,7 +150,7 @@ describe('scripted purchasing agent', () => {
     const execution = await runScriptedPurchasingAgent(task, gateway);
 
     expect(execution.result.outcome).toBe('NO_MATCH');
-    expect(execution.result.selectionReason).toContain('VuelaYa (VE) at USD 300.00');
+    expect(execution.result.selectionReason).toContain('Test Market (VE) at USD 300.00');
     expect(execution.result.selectionReason).toContain('above the USD 150.00 limit');
   });
 
@@ -202,7 +202,7 @@ describe('OpenAI purchasing agent', () => {
             mandateId: ID.mandate,
             offerId: ID.offer130,
             checkoutId: ID.checkout130,
-            reason: 'VuelaYa (VE) at USD 130.00 is the lowest total within the limit.',
+            reason: 'Test Market (VE) at USD 130.00 is the lowest total within the limit.',
           },
           { callId: 'purchase-1' },
         ),
@@ -224,7 +224,7 @@ describe('OpenAI purchasing agent', () => {
       outcome: 'PURCHASE_REQUESTED',
       selectedOfferId: ID.offer130,
       marketsSearched: ['VE'],
-      selectionReason: 'VuelaYa (VE) at USD 130.00 is the lowest total within the limit.',
+      selectionReason: 'Test Market (VE) at USD 130.00 is the lowest total within the limit.',
     });
     expect(model.calls).toHaveLength(2);
     model.assertComplete();
@@ -521,7 +521,7 @@ function offer(
     checkoutId,
     kind: 'flight',
     merchantId: '00000000-0000-4000-8000-000000000010',
-    merchantName: 'VuelaYa',
+    merchantName: 'Test Market',
     market: 'VE',
     origin: 'CCS',
     destination: 'COR',
@@ -529,7 +529,7 @@ function offer(
     quantity: 1,
     totalMinor,
     currency: 'USD',
-    displaySummary: `VuelaYa ${totalMinor}`,
+    displaySummary: `Test Market ${totalMinor}`,
   };
 }
 
@@ -538,9 +538,9 @@ function flightOfferView(offerId: string, totalMinor: number) {
     id: offerId,
     kind: 'flight',
     merchantId: '00000000-0000-4000-8000-000000000010',
-    merchantName: 'VuelaYa',
+    merchantName: 'Test Market',
     market: 'VE',
-    airline: 'VuelaYa',
+    airline: 'Test Air',
     flightNumber: 'VY130',
     origin: 'CCS',
     destination: 'COR',
@@ -553,7 +553,7 @@ function flightOfferView(offerId: string, totalMinor: number) {
     expiresAt: '2026-09-04T10:00:00.000Z',
     source: 'demo',
     createdAt: '2026-08-29T10:00:00.000Z',
-    summary: `VuelaYa ${totalMinor}`,
+    summary: `Test Market ${totalMinor}`,
   };
 }
 

@@ -118,7 +118,7 @@ export async function injectOffer(
     cabin: 'economy',
     currency: 'USD',
     passengerCount: 1,
-    airline: 'VuelaYa',
+    airline: 'Injected Air',
     expiresInMinutes: 1440,
     departureAt: departure.toISOString(),
     ...overrides,

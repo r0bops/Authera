@@ -20,7 +20,6 @@ import {
   reviseMandate,
   revokeMandate,
   SEED_IDS,
-  SEED_OFFERS,
   seedDemo,
   settleExecution,
   verifyAuditChain,
@@ -78,7 +77,7 @@ describe('PostgreSQL state and concurrency', () => {
   it('migrates on a clean database and seeds idempotently', async () => {
     await seedDemo(pg.db, pg.seed);
     const offers = await pg.db.query.offers.findMany();
-    expect(offers).toHaveLength(SEED_OFFERS.length);
+    expect(offers).toHaveLength(0); // the catalog is never seeded
     const users = await pg.db.query.users.findMany();
     expect(users.map((u) => u.id)).toEqual([SEED_IDS.marta]);
   });
@@ -431,7 +430,7 @@ describe('PostgreSQL state and concurrency', () => {
     await resetDemo(pg.db, pg.seed);
     expect(await pg.db.query.mandates.findMany()).toHaveLength(0);
     expect(await pg.db.query.auditEvents.findMany()).toHaveLength(0);
-    expect(await pg.db.query.offers.findMany()).toHaveLength(SEED_OFFERS.length);
+    expect(await pg.db.query.offers.findMany()).toHaveLength(0);
     // The catalog is never seeded; a judge-injected offer is the only non-live source.
     const offer = await insertOffer(pg.db, {
       id: randomUUID(),

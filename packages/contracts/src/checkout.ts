@@ -36,8 +36,8 @@ export const OfferSchema = z.strictObject({
   total: MoneySchema,
   status: OfferStatusSchema,
   expiresAt: z.iso.datetime(),
-  /** `duffel` / `shopify` offers are discovered live and stored server-side before any checkout. */
-  source: z.enum(['seed', 'demo', 'duffel', 'shopify']),
+  /** demo = judge-injected (badged); duffel / shopify = discovered live. */
+  source: z.enum(['demo', 'duffel', 'shopify']),
   /** Provider-scoped id for live offers (revalidated before checkout). */
   providerOfferId: z.string().min(1).optional(),
   createdAt: z.iso.datetime(),

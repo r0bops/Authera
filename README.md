@@ -47,7 +47,7 @@ docker compose up -d postgres        # POSTGRES_PORT=5434 if 5432 is taken
 pnpm dev                             # API on :3000, Vite on :5173 (proxies to the API)
 ```
 
-The API runs migrations and seeds the demo scenario (Marta, VuelaYa, Aria, Visa •••• 4242, a flight catalog with nothing under USD 150) on start when `DEMO_MODE=true`.
+The API runs migrations and seeds only the people and connections (Marta, Aria, Visa •••• 4242, the live merchants Duffel Marketplace and Allbirds); the catalog is never seeded — offers come from live searches or labelled judge injections. Seeding runs on start when `DEMO_MODE=true`.
 
 ## Local interfaces
 

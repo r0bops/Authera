@@ -1,5 +1,3 @@
-import type { Cabin, Currency } from '@authera/contracts';
-
 /**
  * Deterministic demo seed (spec §3 P0): Marta, her purchasing agent, one tokenized payment
  * method, and the live flight merchant. No invented catalog: every offer on the dashboard comes
@@ -53,22 +51,5 @@ export const SEED_PAYMENT_METHOD = {
   displayLast4: '4242',
 };
 
-export interface SeedOffer {
-  id: string;
-  merchantId: string;
-  airline: string;
-  flightNumber: string;
-  origin: string;
-  destination: string;
-  cabin: Cabin;
-  departureAt: string;
-  arrivalAt: string;
-  passengerCount: number;
-  amountMinor: number;
-  currency: Currency;
-}
 
-/** Intentionally empty: the catalog is discovered live, never seeded. */
-export const SEED_OFFERS: SeedOffer[] = [];
 
-export const SEED_OFFER_EXPIRY = '2026-12-31T23:59:59.000Z';
