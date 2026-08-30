@@ -94,6 +94,8 @@ docs/               architecture, threat model, demo runbook
 
 ## Scripts
 
+- `node scripts/populate-flights.mjs [--dry-run] [--only CCS-COR,BOG-MDE] [--per-route 6]` — fill the market with realistic, labelled fares for a rehearsal: region-class estimates (domestic → regional → transatlantic → Asia, real carrier names, stops, durations, seeded), replaced by **real cached fares** from Travelpayouts on routes it covers when `TRAVELPAYOUTS_TOKEN` is set; `DEAL=CCS-COR:130` adds a price drop; `API_BASE` targets any environment. Everything goes through the demo API, so the watcher and the agent react as they would to a judge injection.
+
 `pnpm dev` · `pnpm build` · `pnpm start` · `pnpm typecheck` · `pnpm lint` · `pnpm test` (unit + integration; integration needs Docker) · `pnpm test:unit` · `pnpm test:integration` · `pnpm test:e2e` · `pnpm db:migrate` · `pnpm db:seed` · `pnpm demo:reset` · `pnpm verify` (format → lint → typecheck → unit → build).
 
 ## Configuration
