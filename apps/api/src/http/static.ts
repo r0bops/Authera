@@ -10,6 +10,8 @@ const BACKEND_NAMESPACES = ['/api', '/health', '/ucp', '/.well-known', '/webhook
  * - Backend namespaces answer JSON 404s when no route matched.
  * - Files under the dist directory are served as-is.
  * - Every other GET falls back to index.html so client-side routes deep-link.
+ * - /assets/* is immutable (hashed filenames) and 404s when missing; index.html is never cached, so
+ *   a redeploy is picked up on the next navigation instead of breaking chunk loads.
  */
 export function mountSpa(app: Hono<AppEnv>, webDistDir: string): void {
   for (const prefix of BACKEND_NAMESPACES) {
@@ -18,6 +20,32 @@ export function mountSpa(app: Hono<AppEnv>, webDistDir: string): void {
     );
     app.all(prefix, (c) => fail(c, 404, 'NOT_FOUND', `No route for ${c.req.method} ${c.req.path}`));
   }
-  app.get('*', serveStatic({ root: webDistDir }));
-  app.get('*', serveStatic({ root: webDistDir, path: 'index.html' }));
+  // Hashed build assets: cache forever, and a missing one is a 404 — never index.html, which a
+  // browser holding an older index would otherwise try to run as a JavaScript module.
+  app.get(
+    '/assets/*',
+    serveStatic({
+      root: webDistDir,
+      onFound: (_path, c) => c.header('Cache-Control', 'public, max-age=31536000, immutable'),
+    }),
+  );
+  app.get('/assets/*', (c) => fail(c, 404, 'NOT_FOUND', `No asset at ${c.req.path}`));
+  app.get(
+    '*',
+    serveStatic({
+      root: webDistDir,
+      // `/` resolves to index.html here, before the fallback below: keep it uncached too.
+      onFound: (path, c) => {
+        if (path.endsWith('index.html')) c.header('Cache-Control', 'no-cache');
+      },
+    }),
+  );
+  app.get(
+    '*',
+    serveStatic({
+      root: webDistDir,
+      path: 'index.html',
+      onFound: (_path, c) => c.header('Cache-Control', 'no-cache'),
+    }),
+  );
 }

@@ -1,6 +1,41 @@
 import { createBrowserRouter, redirect } from 'react-router';
 import { AppShell } from './shell/AppShell.js';
 
+const RELOAD_KEY = 'authera:chunk-reload';
+
+/**
+ * A page chunk can fail to load when the browser holds an index.html from a previous deploy.
+ * Reload once so the fresh index is fetched; if it still fails, surface the error normally.
+ */
+function withReload<T extends object>(load: () => Promise<T>): () => Promise<T> {
+  return async () => {
+    try {
+      const result = await load();
+      try {
+        sessionStorage.removeItem(RELOAD_KEY);
+      } catch {
+        // storage unavailable: nothing to clear
+      }
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const chunkFailure = /dynamically imported module|Loading chunk|import\(\)/i.test(message);
+      let alreadyReloaded = true;
+      try {
+        alreadyReloaded = sessionStorage.getItem(RELOAD_KEY) === '1';
+        if (!alreadyReloaded) sessionStorage.setItem(RELOAD_KEY, '1');
+      } catch {
+        // storage unavailable: do not loop on reloads
+      }
+      if (chunkFailure && !alreadyReloaded) {
+        window.location.reload();
+        await new Promise<never>(() => {});
+      }
+      throw error;
+    }
+  };
+}
+
 function preserveQueryRedirect(target: string) {
   return ({ request }: { request: Request }) => {
     const current = new URL(request.url);
@@ -11,7 +46,7 @@ function preserveQueryRedirect(target: string) {
 const dashboardChildren = [
   {
     index: true,
-    lazy: async () => ({ Component: (await import('../routes/ChatPage.js')).ChatPage }),
+    lazy: withReload(async () => ({ Component: (await import('../routes/ChatPage.js')).ChatPage })),
   },
   // Plans are created, inspected and stopped in the chat: the wizard, list and detail pages are gone.
   { path: 'mandates', loader: preserveQueryRedirect('/chats') },
@@ -19,47 +54,61 @@ const dashboardChildren = [
   { path: 'mandates/:id', loader: preserveQueryRedirect('/chats') },
   {
     path: 'activity',
-    lazy: async () => ({ Component: (await import('../routes/ActivityPage.js')).ActivityPage }),
+    lazy: withReload(async () => ({
+      Component: (await import('../routes/ActivityPage.js')).ActivityPage,
+    })),
   },
   {
     path: 'chats',
-    lazy: async () => ({ Component: (await import('../routes/ChatsPage.js')).ChatsPage }),
+    lazy: withReload(async () => ({
+      Component: (await import('../routes/ChatsPage.js')).ChatsPage,
+    })),
   },
   {
     path: 'chats/:chatId',
-    lazy: async () => ({ Component: (await import('../routes/ChatPage.js')).ChatPage }),
+    lazy: withReload(async () => ({ Component: (await import('../routes/ChatPage.js')).ChatPage })),
   },
   {
     path: 'purchases',
-    lazy: async () => ({ Component: (await import('../routes/PurchasesPage.js')).PurchasesPage }),
+    lazy: withReload(async () => ({
+      Component: (await import('../routes/PurchasesPage.js')).PurchasesPage,
+    })),
   },
   {
     path: 'purchases/:id',
-    lazy: async () => ({
+    lazy: withReload(async () => ({
       Component: (await import('../routes/PurchaseDetailPage.js')).PurchaseDetailPage,
-    }),
+    })),
   },
   {
     path: 'settings',
-    lazy: async () => ({ Component: (await import('../routes/SettingsPage.js')).SettingsPage }),
+    lazy: withReload(async () => ({
+      Component: (await import('../routes/SettingsPage.js')).SettingsPage,
+    })),
   },
   {
     path: 'approvals/:id',
-    lazy: async () => ({ Component: (await import('../routes/ApprovalPage.js')).ApprovalPage }),
+    lazy: withReload(async () => ({
+      Component: (await import('../routes/ApprovalPage.js')).ApprovalPage,
+    })),
   },
   {
     path: 'disputes',
-    lazy: async () => ({
+    lazy: withReload(async () => ({
       Component: (await import('../routes/DisputePages.js')).DisputesListPage,
-    }),
+    })),
   },
   {
     path: 'disputes/new',
-    lazy: async () => ({ Component: (await import('../routes/DisputePages.js')).NewDisputePage }),
+    lazy: withReload(async () => ({
+      Component: (await import('../routes/DisputePages.js')).NewDisputePage,
+    })),
   },
   {
     path: 'disputes/:id',
-    lazy: async () => ({ Component: (await import('../routes/DisputePages.js')).DisputePage }),
+    lazy: withReload(async () => ({
+      Component: (await import('../routes/DisputePages.js')).DisputePage,
+    })),
   },
 ];
 
@@ -82,7 +131,9 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        lazy: async () => ({ Component: (await import('../routes/AgentPage.js')).AgentPage }),
+        lazy: withReload(async () => ({
+          Component: (await import('../routes/AgentPage.js')).AgentPage,
+        })),
       },
     ],
   },
@@ -92,7 +143,9 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        lazy: async () => ({ Component: (await import('../routes/MerchantPage.js')).MerchantPage }),
+        lazy: withReload(async () => ({
+          Component: (await import('../routes/MerchantPage.js')).MerchantPage,
+        })),
       },
     ],
   },
@@ -102,7 +155,9 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        lazy: async () => ({ Component: (await import('../routes/AuditorPage.js')).AuditorPage }),
+        lazy: withReload(async () => ({
+          Component: (await import('../routes/AuditorPage.js')).AuditorPage,
+        })),
       },
     ],
   },
@@ -112,9 +167,9 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        lazy: async () => ({
+        lazy: withReload(async () => ({
           Component: (await import('../routes/DemoControlPage.js')).DemoControlPage,
-        }),
+        })),
       },
     ],
   },
@@ -132,7 +187,9 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        lazy: async () => ({ Component: (await import('../routes/NotFoundPage.js')).NotFoundPage }),
+        lazy: withReload(async () => ({
+          Component: (await import('../routes/NotFoundPage.js')).NotFoundPage,
+        })),
       },
     ],
   },
