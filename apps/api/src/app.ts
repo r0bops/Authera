@@ -30,10 +30,6 @@ import { databaseAgentIdentityStore } from './services/agent-identity.js';
 import { AgentRunner } from './services/agent-runner.js';
 import { DuffelFlightMarketProvider } from './services/flight-market/duffel-provider.js';
 import type { FlightMarketProvider } from './services/flight-market/provider.js';
-import {
-  ShopifyStorefrontProvider,
-  type GoodsMarketProvider,
-} from './services/goods-market/shopify-provider.js';
 import { productRoutes } from './routes/gateway/products.js';
 import { PriceWatcher } from './services/price-watch.js';
 import { ApprovalService } from './services/approval-service.js';
@@ -142,24 +138,14 @@ export function createApp(deps: AppDependencies): App {
         })
       : undefined;
     if (duffelMarket) markets.push(duffelMarket);
-    const goodsMarkets: GoodsMarketProvider[] = [];
-    if (deps.config.markets.shopify) {
-      goodsMarkets.push(
-        new ShopifyStorefrontProvider({
-          storeUrl: deps.config.markets.shopify.storeUrl,
-          merchantId: SEED_IDS.allbirds,
-        }),
-      );
-    }
     const checkout = new CheckoutService({
       db,
       clock,
       markets,
-      goodsMarkets,
       logger: deps.logger,
     });
     // "Aria watches prices": discovery only, on a schedule, for every ACTIVE mandate.
-    if (deps.config.markets.priceWatchIntervalMs > 0 && markets.length + goodsMarkets.length > 0) {
+    if (deps.config.markets.priceWatchIntervalMs > 0 && markets.length > 0) {
       priceWatcher = new PriceWatcher({
         checkout,
         listMandates: async () =>

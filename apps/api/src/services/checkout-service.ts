@@ -24,7 +24,6 @@ import type { Clock } from '../clock.js';
 import { ApiProblem } from '../http/problem.js';
 import type { Logger } from '../logger.js';
 import type { FlightMarketProvider } from './flight-market/provider.js';
-import type { GoodsMarketProvider } from './goods-market/shopify-provider.js';
 
 const MARKET_SEARCH_TIMEOUT_MS = 8_000;
 /** An offer the server itself stored this recently does not need a second round trip. */
@@ -72,7 +71,6 @@ export class CheckoutService {
       db: Database;
       clock: Clock;
       markets?: FlightMarketProvider[];
-      goodsMarkets?: GoodsMarketProvider[];
       logger?: Logger;
     },
   ) {}
@@ -136,68 +134,8 @@ export class CheckoutService {
     return { failed, cause };
   }
 
-  /** Query every configured goods market for one search string and store what came back. */
-  private async refreshGoodsMarkets(
-    query: ProductSearchQuery,
-  ): Promise<{ failed: string[]; cause?: unknown }> {
-    const markets = this.deps.goodsMarkets ?? [];
-    const failed: string[] = [];
-    let cause: unknown;
-    if (markets.length === 0) return { failed };
-    const searchQuery = normalizeQuery(query.q);
-    await Promise.all(
-      markets.map(async (market) => {
-        const started = Date.now();
-        try {
-          const found = await market.search(
-            { ...query, q: searchQuery },
-            { signal: AbortSignal.timeout(MARKET_SEARCH_TIMEOUT_MS) },
-          );
-          this.markFresh(
-            market.source,
-            found.map((p) => p.providerOfferId),
-          );
-          await syncProviderOffers(this.deps.db, {
-            source: market.source,
-            merchantId: market.merchantId,
-            scope: { kind: 'goods', searchQuery },
-            offers: found.map((p) => ({
-              id: randomUUID(),
-              providerOfferId: p.providerOfferId,
-              title: p.title,
-              airline: p.vendor,
-              quantity: p.quantity,
-              ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}),
-              amountMinor: p.amountMinor,
-              currency: p.currency,
-              expiresAt: p.expiresAt,
-            })),
-          });
-          this.deps.logger?.info(
-            { market: market.source, offers: found.length, durationMs: Date.now() - started },
-            'goods market searched',
-          );
-        } catch (error) {
-          failed.push(market.source);
-          cause ??= error;
-          this.deps.logger?.warn(
-            { err: error, market: market.source, durationMs: Date.now() - started },
-            'goods market unavailable; continuing with stored offers',
-          );
-        }
-      }),
-    );
-    return { failed, cause };
-  }
-
-  /** Marketplace discovery: live storefront search stored server-side, then read back. */
-  async searchProducts(
-    query: ProductSearchQuery,
-    options: SearchOptions = {},
-  ): Promise<FlightOfferView[]> {
-    const refresh = await this.refreshGoodsMarkets(query);
-    if (options.strict && refresh.failed.length > 0)
-      throw new MarketUnavailableError(refresh.failed, refresh.cause);
+  /** Goods offers already stored (there is no live goods market; goods exist as a category). */
+  async searchProducts(query: ProductSearchQuery): Promise<FlightOfferView[]> {
     const now = this.deps.clock.now();
     const offers = await listOffers(this.deps.db, {
       kind: 'goods',
@@ -243,9 +181,7 @@ export class CheckoutService {
   private async revalidateLiveOffer(offer: Offer): Promise<Offer> {
     if (!offer.providerOfferId) return offer;
     if (this.isFresh(offer)) return offer;
-    const market =
-      (this.deps.markets ?? []).find((m) => m.source === offer.source) ??
-      (this.deps.goodsMarkets ?? []).find((m) => m.source === offer.source);
+    const market = (this.deps.markets ?? []).find((m) => m.source === offer.source);
     if (!market) return offer;
     let result;
     try {

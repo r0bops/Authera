@@ -20,7 +20,7 @@ Marta authorizes her agent, *Aria*, to buy **one economy flight Caracas → Cór
 |---|---|
 | The LLM never authorizes anything | The chat interpreter may draft structured rules and the purchasing agent may search/request, but neither can activate a mandate or produce `ALLOW`; `evaluatePolicy` is a pure function and PostgreSQL holds live state |
 | The agent really watches | A background price watcher re-runs discovery for every active mandate every `PRICE_WATCH_INTERVAL_MS` — the moment a plan is created for a new route, and one market search per distinct intent no matter how many plans share it — so the catalog and the price chart follow the live market. Discovery only: no checkout, no gateway call — buying stays an explicit agent run |
-| More than flights | A mandate's `intent` is a discriminated union: `flight` (route, cabin, dates, passengers) or `goods` (“what to buy”, max quantity). Goods are discovered on a real public Shopify storefront (`SHOPIFY_STOREFRONT_URL`, Allbirds in the demo) and the gateway checks `INTENT_KIND`, `INTENT_QUERY` (the offer must have been found under the mandate's exact query) and `INTENT_QUANTITY` before the money limits. Transport is a roadmap intent: no keyless, real, bookable source exists yet |
+| Category is a rule, not a hint | A mandate's `intent` is a discriminated union: `flight` (route, cabin, dates, passengers) or `goods` (“what to buy”, max quantity). The gateway checks `INTENT_KIND` before any money rule, so a purchase in the wrong category — or on the wrong trip — is blocked as `INTENT_MISMATCH` (the brief's *forbidden category* case). Only flights have a live market today; the former Shopify goods market was removed as unused |
 | Live market, same guarantees | With a `duffel_test_…` token, discovery queries Duffel, stores offers server-side, and re-prices the winner before checkout. After Stripe authorization, Authera creates an instant Duffel test-balance order using a server-side traveler profile; only a confirmed `ord_…` result permits capture. Changed offers fail closed and ambiguous order responses stay pending for reconciliation |
 | Closed Checkout Mandate | Every purchase attempt carries an agent-signed JWS (`authera.closed-checkout.v1`, EdDSA, same key as the HTTP signature) over exactly the transaction — mandate, offer, checkout, canonical cart hash, total, 5-minute expiry. The gateway verifies it against the pinned key and the server's own records before policy; missing, tampered or mismatched → `CLOSED_CHECKOUT_INVALID`. It is stored with the verdict, shown in the evidence bundle, and emitted as `agent_closed_checkout_jws` in the AP2-aligned envelope |
 | The agent chooses, the gateway decides | `search_flights` fans out over every merchant/market (each offer carries `merchantName` + `market`); the agent ranks them and records a plain-language `selectionReason`; the gateway re-checks the chosen merchant against the mandate's `allowedMerchantIds` and blocks with `MERCHANT_NOT_ALLOWED` |
@@ -49,7 +49,7 @@ docker compose up -d postgres        # POSTGRES_PORT=5434 if 5432 is taken
 pnpm dev                             # API on :3000, Vite on :5173 (proxies to the API)
 ```
 
-The API runs migrations and seeds only the people and connections (Marta, Aria, Visa •••• 4242, the live merchants Duffel Marketplace and Allbirds); the catalog is never seeded — offers come from live searches or labelled judge injections. Seeding runs on start when `DEMO_MODE=true`.
+The API runs migrations and seeds only the people and connections (Marta, Aria, Visa •••• 4242, the live merchant Duffel Marketplace); the catalog is never seeded — offers come from live searches or labelled judge injections. Seeding runs on start when `DEMO_MODE=true`.
 
 ## Local interfaces
 
@@ -97,7 +97,7 @@ docs/               architecture, threat model, demo runbook
 
 ## Configuration
 
-See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `SHOPIFY_STOREFRONT_URL` (optional; a public Shopify storefront as the live goods market), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
+See [`.env.example`](./.env.example). Highlights: `PAYMENT_MODE=mock|stripe` (`STRIPE_SECRET_KEY=sk_test_…` required for `stripe`), `DUFFEL_ACCESS_TOKEN` (optional; enables the live Duffel flight market, fails open when absent or unreachable), `OPENAI_MODE=scripted|openai` (`OPENAI_API_KEY` required only for `openai`), `DEMO_MODE` (on locally, off in production), `DEMO_RESET_SECRET` (also derives demo signing keys when explicit `*_PRIVATE_JWK` values are absent), `DEMO_CLOCK_ENABLED`. Startup validation fails fast and never echoes secret values.
 
 For local Stripe webhook forwarding, run this as one line and copy the CLI's `whsec_…` value into `STRIPE_WEBHOOK_SECRET`:
 

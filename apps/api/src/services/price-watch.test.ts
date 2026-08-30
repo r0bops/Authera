@@ -32,7 +32,6 @@ function mandate(overrides: Partial<WatchedMandate> = {}): WatchedMandate {
 function watcher(mandates: WatchedMandate[], nowMs: { value: number }, refreshMs = 300_000) {
   const checkout = {
     searchFlights: vi.fn(async () => [{ id: 'a' }, { id: 'b' }]),
-    searchProducts: vi.fn(async () => [{ id: 'p' }]),
   };
   const w = new PriceWatcher({
     checkout: checkout as never,
@@ -56,7 +55,8 @@ describe('PriceWatcher', () => {
     });
     const { w, checkout } = watcher([mandate(), goods], now);
 
-    await expect(w.tick()).resolves.toEqual({ searched: 2, skipped: 0, failed: 0 });
+    // the goods plan has no live market: it is left alone, never searched
+    await expect(w.tick()).resolves.toEqual({ searched: 1, skipped: 0, failed: 0 });
     expect(checkout.searchFlights).toHaveBeenCalledWith(
       {
         origin: 'CCS',
@@ -67,7 +67,6 @@ describe('PriceWatcher', () => {
       },
       { strict: true },
     );
-    expect(checkout.searchProducts).toHaveBeenCalledWith({ q: 'wool runner' }, { strict: true });
   });
 
   it('skips mandates searched within the refresh window and re-searches after it', async () => {

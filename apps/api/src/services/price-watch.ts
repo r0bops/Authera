@@ -11,7 +11,7 @@ export interface WatchedMandate {
 }
 
 export interface PriceWatchDependencies {
-  checkout: Pick<CheckoutService, 'searchFlights' | 'searchProducts'>;
+  checkout: Pick<CheckoutService, 'searchFlights'>;
   listMandates: () => Promise<WatchedMandate[]>;
   clock: Clock;
   logger: Logger;
@@ -90,6 +90,7 @@ export class PriceWatcher {
       >();
       for (const mandate of mandates) {
         if (mandate.status !== 'ACTIVE' || Date.parse(mandate.policy.validUntil) <= now) continue;
+        if (mandate.policy.intent.type !== 'flight') continue; // no live market for other kinds
         const key = intentKey(mandate.policy.intent);
         const group = groups.get(key);
         if (group) group.ids.push(mandate.id);
@@ -149,10 +150,7 @@ export class PriceWatcher {
   }
 
   private async search(intent: MandatePolicyV1['intent']): Promise<number> {
-    if (intent.type === 'goods') {
-      const offers = await this.deps.checkout.searchProducts({ q: intent.query }, { strict: true });
-      return offers.length;
-    }
+    if (intent.type !== 'flight') return 0;
     const dates = effectiveFlightDateWindow(intent);
     const offers = await this.deps.checkout.searchFlights(
       {
