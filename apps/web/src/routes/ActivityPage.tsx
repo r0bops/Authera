@@ -1,11 +1,23 @@
 import type { AuditEvent, ExecutionSummary, MandateView } from '@authera/contracts';
-import { Bot, CheckCircle2, Clock3, Radar, ShieldCheck } from 'lucide-react';
+import { Ban, Bot, CheckCircle2, Clock3, Radar, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { useAuditEvents, useExecutions, useMandates, useMe } from '../api/hooks.js';
+import {
+  useAuditEvents,
+  useExecutions,
+  useMandates,
+  useMe,
+  useRevokeMandate,
+} from '../api/hooks.js';
 import { MandateStatusBadge, Timeline } from '../components/status.js';
-import { EmptyState, ErrorState, Skeleton, buttonStyles } from '../components/ui/primitives.js';
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  buttonStyles,
+} from '../components/ui/primitives.js';
 import { cn } from '../lib/cn.js';
 import { formatDate, formatMoney, friendlyAgentName } from '../lib/format.js';
 import { intentLabel } from '../lib/intent.js';
@@ -61,6 +73,64 @@ export function ActivityPage() {
     (plan) => plan.status === 'ACTIVE' && plan.usage.remainingCount === 0,
   );
   const stopped = plans.filter((plan) => plan.status !== 'ACTIVE');
+
+  const updatesPanel = selected ? (
+    <section className="mt-2" aria-labelledby="plan-updates-title" aria-live="polite">
+      <div className="mb-2 px-0.5">
+        <h2 id="plan-updates-title" className="text-[13.5px] font-semibold text-ink">
+          What {agentName} is doing for {intentLabel(selected.policy.intent)}
+        </h2>
+        <p className="text-[11.5px] text-ink-muted">
+          Only decisions that affect this plan, newest first.
+        </p>
+      </div>
+      <div className="rounded-xl border border-line bg-surface p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${brief.iconClass}`}
+          >
+            <BriefIcon className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[15px] font-semibold text-ink">{brief.title}</p>
+              {brief.live ? (
+                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-emerald">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald" aria-hidden /> Live
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 text-[13px] leading-5 text-ink-muted">{brief.description}</p>
+            {brief.detail ? (
+              <p className="mt-3 rounded-lg bg-surface-muted px-3 py-2 text-[12.5px] text-ink">
+                {brief.detail}
+              </p>
+            ) : null}
+            {brief.action ? (
+              <Link
+                to={brief.action.to}
+                className={buttonStyles({ size: 'sm', className: 'mt-3' })}
+              >
+                {brief.action.label}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-4 border-t border-line pt-1">
+          {events.isPending ? <Skeleton className="my-4 h-32" /> : null}
+          {!events.isPending && importantEvents.length === 0 ? (
+            <p className="py-4 text-[13px] text-ink-muted">
+              Nothing has happened for this plan yet. Searches run in the background; decisions
+              appear here the moment {agentName} requests a purchase.
+            </p>
+          ) : null}
+          {!events.isPending && importantEvents.length > 0 ? (
+            <Timeline events={importantEvents} limit={20} showLinks={false} plainLanguage />
+          ) : null}
+        </div>
+      </div>
+    </section>
+  ) : null;
 
   return (
     <section className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden bg-surface sm:rounded-lg sm:border sm:border-line sm:shadow-sm">
@@ -124,6 +194,7 @@ export function ActivityPage() {
                     selected={plan.id === selected?.id}
                     latestExecution={newestExecutionForPlan(executions.data, plan)}
                     onSelect={() => setChosenId(plan.id)}
+                    panel={plan.id === selected?.id ? updatesPanel : null}
                   />
                 ))}
               </PlanGroup>
@@ -137,6 +208,7 @@ export function ActivityPage() {
                     selected={plan.id === selected?.id}
                     latestExecution={newestExecutionForPlan(executions.data, plan)}
                     onSelect={() => setChosenId(plan.id)}
+                    panel={plan.id === selected?.id ? updatesPanel : null}
                   />
                 ))}
               </PlanGroup>
@@ -150,75 +222,10 @@ export function ActivityPage() {
                     selected={plan.id === selected?.id}
                     latestExecution={newestExecutionForPlan(executions.data, plan)}
                     onSelect={() => setChosenId(plan.id)}
+                    panel={plan.id === selected?.id ? updatesPanel : null}
                   />
                 ))}
               </PlanGroup>
-            ) : null}
-
-            {selected ? (
-              <section className="mt-1" aria-labelledby="plan-updates-title" aria-live="polite">
-                <div className="mb-2 px-0.5">
-                  <h2 id="plan-updates-title" className="text-[13.5px] font-semibold text-ink">
-                    What {agentName} is doing for {intentLabel(selected.policy.intent)}
-                  </h2>
-                  <p className="text-[11.5px] text-ink-muted">
-                    Only decisions that affect this plan, newest first.
-                  </p>
-                </div>
-                <div className="rounded-xl border border-line bg-surface p-4 sm:p-5">
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${brief.iconClass}`}
-                    >
-                      <BriefIcon className="h-5 w-5" aria-hidden />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-[15px] font-semibold text-ink">{brief.title}</p>
-                        {brief.live ? (
-                          <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-emerald">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald" aria-hidden />{' '}
-                            Live
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-1 text-[13px] leading-5 text-ink-muted">
-                        {brief.description}
-                      </p>
-                      {brief.detail ? (
-                        <p className="mt-3 rounded-lg bg-surface-muted px-3 py-2 text-[12.5px] text-ink">
-                          {brief.detail}
-                        </p>
-                      ) : null}
-                      {brief.action ? (
-                        <Link
-                          to={brief.action.to}
-                          className={buttonStyles({ size: 'sm', className: 'mt-3' })}
-                        >
-                          {brief.action.label}
-                        </Link>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="mt-4 border-t border-line pt-1">
-                    {events.isPending ? <Skeleton className="my-4 h-32" /> : null}
-                    {!events.isPending && importantEvents.length === 0 ? (
-                      <p className="py-4 text-[13px] text-ink-muted">
-                        Nothing has happened for this plan yet. Searches run in the background;
-                        decisions appear here the moment {agentName} requests a purchase.
-                      </p>
-                    ) : null}
-                    {!events.isPending && importantEvents.length > 0 ? (
-                      <Timeline
-                        events={importantEvents}
-                        limit={20}
-                        showLinks={false}
-                        plainLanguage
-                      />
-                    ) : null}
-                  </div>
-                </div>
-              </section>
             ) : null}
           </>
         ) : null}
@@ -262,13 +269,20 @@ function PlanCard({
   selected,
   latestExecution,
   onSelect,
+  panel,
 }: {
   plan: MandateView;
   selected: boolean;
   latestExecution: ExecutionSummary | undefined;
   onSelect: () => void;
+  /** Rendered directly under this card when it is the selected plan. */
+  panel?: ReactNode;
 }) {
   const live = plan.status === 'ACTIVE' && plan.usage.remainingCount > 0;
+  // Any signed plan (live or completed) stays open until the holder revokes it. Revoking flips it
+  // to REVOKED so the gateway rejects every later attempt under it.
+  const revocable = plan.status === 'ACTIVE';
+  const revoke = useRevokeMandate(plan.id);
   const limit = formatMoney({
     currency: plan.policy.limits.currency,
     minor: plan.policy.limits.maxPerPurchaseMinor,
@@ -334,6 +348,39 @@ function PlanCard({
           </div>
         </div>
       </button>
+      {revocable ? (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
+          <p className="text-[12px] text-ink-muted">
+            {live
+              ? 'Stop this plan now. Merchants will reject any purchase attempt under it.'
+              : 'Still signed. Close it so merchants reject any further attempt under this plan.'}
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={revoke.isPending}
+            onClick={() =>
+              void revoke
+                .mutateAsync({
+                  reason: live
+                    ? 'Revoked by the holder while live'
+                    : 'Closed by the holder after completion',
+                })
+                .catch(() => undefined)
+            }
+          >
+            <Ban className="h-4 w-4" aria-hidden /> {live ? 'Revoke plan' : 'Close plan'}
+          </Button>
+          {revoke.isError ? (
+            <p role="alert" className="w-full text-[12px] text-coral">
+              {revoke.error instanceof Error
+                ? revoke.error.message
+                : 'The plan could not be closed.'}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {panel}
     </div>
   );
 }
