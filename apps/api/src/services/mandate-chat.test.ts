@@ -94,6 +94,36 @@ describe('stopover and duration grounding', () => {
   });
 });
 
+describe('travel intent grounding', () => {
+  it('treats "travel to" and a named place as a flight plan, and a country as no airport yet', () => {
+    const now = new Date('2026-08-30T10:00:00.000Z');
+    const r1 = scriptedMandateChat(
+      {
+        messages: [
+          {
+            role: 'user',
+            content: 'Hi I want to travel to Africa, which country do you recommend?',
+          },
+        ],
+        draft: null,
+      },
+      now,
+    );
+    expect(r1.draft.category).toBe('flight');
+    const r2 = scriptedMandateChat(
+      { messages: [{ role: 'user', content: 'Yes, from Bogota to Morocco' }], draft: r1.draft },
+      now,
+    );
+    expect(r2.draft.origin).toBe('BOG');
+    expect(r2.draft.destination).toBeNull();
+    const r3 = scriptedMandateChat(
+      { messages: [{ role: 'user', content: 'Casablanca then' }], draft: r2.draft },
+      now,
+    );
+    expect(r3.draft.destination).toBe('CMN');
+  });
+});
+
 describe('scripted mandate chat fallback', () => {
   it('grounds accented city names (JS word boundaries are ASCII-only)', () => {
     const result = scriptedMandateChat(

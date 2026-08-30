@@ -136,7 +136,8 @@ describe('OpenAI mandate chat', () => {
       'Absolutely. Do you want somewhere calm by the beach, or a warmer city?',
     );
     expect(result.complete).toBe(false);
-    expect(result.missingFields[0]).toBe('category');
+    // Aria only arranges flights: a "trip" is a flight plan, so the next thing missing is the origin.
+    expect(result.missingFields[0]).toBe('origin');
   });
 
   it('sends signed-plan questions to the model with immutable-plan context', async () => {

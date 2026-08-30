@@ -78,6 +78,19 @@ const CITY_CODES: ReadonlyArray<[RegExp, string]> = [
   [city('santiago'), 'SCL'],
   [city('lima'), 'LIM'],
   [city('mexico city|ciudad de m[eé]xico'), 'MEX'],
+  [city('casablanca'), 'CMN'],
+  [city('marrakech|marrakesh'), 'RAK'],
+  [city('cairo|el cairo'), 'CAI'],
+  [city('nairobi'), 'NBO'],
+  [city('johannesburg|johannesburgo'), 'JNB'],
+  [city('cape town|ciudad del cabo'), 'CPT'],
+  [city('lagos'), 'LOS'],
+  [city('addis ababa'), 'ADD'],
+  [city('lisbon|lisboa'), 'LIS'],
+  [city('paris|par[ií]s'), 'CDG'],
+  [city('london|londres'), 'LHR'],
+  [city('new york|nueva york'), 'JFK'],
+  [city('tokyo|tokio'), 'NRT'],
   [city('panama city|ciudad de panam[aá]'), 'PTY'],
   [city('quito'), 'UIO'],
   [city('montevideo'), 'MVD'],
@@ -226,6 +239,8 @@ export function buildInstructions(context: MandateChatContext): string {
     '# Hard rules',
     '1. Flights only. If they ask for something that is not a flight, keep `category` null and say so kindly (see Tone). Do not bring this up otherwise.',
     '2b. `market` (when present) is the live catalog for this route right now, computed by the system. You MAY cite it — count, cheapest fare with airline/date/stops, how many fit the limit — always as "right now", with the numbers verbatim, and you may suggest a limit from it. Never mention any other fare, and never imply anything was bought. If the person asks about prices and `market` is null, say you have nothing on that route yet and that you keep looking.',
+    '2c. If they name a country or region instead of a city ("Morocco", "Africa"), do not loop: say the two or three main airports you could use (e.g. Casablanca, Marrakech) and ask which city — that is the next question. Once they answer, move on.',
+    '2d. Never repeat a previous reply, and greet only in your very first message of a conversation. If the person already answered something, acknowledge it in three words and ask the NEXT missing thing.',
     '2. Never invent a route, date, amount, expiry or purchase count. A field the person has not given stays null.',
     '3. Keep every value already in `draft` unless the person explicitly changes it.',
     '4. Ask exactly ONE question per reply, and only about `state.nextField`. Never ask for something already filled.',
@@ -315,7 +330,16 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
   const latest = input.messages.at(-1)?.content ?? '';
   const draft = { ...EMPTY_DRAFT, ...(input.draft ?? {}) };
 
-  if (/\b(flight|fly|flying|airfare|ticket|vuelo|volar|pasaje)\b/i.test(text)) {
+  // Aria only arranges flights: any travel intent, a named place, or a "yes" to her offer is one.
+  if (
+    /\b(flight|fly|flying|airfare|ticket|vuelo|volar|pasaje|travel|trip|go to|going to|visit|viajar|viaje|ir a)\b/i.test(
+      text,
+    ) ||
+    routeCodes(text).origin ||
+    routeCodes(text).destination ||
+    (input.draft?.origin ?? null) !== null ||
+    /^\s*(yes|yeah|yep|sure|ok(ay)?|please|s[ií]|claro|dale|vale)\b/i.test(latest)
+  ) {
     draft.category = 'flight';
   }
 
@@ -453,7 +477,7 @@ function missingFor(draft: MandateChatDraft): MissingField[] {
 
 function questionFor(field: MissingField): string {
   const questions: Record<MissingField, string> = {
-    category: 'Tell me about the trip you have in mind — where would you like to fly?',
+    category: 'Where would you like to fly, and from where?',
     origin: 'Which city are you flying from?',
     destination: 'Where would you like to go?',
     departureDates: 'What departure date or date range should I search?',
@@ -470,8 +494,18 @@ function questionFor(field: MissingField): string {
 function routeCodes(text: string): { origin?: string; destination?: string } {
   const explicit = text.match(/\bfrom\s+([A-Z]{3})\s+to\s+([A-Z]{3})\b/);
   if (explicit?.[1] && explicit[2]) return { origin: explicit[1], destination: explicit[2] };
-  const matches = CITY_CODES.filter(([pattern]) => pattern.test(text)).map(([, code]) => code);
-  if (matches.length >= 2) return { origin: matches[0], destination: matches[1] };
+  const found = CITY_CODES.filter(([pattern]) => pattern.test(text));
+  if (found.length >= 2) return { origin: found[0]![1], destination: found[1]![1] };
+  if (found.length === 1) {
+    // One city: "from Bogotá" is the origin; "to Casablanca", or a bare answer, is the destination.
+    const [pattern, code] = found[0]!;
+    const source = pattern.source
+      .replace(/^\(\?<!\\p\{L\}\)\(\?:/, '')
+      .replace(/\)\(\?!\\p\{L\}\)$/, '');
+    if (new RegExp(`\\b(?:from|desde|de)\\s+(?:${source})`, 'iu').test(text))
+      return { origin: code };
+    return { destination: code };
+  }
   return {};
 }
 
