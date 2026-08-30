@@ -120,6 +120,8 @@ export async function seedDemo(db: DbExecutor, input: SeedInput): Promise<void> 
 }
 
 const ALL_TABLES = [
+  'chat_messages',
+  'chat_sessions',
   'audit_events',
   'audit_chain_heads',
   'disputes',

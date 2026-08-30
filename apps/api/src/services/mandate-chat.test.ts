@@ -87,4 +87,36 @@ describe('scripted mandate chat fallback', () => {
     expect(result.draft.category).toBeNull();
     expect(result.reply).toContain('flights only');
   });
+
+  it.each([
+    ['Tomorrow', '2026-08-30T23:59:59.000Z'],
+    ['The next day', '2026-08-30T23:59:59.000Z'],
+    ['08/30/26', '2026-08-30T23:59:59.000Z'],
+    ['From tomorrow', '2026-08-30T23:59:59.000Z'],
+    ['Today', '2026-08-29T23:59:59.000Z'],
+    ['In the next 3 days', '2026-09-01T23:59:59.000Z'],
+  ])('accepts “%s” as a natural authorization expiry follow-up', (answer, expected) => {
+    const result = scriptedMandateChat(
+      request(answer, {
+        ...emptyDraft,
+        category: 'flight',
+        origin: 'CCS',
+        destination: 'COR',
+        departureDateFrom: '2026-09-10',
+        departureDateTo: '2026-09-12',
+        dateFlexibilityDays: 0,
+        passengerCount: 1,
+        maxPerPurchaseMinor: 15_000,
+        currency: 'USD',
+        maxFulfillments: 1,
+        escalation: 'require_human',
+      }),
+      new Date('2026-08-29T12:00:00.000Z'),
+    );
+
+    expect(result.draft.validUntil).toBe(expected);
+    expect(result.draft.departureDateFrom).toBe('2026-09-10');
+    expect(result.draft.departureDateTo).toBe('2026-09-12');
+    expect(result.missingFields).not.toContain('validUntil');
+  });
 });

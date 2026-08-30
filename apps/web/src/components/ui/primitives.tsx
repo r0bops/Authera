@@ -59,7 +59,7 @@ export function buttonStyles({
     ghost: 'bg-transparent text-cobalt border-transparent hover:bg-cobalt-soft',
   };
   return cn(
-    'inline-flex items-center justify-center gap-1.5 rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt',
+    'inline-flex items-center justify-center gap-1.5 rounded-md border font-medium transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt',
     size === 'sm'
       ? 'min-h-11 px-2.5 text-[12.5px] md:min-h-10'
       : 'min-h-11 px-3.5 text-[13.5px] md:min-h-10',
@@ -93,7 +93,7 @@ export function Button({
     >
       {loading ? (
         <>
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
           <span className="sr-only" aria-live="polite">
             Working…
           </span>
@@ -329,7 +329,10 @@ export function Alert({
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn('animate-pulse rounded-md bg-surface-muted', className)}
+      className={cn(
+        'animate-pulse rounded-md bg-surface-muted motion-reduce:animate-none',
+        className,
+      )}
       role="status"
       aria-live="polite"
     >
@@ -504,7 +507,7 @@ function OpenDialog({
       ref={ref}
       aria-labelledby={titleId}
       className={cn(
-        'm-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-x-hidden overflow-y-auto rounded-md border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/45',
+        'm-auto mb-0 max-h-[88dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-2xl border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/45 sm:mb-auto sm:max-h-[90vh] sm:w-[calc(100%-2rem)] sm:rounded-md',
         wide ? 'max-w-3xl' : 'max-w-xl',
       )}
       onCancel={(event) => {
@@ -523,7 +526,7 @@ function OpenDialog({
         </header>
         <div className="px-5 py-4">{children}</div>
         {footer ? (
-          <footer className="flex justify-end gap-2 border-t border-line px-5 py-3">
+          <footer className="flex flex-col gap-2 border-t border-line px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:py-3">
             {footer}
           </footer>
         ) : null}

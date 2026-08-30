@@ -19,6 +19,7 @@ test.describe.configure({ mode: 'serial' });
 
 let paymentMethodId: string;
 let mandateId: string;
+let chatId: string;
 let purchasedExecutionId: string;
 let blockedExecutionId: string;
 
@@ -42,12 +43,23 @@ test('2 · create the USD 150 Córdoba mandate through the conversation', async 
       'Watch a flight from Caracas to Córdoba next month under $150, valid until the end of the month. Ask me if it is outside the rules.',
     );
   await page.getByRole('button', { name: /send message/i }).click();
-  await expect(page.getByText(/ready to review/i)).toBeVisible();
+  await expect(page.getByText(/your plan is ready/i)).toBeVisible();
   await expect(page.getByText(/USD 150\.00/).first()).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard\/chats\/[0-9a-f-]+$/i);
+  chatId = page.url().split('/').at(-1) ?? '';
+  expect(chatId).toBeTruthy();
+  await page.reload();
+  await expect(page.getByText(/your plan is ready/i)).toBeVisible();
+  await expect(page.getByText(/Watch a flight from Caracas/i)).toBeVisible();
   await page.getByRole('button', { name: /review and authorize/i }).click();
-  await expect(page.getByRole('heading', { name: /authorize this purchase plan/i })).toBeVisible();
-  await page.getByRole('button', { name: /authorize plan/i }).click();
+  await expect(page.getByRole('heading', { name: /review before authorizing/i })).toBeVisible();
+  await page.getByRole('button', { name: /authorize this plan/i }).click();
   await expect(page.getByText(/signed and active/i)).toBeVisible();
+  await page.goto('/dashboard/chats');
+  await page.getByRole('link', { name: /CCS → COR/i }).click();
+  await page.getByLabel(/message aria/i).fill('Have you found a flight yet?');
+  await page.getByRole('button', { name: /send message/i }).click();
+  await expect(page.getByText(/not changed any signed rule or claimed a flight/i)).toBeVisible();
   await expectNoHorizontalScroll(page);
   const mandates = await get<Array<{ id: string; status: string }>>(request, '/api/mandates');
   mandateId = mandates.data?.find((mandate) => mandate.status === 'ACTIVE')?.id ?? '';
@@ -88,6 +100,16 @@ test('4 · the agent buys and every role view agrees', async ({ page, request })
   await expect(page.getByText(/chain verified/)).toBeVisible();
   await expect(page.getByRole('cell', { name: 'PAYMENT_SUCCEEDED', exact: true })).toBeVisible();
   await expectNoHorizontalScroll(page);
+
+  await page.goto('/dashboard/chats');
+  await page.getByRole('link', { name: /CCS → COR/i }).click();
+  await expect(page.getByText(/conversation is complete/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /revoke mandate/i })).toBeVisible();
+  const ended = await post(request, `/api/chats/${chatId}/messages`, {
+    message: 'Can we keep changing this trip?',
+  });
+  expect(ended.status).toBe(409);
+  expect(ended.body.error?.code).toBe('CHAT_ENDED');
 });
 
 test('5 · USD 300 is blocked with zero payment calls', async ({ request }) => {
@@ -227,7 +249,11 @@ test('12 · a checkout modified after approval is blocked', async ({ request }) 
 });
 
 test('13 · a dispute resolves deterministically from evidence', async ({ page, request }) => {
-  await post(request, `/api/mandates/${mandateId}/revoke`, { reason: 'trial by fire' });
+  const revoked = await post<{ state: string; mandateId: string }>(
+    request,
+    `/api/chats/${chatId}/revoke`,
+  );
+  expect(revoked.body.data).toMatchObject({ state: 'REVOKED', mandateId });
   const dispute = await post<{ id: string; resolution: { outcome: string; headline: string } }>(
     request,
     '/api/disputes',
@@ -263,7 +289,7 @@ test('14 · every console screen fits the viewport', async ({ page }) => {
   for (const path of [
     '/dashboard',
     '/dashboard/mandates',
-    '/dashboard/activity',
+    '/dashboard/chats',
     '/dashboard/purchases',
     '/dashboard/settings',
     '/agent',

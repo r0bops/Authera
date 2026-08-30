@@ -1,9 +1,7 @@
 import {
-  Activity,
   Bot,
-  ListChecks,
-  MessageCircle,
-  ReceiptText,
+  MessagesSquare,
+  Plus,
   ShieldCheck,
   SlidersHorizontal,
   Store,
@@ -11,7 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router';
+import { NavLink, Outlet, useLocation } from 'react-router';
 import { useMandates, useMe } from '../../api/hooks.js';
 import { Badge } from '../../components/ui/primitives.js';
 import { cn } from '../../lib/cn.js';
@@ -21,11 +19,9 @@ import { selectDashboardPlans } from '../../lib/mandates.js';
 export type AppPerspective = 'client' | 'agent' | 'merchant' | 'auditor' | 'demo';
 
 const CLIENT_NAV = [
-  { to: '/dashboard/settings', label: 'Profile', icon: UserRound, end: false, primary: false },
-  { to: '/dashboard/mandates', label: 'Plans', icon: ListChecks, end: false, primary: false },
-  { to: '/dashboard', label: 'Chat', icon: MessageCircle, end: true, primary: true },
-  { to: '/dashboard/purchases', label: 'Orders', icon: ReceiptText, end: false, primary: false },
-  { to: '/dashboard/activity', label: 'Activity', icon: Activity, end: false, primary: false },
+  { to: '/dashboard/chats', label: 'Chats', icon: MessagesSquare, end: false, primary: false },
+  { to: '/dashboard', label: 'New', icon: Plus, end: true, primary: true },
+  { to: '/dashboard/settings', label: 'Account', icon: UserRound, end: false, primary: false },
 ];
 
 const PERSPECTIVE_CONFIG = {
@@ -100,6 +96,7 @@ export function AppShell({
   perspective: AppPerspective;
   children?: ReactNode;
 }) {
+  const location = useLocation();
   const me = useMe();
   const mandates = useMandates();
   const { livePlan: active, completedPlan: completed } = selectDashboardPlans(mandates.data);
@@ -122,46 +119,62 @@ export function AppShell({
     .join('')
     .slice(0, 2)
     .toUpperCase();
+  const clientChatSurface =
+    perspective === 'client' &&
+    (location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/chats'));
 
   if (perspective === 'client') {
     return (
-      <div className="min-h-screen bg-ground">
-        <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-          <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-5 md:px-6">
-            <NavLink
-              to="/dashboard"
-              className="flex min-h-11 items-center gap-2 rounded-md font-semibold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
-            >
-              <span className="h-2.5 w-2.5 rounded-sm bg-cobalt" aria-hidden />
-              Authera
-            </NavLink>
-            <div className="flex items-center gap-2">
-              {active ? (
-                <Badge tone="verified">{agentName} is watching</Badge>
-              ) : completed ? (
-                <Badge tone="verified">Plan complete</Badge>
-              ) : (
-                <Badge tone="neutral">Ready</Badge>
-              )}
-              {me.data?.demoMode ? <Badge tone="info">Demo</Badge> : null}
-              {me.isError ? <Badge tone="destructive">API unreachable</Badge> : null}
+      <div
+        className={cn(
+          'bg-ground',
+          clientChatSurface ? 'h-[100dvh] overflow-hidden' : 'min-h-screen',
+        )}
+      >
+        {!clientChatSurface ? (
+          <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
+            <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-5 md:px-6">
               <NavLink
-                to="/dashboard/settings"
-                aria-label={`Open ${humanName}'s profile`}
-                className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
+                to="/dashboard"
+                className="flex min-h-11 items-center gap-2 rounded-md font-semibold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cobalt-soft text-[11.5px] font-semibold text-cobalt">
-                  {initials || '··'}
-                </span>
+                <span className="h-2.5 w-2.5 rounded-sm bg-cobalt" aria-hidden />
+                Authera
               </NavLink>
+              <div className="flex items-center gap-2">
+                {active ? (
+                  <Badge tone="verified">{agentName} is watching</Badge>
+                ) : completed ? (
+                  <Badge tone="verified">Plan complete</Badge>
+                ) : (
+                  <Badge tone="neutral">Ready</Badge>
+                )}
+                {me.data?.demoMode ? <Badge tone="info">Demo</Badge> : null}
+                {me.isError ? <Badge tone="destructive">API unreachable</Badge> : null}
+                <NavLink
+                  to="/dashboard/settings"
+                  aria-label={`Open ${humanName}'s profile`}
+                  className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cobalt-soft text-[11.5px] font-semibold text-cobalt">
+                    {initials || '··'}
+                  </span>
+                </NavLink>
+              </div>
             </div>
-          </div>
-        </header>
-        <main className="mx-auto w-full max-w-[1280px] px-4 pt-5 pb-36 sm:px-5 md:px-6 md:pt-6">
+          </header>
+        ) : null}
+        <main
+          className={cn(
+            clientChatSurface
+              ? 'h-[calc(100dvh-5.75rem)] w-full overflow-hidden sm:px-4 sm:pt-4'
+              : 'mx-auto w-full max-w-[1280px] px-4 pt-5 pb-32 sm:px-5 md:px-6 md:pt-6',
+          )}
+        >
           {children ?? <Outlet />}
         </main>
         <nav
-          className="fixed bottom-3 left-1/2 z-40 grid w-[calc(100%-1.5rem)] max-w-[560px] -translate-x-1/2 grid-cols-5 items-end rounded-lg border border-line-strong bg-surface/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-ink/10 backdrop-blur"
+          className="fixed bottom-3 left-1/2 z-40 grid w-[calc(100%-1.5rem)] max-w-[400px] -translate-x-1/2 grid-cols-3 items-end rounded-2xl border border-line-strong bg-surface/95 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-ink/10 backdrop-blur"
           aria-label="Your account navigation"
         >
           {CLIENT_NAV.map(({ primary, ...item }) => (
@@ -187,7 +200,7 @@ export function AppShell({
                     className={cn(
                       'flex items-center justify-center',
                       primary
-                        ? 'h-14 w-14 rounded-full bg-cobalt text-white shadow-md shadow-cobalt/20 transition-transform group-hover:-translate-y-0.5'
+                        ? 'h-14 w-14 rounded-full bg-cobalt text-white shadow-md shadow-cobalt/20 transition-transform motion-reduce:transform-none motion-reduce:transition-none group-hover:-translate-y-0.5'
                         : 'h-6 w-8 rounded-md',
                       !primary && isActive && 'bg-cobalt-soft',
                     )}

@@ -62,7 +62,7 @@ export class MandateChatService {
     if (scripted.complete) return scripted;
     if (this.deps.agent.mode === 'openai') {
       try {
-        return await this.interpretWithOpenAi(input);
+        return await this.interpretWithOpenAi(input, scripted.draft);
       } catch (error) {
         this.deps.logger.warn(
           { err: error instanceof Error ? error : new Error('unknown chat interpreter error') },
@@ -73,7 +73,10 @@ export class MandateChatService {
     return scripted;
   }
 
-  private async interpretWithOpenAi(input: MandateChatRequest): Promise<MandateChatResponse> {
+  private async interpretWithOpenAi(
+    input: MandateChatRequest,
+    groundedDraft: MandateChatDraft,
+  ): Promise<MandateChatResponse> {
     if (this.deps.agent.mode !== 'openai') return scriptedMandateChat(input, this.deps.clock.now());
     setDefaultOpenAIKey(this.deps.agent.apiKey);
     const now = this.deps.clock.now();
@@ -110,13 +113,32 @@ export class MandateChatService {
     });
     const result = await runner.run(
       agent,
-      JSON.stringify({ currentTime: now.toISOString(), ...input }),
+      JSON.stringify({ currentTime: now.toISOString(), ...input, draft: groundedDraft }),
       { maxTurns: 2, signal: AbortSignal.timeout(30_000) },
     );
     if (!result.finalOutput) throw new Error('OpenAI returned no mandate draft');
     const parsed = MandateChatModelOutputSchema.parse(result.finalOutput);
-    return finalizeResponse(parsed.reply, parsed.draft, 'openai', now);
+    return finalizeResponse(
+      parsed.reply,
+      mergeGroundedDraft(groundedDraft, parsed.draft),
+      'openai',
+      now,
+    );
   }
+}
+
+function mergeGroundedDraft(
+  grounded: MandateChatDraft,
+  interpreted: MandateChatDraft,
+): MandateChatDraft {
+  return MandateChatDraftSchema.parse(
+    Object.fromEntries(
+      Object.keys(grounded).map((key) => {
+        const field = key as keyof MandateChatDraft;
+        return [field, interpreted[field] ?? grounded[field]];
+      }),
+    ),
+  );
 }
 
 export function scriptedMandateChat(input: MandateChatRequest, now: Date): MandateChatResponse {
@@ -167,23 +189,16 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
     if (endpoints.origin) draft.origin = endpoints.origin;
     if (endpoints.destination) draft.destination = endpoints.destination;
     const dates = relativeDateRange(latest, now);
-    if (dates) {
+    const explicitlyChangesTravel =
+      /\b(depart|departure|travel|fly|leave|salir|viajar|volar)\b/i.test(latest);
+    if (dates && (!draft.departureDateFrom || !draft.departureDateTo || explicitlyChangesTravel)) {
       draft.departureDateFrom = dates.from;
       draft.departureDateTo = dates.to;
     }
   }
 
-  if (
-    /\b(?:until|valid until|before|hasta|v[aá]lido hasta)\s+(?:the\s+)?end of (?:the )?month\b/i.test(
-      latest,
-    )
-  ) {
-    draft.validUntil = endOfMonth(now).toISOString();
-  }
-  const explicitExpiry = latest.match(
-    /\b(?:until|valid until|before|hasta)\s+(\d{4}-\d{2}-\d{2})\b/i,
-  );
-  if (explicitExpiry?.[1]) draft.validUntil = `${explicitExpiry[1]}T23:59:59.000Z`;
+  const expiry = authorizationExpiry(latest, now, isWaitingForValidity(draft));
+  if (expiry) draft.validUntil = expiry.toISOString();
 
   return finalizeResponse('', MandateChatDraftSchema.parse(draft), 'scripted', now);
 }
@@ -273,7 +288,82 @@ function relativeDateRange(text: string, now: Date): { from: string; to: string 
     end.setUTCDate(start.getUTCDate() + 6);
     return { from: isoDate(start), to: isoDate(end) };
   }
+  if (/\b(?:tomorrow|the next day|from tomorrow|ma[nñ]ana)\b/i.test(text)) {
+    const tomorrow = shiftUtcDay(now, 1);
+    return { from: isoDate(tomorrow), to: isoDate(tomorrow) };
+  }
+  if (/\b(?:today|hoy)\b/i.test(text)) {
+    const today = shiftUtcDay(now, 0);
+    return { from: isoDate(today), to: isoDate(today) };
+  }
   return undefined;
+}
+
+function isWaitingForValidity(draft: MandateChatDraft): boolean {
+  return Boolean(
+    draft.category &&
+    draft.origin &&
+    draft.destination &&
+    draft.departureDateFrom &&
+    draft.departureDateTo &&
+    draft.passengerCount &&
+    draft.maxPerPurchaseMinor &&
+    draft.currency &&
+    draft.maxFulfillments &&
+    !draft.validUntil,
+  );
+}
+
+/** Resolve an authorization end date without letting a bare date overwrite travel dates. */
+function authorizationExpiry(text: string, now: Date, allowBareAnswer: boolean): Date | undefined {
+  const hasExpiryLanguage =
+    /\b(?:until|valid until|expires?|expiration|before|hasta|v[aá]lido hasta)\b/i.test(text);
+  if (!hasExpiryLanguage && !allowBareAnswer) return undefined;
+
+  if (/\bend of (?:the )?month\b/i.test(text)) return endOfMonth(now);
+
+  const days = text.match(/\b(?:in|within)\s+(?:the\s+)?next\s+(\d{1,3})\s+days?\b/i);
+  if (days?.[1]) return endOfUtcDay(shiftUtcDay(now, Number(days[1])));
+
+  if (/\b(?:tomorrow|the next day|from tomorrow|ma[nñ]ana)\b/i.test(text)) {
+    return endOfUtcDay(shiftUtcDay(now, 1));
+  }
+  if (/\b(?:today|hoy)\b/i.test(text)) return endOfUtcDay(now);
+
+  const iso = text.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (iso?.[1] && iso[2] && iso[3]) {
+    return validUtcDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  }
+
+  const slash = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\b/);
+  if (slash?.[1] && slash[2] && slash[3]) {
+    const rawYear = Number(slash[3]);
+    const year = rawYear < 100 ? 2_000 + rawYear : rawYear;
+    return validUtcDate(year, Number(slash[1]), Number(slash[2]));
+  }
+  return undefined;
+}
+
+function validUtcDate(year: number, month: number, day: number): Date | undefined {
+  const result = new Date(Date.UTC(year, month - 1, day, 23, 59, 59));
+  if (
+    result.getUTCFullYear() !== year ||
+    result.getUTCMonth() !== month - 1 ||
+    result.getUTCDate() !== day
+  ) {
+    return undefined;
+  }
+  return result;
+}
+
+function shiftUtcDay(now: Date, days: number): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + days));
+}
+
+function endOfUtcDay(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59),
+  );
 }
 
 function endOfMonth(now: Date): Date {

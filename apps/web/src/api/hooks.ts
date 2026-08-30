@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AuditEvent,
+  ChatSessionSummary,
+  ChatSessionView,
   CreateMandateRequest,
   DemoAttemptRequest,
   DemoAttemptResult,
@@ -34,6 +36,8 @@ const keys = {
   purchases: ['purchases'] as const,
   purchase: (id: string) => ['purchase', id] as const,
   demo: ['demo'] as const,
+  chats: ['chats'] as const,
+  chat: (id: string) => ['chats', id] as const,
 };
 
 /** Demo mode polls once per second so server truth replaces the screen within one tick. */
@@ -167,6 +171,72 @@ export function useInterpretMandateChat() {
       api<MandateChatResponse>('/api/chat/interpret', { method: 'POST', body: input }),
     retry: false,
   });
+}
+
+export function useChats() {
+  const interval = usePollInterval();
+  return useQuery({
+    queryKey: keys.chats,
+    queryFn: () => api<ChatSessionSummary[]>('/api/chats'),
+    refetchInterval: interval,
+  });
+}
+
+export function useChatSession(id: string | undefined) {
+  const interval = usePollInterval();
+  return useQuery({
+    queryKey: keys.chat(id ?? ''),
+    queryFn: () => api<ChatSessionView>(`/api/chats/${id}`),
+    enabled: Boolean(id),
+    refetchInterval: interval,
+  });
+}
+
+function useChatMutation<TInput>(
+  mutationFn: (input: TInput) => Promise<ChatSessionView>,
+  sessionId?: string,
+) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: (session) => {
+      client.setQueryData(keys.chat(session.id), session);
+      void client.invalidateQueries({ queryKey: keys.chats });
+      if (sessionId && sessionId !== session.id) {
+        void client.invalidateQueries({ queryKey: keys.chat(sessionId) });
+      }
+    },
+    retry: false,
+  });
+}
+
+export function useCreateChat() {
+  return useChatMutation((input: { message: string }) =>
+    api<ChatSessionView>('/api/chats', { method: 'POST', body: input }),
+  );
+}
+
+export function useSendChatMessage(id: string | undefined) {
+  return useChatMutation(
+    (input: { message: string }) =>
+      api<ChatSessionView>(`/api/chats/${id}/messages`, { method: 'POST', body: input }),
+    id,
+  );
+}
+
+export function useLinkChatMandate(id: string | undefined) {
+  return useChatMutation(
+    (input: { mandateId: string }) =>
+      api<ChatSessionView>(`/api/chats/${id}/mandate`, { method: 'POST', body: input }),
+    id,
+  );
+}
+
+export function useRevokeChatMandate(id: string | undefined) {
+  return useChatMutation(
+    () => api<ChatSessionView>(`/api/chats/${id}/revoke`, { method: 'POST', body: {} }),
+    id,
+  );
 }
 
 export function useRevokeMandate(id: string) {

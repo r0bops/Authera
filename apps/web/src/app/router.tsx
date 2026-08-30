@@ -27,6 +27,14 @@ const dashboardChildren = [
     lazy: async () => ({ Component: (await import('../routes/ActivityPage.js')).ActivityPage }),
   },
   {
+    path: 'chats',
+    lazy: async () => ({ Component: (await import('../routes/ChatsPage.js')).ChatsPage }),
+  },
+  {
+    path: 'chats/:chatId',
+    lazy: async () => ({ Component: (await import('../routes/ChatPage.js')).ChatPage }),
+  },
+  {
     path: 'purchases',
     lazy: async () => ({ Component: (await import('../routes/PurchasesPage.js')).PurchasesPage }),
   },

@@ -144,6 +144,42 @@ export const mandates = pgTable('mandates', {
   ...timestamps,
 });
 
+/** Durable user conversations. Closing the UI does not end a session. */
+export const chatSessions = pgTable(
+  'chat_sessions',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    mandateId: uuid('mandate_id').references(() => mandates.id),
+    title: text('title').notNull().default('New flight'),
+    draft: jsonb('draft').$type<Record<string, unknown>>(),
+    messageCount: integer('message_count').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (t) => [index('chat_sessions_user_updated_idx').on(t.userId, t.updatedAt)],
+);
+
+export const chatMessages = pgTable(
+  'chat_messages',
+  {
+    id: uuid('id').primaryKey(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => chatSessions.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    content: text('content').notNull(),
+    position: integer('position').notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('chat_messages_session_position_uq').on(t.sessionId, t.position),
+    index('chat_messages_session_created_idx').on(t.sessionId, t.createdAt),
+  ],
+);
+
 export const mandateVersions = pgTable(
   'mandate_versions',
   {

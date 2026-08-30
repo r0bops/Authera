@@ -1,18 +1,36 @@
 import type {
+  ChatSessionMessageView,
   CreateMandateRequest,
+  ExecutionSummary,
   MandateChatDraft,
-  MandateChatMessage,
-  MandateChatResponse,
   MeResponse,
 } from '@authera/contracts';
-import { Bot, LockKeyhole, Send, ShieldCheck, Sparkles } from 'lucide-react';
-import { type FormEvent, type ReactNode, useMemo, useRef, useState } from 'react';
 import {
+  ArrowLeft,
+  Bot,
+  Check,
+  Clock3,
+  Download,
+  History,
+  LockKeyhole,
+  Plane,
+  Plus,
+  ReceiptText,
+  Send,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react';
+import { type FormEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
+import {
+  useChatSession,
+  useCreateChat,
   useCreateMandate,
-  useInterpretMandateChat,
-  useMandates,
+  useLinkChatMandate,
   useMe,
-  useRevokeMandate,
+  usePurchases,
+  useRevokeChatMandate,
+  useSendChatMessage,
 } from '../api/hooks.js';
 import {
   Alert,
@@ -22,80 +40,80 @@ import {
   ErrorState,
   KeyValue,
   Skeleton,
+  buttonStyles,
 } from '../components/ui/primitives.js';
 import { cn } from '../lib/cn.js';
 import { formatDateTime, formatMoney, friendlyAgentName } from '../lib/format.js';
-import { selectDashboardPlans } from '../lib/mandates.js';
-
-type LocalMessage = MandateChatMessage & { id: string; tone?: 'normal' | 'error' };
 
 export function ChatPage() {
+  const { chatId } = useParams<{ chatId: string }>();
+  const navigate = useNavigate();
   const me = useMe();
-  const mandates = useMandates();
-  const interpret = useInterpretMandateChat();
-  const create = useCreateMandate();
-  const { livePlan } = selectDashboardPlans(mandates.data);
-  const revoke = useRevokeMandate(livePlan?.id ?? '');
+  const chat = useChatSession(chatId);
+  const purchases = usePurchases();
+  const createChat = useCreateChat();
+  const sendChat = useSendChatMessage(chatId);
+  const createMandate = useCreateMandate();
+  const linkMandate = useLinkChatMandate(chatId);
+  const revokeMandate = useRevokeChatMandate(chatId);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<LocalMessage[]>([]);
-  const [draftResult, setDraftResult] = useState<MandateChatResponse | null>(null);
+  const [pendingUser, setPendingUser] = useState<string | null>(null);
+  const [transientError, setTransientError] = useState<string | null>(null);
   const [authorizeOpen, setAuthorizeOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const end = useRef<HTMLDivElement>(null);
+  const session = chat.data;
+  const draft = session?.draft ?? null;
   const agentName = friendlyAgentName(me.data?.agents[0]?.displayName);
   const firstName = me.data?.user.displayName.split(' ')[0] ?? 'there';
-  const busy = interpret.isPending;
-
-  const transcript = useMemo<MandateChatMessage[]>(
-    () => messages.map(({ role, content }) => ({ role, content })).slice(-15),
-    [messages],
+  const busy = createChat.isPending || sendChat.isPending;
+  const hasSignedPlan = Boolean(session?.mandateId);
+  const conversationLocked = session?.state === 'BOOKED' || session?.state === 'REVOKED';
+  const completedPurchase = purchases.data?.find(
+    (purchase) => purchase.mandateId === session?.mandateId && purchase.state === 'SUCCEEDED',
   );
 
-  const addMessage = (message: Omit<LocalMessage, 'id'>) => {
-    setMessages((current) => [...current, { ...message, id: crypto.randomUUID() }]);
-  };
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'nearest' });
+  }, [session?.messageCount, pendingUser, busy, hasSignedPlan]);
+
+  useEffect(() => {
+    const field = composer.current;
+    if (!field) return;
+    field.style.height = 'auto';
+    field.style.height = `${Math.min(field.scrollHeight, 112)}px`;
+  }, [input]);
 
   const submitText = async (raw: string) => {
-    const content = raw.trim();
-    if (!content || busy) return;
-    setInput('');
-    const userMessage: MandateChatMessage = { role: 'user', content };
-    addMessage(userMessage);
-
-    if (livePlan && /\b(stop|revoke|cancel)\b.*\b(plan|mandate|watch)/i.test(content)) {
-      addMessage({
-        role: 'assistant',
-        content: 'I will show the trusted stop confirmation. Nothing changes until you confirm it.',
-      });
+    const message = raw.trim();
+    if (!message || busy || conversationLocked) return;
+    if (
+      hasSignedPlan &&
+      (/\b(stop|revoke|cancel)\b.*\b(plan|mandate|watching|authorization)\b/i.test(message) ||
+        /\b(stop watching|revoke it)\b/i.test(message))
+    ) {
+      setInput('');
       setRevokeOpen(true);
       return;
     }
-
-    if (livePlan && /\b(check|search|look|run|try)\b/i.test(content)) {
-      addMessage({
-        role: 'assistant',
-        content:
-          'Monitoring is active under your signed rules. Verified attempts appear in Activity, and completed purchases appear in Orders.',
-      });
-      return;
-    }
-
+    setInput('');
+    setTransientError(null);
+    setPendingUser(message);
     try {
-      const result = await interpret.mutateAsync({
-        messages: [...transcript, userMessage],
-        draft: draftResult?.draft ?? null,
-      });
-      setDraftResult(result);
-      addMessage({ role: 'assistant', content: result.reply });
+      if (chatId) {
+        await sendChat.mutateAsync({ message });
+      } else {
+        const created = await createChat.mutateAsync({ message });
+        navigate(`/dashboard/chats/${created.id}`, { replace: true });
+      }
     } catch (error) {
-      addMessage({
-        role: 'assistant',
-        tone: 'error',
-        content:
-          error instanceof Error
-            ? `I could not interpret that safely: ${error.message}. Your message was not turned into authority.`
-            : 'I could not interpret that safely. Your message was not turned into authority.',
-      });
+      setInput(message);
+      setTransientError(
+        error instanceof Error ? error.message : 'I could not save that message. Please try again.',
+      );
+    } finally {
+      setPendingUser(null);
     }
   };
 
@@ -105,169 +123,195 @@ export function ChatPage() {
   };
 
   const authorize = async () => {
-    if (!draftResult?.complete || !me.data) return;
-    const request = requestFromDraft(draftResult.draft, me.data);
-    if (!request) return;
+    if (!chatId || !draft || !me.data) return;
+    const request = requestFromDraft(draft, me.data);
+    if (!request) {
+      setTransientError('This plan is missing a verified provider or payment method.');
+      return;
+    }
     try {
-      const created = await create.mutateAsync(request);
+      const mandate = await createMandate.mutateAsync(request);
+      await linkMandate.mutateAsync({ mandateId: mandate.id });
       setAuthorizeOpen(false);
-      setDraftResult(null);
-      addMessage({
-        role: 'assistant',
-        content: `The plan is signed and active. ${agentName} can now search under plan ${created.id.slice(0, 8)}. The signed rules—not this conversation—control every purchase attempt.`,
-      });
     } catch (error) {
-      addMessage({
-        role: 'assistant',
-        tone: 'error',
-        content:
-          error instanceof Error
-            ? `The trusted surface did not activate the plan: ${error.message}`
-            : 'The trusted surface did not activate the plan.',
-      });
+      setTransientError(
+        error instanceof Error
+          ? `The plan was not linked safely: ${error.message}`
+          : 'The plan was not linked safely.',
+      );
       setAuthorizeOpen(false);
     }
   };
 
   const confirmRevoke = async () => {
-    if (!livePlan) return;
     try {
-      await revoke.mutateAsync({ reason: 'Stopped from the Authera conversation' });
+      await revokeMandate.mutateAsync();
       setRevokeOpen(false);
-      addMessage({
-        role: 'assistant',
-        content: 'The plan is stopped. Every later purchase attempt under this mandate will fail.',
-      });
     } catch (error) {
-      addMessage({
-        role: 'assistant',
-        tone: 'error',
-        content:
-          error instanceof Error
-            ? `The plan could not be stopped: ${error.message}`
-            : 'The plan could not be stopped.',
-      });
+      setTransientError(
+        error instanceof Error ? error.message : 'The plan could not be revoked. Please try again.',
+      );
       setRevokeOpen(false);
     }
   };
 
-  if (me.isError || mandates.isError) {
+  if (me.isError || chat.isError) {
     return (
-      <ErrorState
-        error={me.error ?? mandates.error}
-        retry={() => {
-          void me.refetch();
-          void mandates.refetch();
-        }}
-      />
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <ErrorState
+            error={me.error ?? chat.error}
+            retry={() => {
+              void me.refetch();
+              if (chatId) void chat.refetch();
+            }}
+          />
+        </div>
+      </div>
     );
   }
-
-  if (me.isPending || mandates.isPending) return <ChatSkeleton />;
+  if (me.isPending || (chatId && chat.isPending)) return <ChatSkeleton />;
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-8.5rem)] w-full max-w-4xl flex-col">
-      <header className="mb-5 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-[12px] font-semibold tracking-wide text-cobalt uppercase">
-            Authera assistant
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">
-            Where should we fly, {firstName}?
-          </h1>
-        </div>
-      </header>
+    <section className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden bg-ground sm:rounded-lg sm:border sm:border-line sm:bg-surface sm:shadow-sm">
+      <ChatHeader
+        title={session?.title ?? 'New trip'}
+        status={chatStatus(session?.state, hasSignedPlan, busy)}
+        hasSession={Boolean(session)}
+        canRevoke={hasSignedPlan && session?.state !== 'REVOKED'}
+        onRevoke={() => setRevokeOpen(true)}
+      />
 
       <main
-        className="flex-1 space-y-4 pb-36"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-ground px-4 py-5 sm:px-6 md:px-8"
+        role="log"
         aria-live="polite"
-        aria-label="Conversation with Aria"
+        aria-relevant="additions"
+        aria-label={`Conversation with ${agentName}`}
       >
-        {messages.length === 0 ? (
-          <AgentBubble>
-            <p>
-              Hi {firstName}. Where are you thinking of going? Tell me naturally—we can work out the
-              route, dates, and budget together.
-            </p>
-          </AgentBubble>
-        ) : null}
+        <div className="mx-auto w-full max-w-3xl space-y-4">
+          {!session && !pendingUser ? (
+            <WelcomeMessage firstName={firstName} agentName={agentName} />
+          ) : null}
 
-        {messages.map((message) =>
-          message.role === 'user' ? (
-            <UserBubble key={message.id}>{message.content}</UserBubble>
-          ) : (
-            <AgentBubble key={message.id} tone={message.tone === 'error' ? 'error' : undefined}>
-              {message.content}
+          {session?.messages.map((message) => (
+            <PersistedMessage key={message.id} message={message} />
+          ))}
+          {pendingUser ? <UserBubble>{pendingUser}</UserBubble> : null}
+
+          {draft && !hasSignedPlan && isCompleteDraft(draft) ? (
+            <AgentBubble>
+              <FlightConfirmation
+                draft={draft}
+                onAuthorize={() => setAuthorizeOpen(true)}
+                onChange={() => composer.current?.focus()}
+              />
             </AgentBubble>
-          ),
-        )}
+          ) : null}
 
-        {draftResult?.complete ? (
-          <AgentBubble>
-            <FlightConfirmation
-              result={draftResult}
-              onAuthorize={() => setAuthorizeOpen(true)}
-              onChange={() => composer.current?.focus()}
-            />
-          </AgentBubble>
-        ) : null}
+          {hasSignedPlan && session?.state === 'ACTIVE' ? (
+            <AgentBubble tone="success">
+              <ActivePlanCard
+                draft={draft}
+                agentName={agentName}
+                onRevoke={() => setRevokeOpen(true)}
+              />
+            </AgentBubble>
+          ) : null}
 
-        {busy ? (
-          <AgentBubble subdued>
-            <div className="flex items-center gap-2 text-ink-muted" role="status">
-              <span className="flex gap-1" aria-hidden>
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cobalt" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cobalt [animation-delay:120ms]" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cobalt [animation-delay:240ms]" />
-              </span>
-              Preparing a safe draft…
-            </div>
-          </AgentBubble>
-        ) : null}
+          {completedPurchase ? (
+            <AgentBubble tone="success">
+              <CompletedTripCard
+                purchase={completedPurchase}
+                revoked={session?.state === 'REVOKED'}
+                onRevoke={() => setRevokeOpen(true)}
+              />
+            </AgentBubble>
+          ) : session?.state === 'BOOKED' ? (
+            <AgentBubble subdued>
+              <div className="flex items-center gap-2 text-ink-muted" role="status">
+                <Clock3 className="h-4 w-4" aria-hidden />
+                Finalizing your booking record…
+              </div>
+            </AgentBubble>
+          ) : null}
+
+          {session?.state === 'REVOKED' ? (
+            <AgentBubble subdued>
+              <div className="flex items-center gap-2">
+                <Badge tone="neutral">Plan revoked</Badge>
+                <span className="text-[12px] text-ink-muted">Read-only record</span>
+              </div>
+              <p className="mt-2 text-ink-muted">
+                Every later purchase attempt under this plan will fail. Your conversation
+                {completedPurchase ? ' and completed booking remain available.' : ' remains saved.'}
+              </p>
+              <Link
+                to="/dashboard"
+                className={buttonStyles({ variant: 'secondary', className: 'mt-3' })}
+              >
+                <Plus className="h-4 w-4" aria-hidden /> Start another trip
+              </Link>
+            </AgentBubble>
+          ) : null}
+
+          {transientError ? (
+            <AgentBubble tone="error">
+              <p className="font-medium">I couldn’t complete that action.</p>
+              <p className="mt-1">{transientError}</p>
+              {!conversationLocked ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => composer.current?.focus()}
+                >
+                  Try again
+                </Button>
+              ) : null}
+            </AgentBubble>
+          ) : null}
+
+          {busy ? (
+            <AgentBubble subdued>
+              <div className="flex items-center gap-2 text-ink-muted" role="status">
+                <span className="flex gap-1" aria-hidden>
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cobalt motion-reduce:animate-none" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cobalt motion-reduce:animate-none [animation-delay:120ms]" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cobalt motion-reduce:animate-none [animation-delay:240ms]" />
+                </span>
+                Working through the details…
+              </div>
+            </AgentBubble>
+          ) : null}
+          <div ref={end} />
+        </div>
       </main>
 
-      <div className="sticky bottom-20 z-10 mt-6 pb-3 md:bottom-24">
-        <form
+      {conversationLocked ? (
+        <LockedActions
+          state={session?.state}
+          canRevoke={hasSignedPlan && session?.state !== 'REVOKED'}
+          onRevoke={() => setRevokeOpen(true)}
+        />
+      ) : (
+        <ChatComposer
+          composerRef={composer}
+          value={input}
+          placeholder={composerPrompt(draft, hasSignedPlan)}
+          busy={busy}
+          agentName={agentName}
+          onChange={setInput}
           onSubmit={onSubmit}
-          className="rounded-lg border border-line-strong bg-surface p-2 shadow-lg shadow-ink/5"
-        >
-          <div className="flex items-end gap-2">
-            <label htmlFor="chat-message" className="sr-only">
-              Message {agentName}
-            </label>
-            <textarea
-              ref={composer}
-              id="chat-message"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  void submitText(input);
-                }
-              }}
-              rows={1}
-              disabled={busy}
-              placeholder="Where do you want to fly?"
-              className="max-h-28 min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-muted focus:outline-none disabled:opacity-60"
-            />
-            <Button type="submit" disabled={!input.trim() || busy} aria-label="Send message">
-              <Send className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Send</span>
-            </Button>
-          </div>
-          <p className="mt-1 hidden min-w-0 items-center gap-1.5 border-t border-line px-2 pt-1.5 text-[11.5px] text-ink-muted sm:flex">
-            <LockKeyhole className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            Chat drafts; signed rules authorize
-          </p>
-        </form>
-      </div>
+          onSend={() => void submitText(input)}
+        />
+      )}
 
       <AuthorizeDialog
         open={authorizeOpen}
-        result={draftResult}
+        draft={draft}
         me={me.data}
-        loading={create.isPending}
+        loading={createMandate.isPending || linkMandate.isPending}
         onClose={() => setAuthorizeOpen(false)}
         onAuthorize={() => void authorize()}
       />
@@ -278,11 +322,11 @@ export function ChatPage() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setRevokeOpen(false)}>
-              Keep active
+              Keep watching
             </Button>
             <Button
               variant="destructive"
-              loading={revoke.isPending}
+              loading={revokeMandate.isPending}
               onClick={() => void confirmRevoke()}
             >
               Stop plan now
@@ -290,19 +334,194 @@ export function ChatPage() {
           </>
         }
       >
-        <Alert tone="destructive" title="Future attempts will fail">
-          This immediately revokes the mandate. Completed purchases remain in your records, but
-          {` ${agentName}`} cannot start another purchase under these rules.
+        <Alert tone="destructive" title="Every later attempt will fail">
+          Authera will revoke the signed authority immediately. Any completed booking and this
+          conversation remain in your records.
         </Alert>
       </Dialog>
+    </section>
+  );
+}
+
+function ChatHeader({
+  title,
+  status,
+  hasSession,
+  canRevoke,
+  onRevoke,
+}: {
+  title: string;
+  status: string;
+  hasSession: boolean;
+  canRevoke: boolean;
+  onRevoke: () => void;
+}) {
+  return (
+    <header className="z-10 flex min-h-16 shrink-0 items-center gap-3 border-b border-line bg-surface/95 px-3 py-2 backdrop-blur sm:px-4">
+      <Link
+        to="/dashboard/chats"
+        aria-label="Open saved chats"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt sm:hidden"
+      >
+        <ArrowLeft className="h-5 w-5" aria-hidden />
+      </Link>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cobalt text-white shadow-sm shadow-cobalt/20">
+        <Bot className="h-5 w-5" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate text-[14px] font-semibold text-ink">{title}</h1>
+        <p className="flex items-center gap-1.5 text-[12px] text-ink-muted">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald" aria-hidden />
+          {status}
+        </p>
+      </div>
+      {hasSession ? (
+        <Link
+          to="/dashboard"
+          aria-label="Start a new trip"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
+        >
+          <Plus className="h-5 w-5" aria-hidden />
+        </Link>
+      ) : null}
+      <Link
+        to="/dashboard/chats"
+        aria-label="Open saved chats"
+        className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt sm:flex"
+      >
+        <History className="h-5 w-5" aria-hidden />
+      </Link>
+      {canRevoke ? (
+        <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={onRevoke}>
+          Stop plan
+        </Button>
+      ) : null}
+    </header>
+  );
+}
+
+function WelcomeMessage({ firstName, agentName }: { firstName: string; agentName: string }) {
+  return (
+    <div className="flex min-h-[50dvh] flex-col justify-end pb-4 sm:min-h-0 sm:justify-start sm:pb-0">
+      <AgentBubble>
+        <p className="text-[15px] font-semibold text-ink">Hi {firstName}, where should we go?</p>
+        <p className="mt-1 text-ink-muted">
+          Tell {agentName} what you need in your own words. We’ll agree on the trip, maximum price,
+          and safety rules before anything becomes authorized.
+        </p>
+      </AgentBubble>
     </div>
+  );
+}
+
+function ChatComposer({
+  composerRef,
+  value,
+  placeholder,
+  busy,
+  agentName,
+  onChange,
+  onSubmit,
+  onSend,
+}: {
+  composerRef: RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  placeholder: string;
+  busy: boolean;
+  agentName: string;
+  onChange: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+  onSend: () => void;
+}) {
+  return (
+    <footer className="shrink-0 border-t border-line bg-surface px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-4">
+      <form
+        onSubmit={onSubmit}
+        className="mx-auto w-full max-w-3xl rounded-2xl border border-line-strong bg-surface px-2 py-2 shadow-md shadow-ink/5 focus-within:border-cobalt focus-within:ring-2 focus-within:ring-cobalt/20"
+      >
+        <div className="flex items-end gap-2">
+          <label htmlFor="chat-message" className="sr-only">
+            Message {agentName}
+          </label>
+          <textarea
+            ref={composerRef}
+            id="chat-message"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                onSend();
+              }
+            }}
+            rows={1}
+            maxLength={1_000}
+            disabled={busy}
+            placeholder={placeholder}
+            className="max-h-28 min-h-11 min-w-0 flex-1 resize-none bg-transparent px-3 py-2.5 text-[16px] leading-6 text-ink placeholder:text-ink-muted focus:outline-none disabled:opacity-60 sm:text-[14px]"
+          />
+          <Button
+            type="submit"
+            disabled={!value.trim() || busy}
+            loading={busy}
+            aria-label={busy ? 'Sending message' : 'Send message'}
+            className="h-11 w-11 shrink-0 rounded-full px-0"
+          >
+            {!busy ? <Send className="h-4 w-4" aria-hidden /> : null}
+          </Button>
+        </div>
+      </form>
+      <p className="mx-auto mt-2 flex max-w-3xl items-center justify-center gap-1.5 text-[11.5px] text-ink-muted">
+        <LockKeyhole className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        Chat prepares the plan. Only your confirmation creates authority.
+      </p>
+    </footer>
+  );
+}
+
+function LockedActions({
+  state,
+  canRevoke,
+  onRevoke,
+}: {
+  state: 'ACTIVE' | 'BOOKED' | 'REVOKED' | undefined;
+  canRevoke: boolean;
+  onRevoke: () => void;
+}) {
+  return (
+    <footer className="shrink-0 border-t border-line bg-surface px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-4">
+      <div className="mx-auto flex w-full max-w-3xl items-center gap-2">
+        <Link to="/dashboard" className={buttonStyles({ className: 'flex-1' })}>
+          <Plus className="h-4 w-4" aria-hidden /> Start another trip
+        </Link>
+        {canRevoke ? (
+          <Button variant="secondary" className="flex-1" onClick={onRevoke}>
+            {state === 'BOOKED' ? 'Revoke remainder' : 'Stop this plan'}
+          </Button>
+        ) : null}
+      </div>
+    </footer>
+  );
+}
+
+function PersistedMessage({ message }: { message: ChatSessionMessageView }) {
+  return message.role === 'user' ? (
+    <UserBubble>{message.content}</UserBubble>
+  ) : (
+    <AgentBubble>{message.content}</AgentBubble>
   );
 }
 
 function requestFromDraft(draft: MandateChatDraft, me: MeResponse): CreateMandateRequest | null {
   const paymentMethodId = me.paymentMethods[0]?.id;
   if (
+    !isCompleteDraft(draft) ||
     !draft.category ||
+    !draft.origin ||
+    !draft.destination ||
+    !draft.departureDateFrom ||
+    !draft.departureDateTo ||
+    !draft.passengerCount ||
     !draft.maxPerPurchaseMinor ||
     !draft.currency ||
     !draft.maxFulfillments ||
@@ -314,28 +533,19 @@ function requestFromDraft(draft: MandateChatDraft, me: MeResponse): CreateMandat
   }
   const merchants = me.merchants.filter((merchant) => merchant.slug === 'duffel');
   if (merchants.length === 0) return null;
-  const intent: CreateMandateRequest['intent'] | null =
-    draft.origin &&
-    draft.destination &&
-    draft.departureDateFrom &&
-    draft.departureDateTo &&
-    draft.passengerCount
-      ? {
-          type: 'flight',
-          origin: draft.origin,
-          destination: draft.destination,
-          cabin: 'economy',
-          departureDateFrom: draft.departureDateFrom,
-          departureDateTo: draft.departureDateTo,
-          dateFlexibilityDays: draft.dateFlexibilityDays ?? 0,
-          passengerCount: draft.passengerCount,
-        }
-      : null;
-  if (!intent) return null;
   return {
     paymentMethodId,
     allowedMerchantIds: merchants.map((merchant) => merchant.id),
-    intent,
+    intent: {
+      type: 'flight',
+      origin: draft.origin,
+      destination: draft.destination,
+      cabin: 'economy',
+      departureDateFrom: draft.departureDateFrom,
+      departureDateTo: draft.departureDateTo,
+      dateFlexibilityDays: draft.dateFlexibilityDays ?? 0,
+      passengerCount: draft.passengerCount,
+    },
     limits: {
       currency: draft.currency,
       maxPerPurchaseMinor: draft.maxPerPurchaseMinor,
@@ -347,28 +557,66 @@ function requestFromDraft(draft: MandateChatDraft, me: MeResponse): CreateMandat
   };
 }
 
+function isCompleteDraft(draft: MandateChatDraft): boolean {
+  return Boolean(
+    draft.category &&
+    draft.origin &&
+    draft.destination &&
+    draft.departureDateFrom &&
+    draft.departureDateTo &&
+    draft.passengerCount &&
+    draft.maxPerPurchaseMinor &&
+    draft.currency &&
+    draft.maxFulfillments &&
+    draft.validUntil &&
+    draft.escalation,
+  );
+}
+
+function composerPrompt(draft: MandateChatDraft | null, hasSignedPlan: boolean): string {
+  if (hasSignedPlan) return 'Ask about this plan, or type “stop this plan”';
+  if (!draft?.origin) return 'Where are you flying from?';
+  if (!draft.destination) return 'Where do you want to go?';
+  if (!draft.departureDateFrom || !draft.departureDateTo) return 'When would you like to travel?';
+  if (!draft.maxPerPurchaseMinor) return 'What is your all-in maximum?';
+  if (!draft.validUntil) return 'How long should this authorization stay valid?';
+  if (!draft.escalation) return 'Should I block or ask you when a price is outside the plan?';
+  return 'Change any detail, or review the plan above';
+}
+
+function chatStatus(
+  state: 'ACTIVE' | 'BOOKED' | 'REVOKED' | undefined,
+  hasSignedPlan: boolean,
+  busy: boolean,
+): string {
+  if (busy) return 'Aria is replying';
+  if (state === 'REVOKED') return 'Plan revoked · read-only';
+  if (state === 'BOOKED') return 'Trip booked';
+  if (hasSignedPlan) return 'Watching verified providers';
+  return 'Private planning chat';
+}
+
 function AgentBubble({
   children,
   tone,
   subdued,
 }: {
   children: ReactNode;
-  tone?: 'attention' | 'success' | 'error';
+  tone?: 'success' | 'error';
   subdued?: boolean;
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cobalt text-white">
+    <div className="flex items-start gap-2.5 sm:gap-3">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cobalt text-white sm:h-9 sm:w-9">
         <Bot className="h-4 w-4" aria-hidden />
       </span>
       <div
         className={cn(
-          'max-w-[min(100%,44rem)] rounded-lg rounded-tl-sm border px-4 py-3 text-[13.5px] leading-6',
-          subdued && 'border-line bg-surface-muted/70',
+          'max-w-[calc(100%-2.625rem)] rounded-2xl rounded-tl-sm border px-3.5 py-3 text-[13.5px] leading-6 sm:max-w-[min(88%,44rem)] sm:px-4',
+          subdued && 'border-line bg-surface-muted/80',
           !subdued && !tone && 'border-line bg-surface',
-          tone === 'attention' && 'border-amber/25 bg-amber-soft/60',
-          tone === 'success' && 'border-emerald/25 bg-emerald-soft/50',
-          tone === 'error' && 'border-coral/25 bg-coral-soft/60 text-coral',
+          tone === 'success' && 'border-emerald/25 bg-emerald-soft/55',
+          tone === 'error' && 'border-coral/25 bg-coral-soft/70 text-coral',
         )}
       >
         {children}
@@ -379,8 +627,8 @@ function AgentBubble({
 
 function UserBubble({ children }: { children: ReactNode }) {
   return (
-    <div className="flex justify-end pl-12">
-      <div className="max-w-[min(100%,38rem)] rounded-lg rounded-tr-sm bg-cobalt px-4 py-3 text-[13.5px] leading-6 text-white">
+    <div className="flex justify-end pl-10 sm:pl-16">
+      <div className="max-w-[92%] rounded-2xl rounded-tr-sm bg-cobalt px-4 py-3 text-[13.5px] leading-6 text-white sm:max-w-[80%]">
         {children}
       </div>
     </div>
@@ -388,38 +636,142 @@ function UserBubble({ children }: { children: ReactNode }) {
 }
 
 function FlightConfirmation({
-  result,
+  draft,
   onAuthorize,
   onChange,
 }: {
-  result: MandateChatResponse;
+  draft: MandateChatDraft;
   onAuthorize: () => void;
   onChange: () => void;
 }) {
-  const draft = result.draft;
   return (
     <section className="min-w-0" aria-label="Flight plan ready for review">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-cobalt" aria-hidden />
-          <h2 className="font-semibold text-ink">Here’s the flight plan I understood</h2>
+          <h2 className="font-semibold text-ink">Your plan is ready</h2>
         </div>
-        <Badge tone="verified">Ready to review</Badge>
+        <Badge tone="verified">Draft only</Badge>
       </div>
       <p className="mt-3 text-ink">{flightSummary(draft)}</p>
       <p className="mt-2 text-[12px] text-ink-muted">
-        {result.interpreter === 'openai'
-          ? 'I prepared this with AI. It cannot authorize or pay until you confirm the exact rules.'
-          : 'I prepared this draft. It cannot authorize or pay until you confirm the exact rules.'}
+        Nothing can be bought until you review and authorize these exact rules.
       </p>
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
         <Button onClick={onAuthorize}>
           <ShieldCheck className="h-4 w-4" aria-hidden /> Review and authorize
         </Button>
         <Button variant="secondary" onClick={onChange}>
-          Change details
+          Change details in chat
         </Button>
       </div>
+    </section>
+  );
+}
+
+function ActivePlanCard({
+  draft,
+  agentName,
+  onRevoke,
+}: {
+  draft: MandateChatDraft | null;
+  agentName: string;
+  onRevoke: () => void;
+}) {
+  return (
+    <section aria-label="Signed plan status">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald text-white">
+          <Check className="h-4 w-4" aria-hidden />
+        </span>
+        <h2 className="font-semibold text-ink">Plan active</h2>
+        <Badge tone="verified">Protected</Badge>
+      </div>
+      <p className="mt-2 text-ink-muted">
+        {agentName} is comparing verified providers. Payment can happen only when every signed rule
+        passes; anything else is blocked or returned to you.
+      </p>
+      {draft ? (
+        <details className="group mt-3 rounded-lg border border-emerald/20 bg-surface/70">
+          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3 py-2 font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt">
+            View signed limits
+            <span className="text-[11.5px] font-normal text-ink-muted group-open:hidden">
+              Optional
+            </span>
+          </summary>
+          <div className="border-t border-emerald/20 px-3 py-3">
+            <DraftSummary draft={draft} />
+          </div>
+        </details>
+      ) : null}
+      <Button variant="ghost" size="sm" className="mt-2" onClick={onRevoke}>
+        Stop this plan
+      </Button>
+    </section>
+  );
+}
+
+function CompletedTripCard({
+  purchase,
+  revoked,
+  onRevoke,
+}: {
+  purchase: ExecutionSummary;
+  revoked: boolean;
+  onRevoke: () => void;
+}) {
+  return (
+    <section aria-label="Completed booking">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald text-white">
+          <Plane className="h-4 w-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold text-ink">Trip booked safely</h2>
+          <p className="text-[12px] text-ink-muted">The verification record is ready.</p>
+        </div>
+        <Badge tone="verified">Paid</Badge>
+      </div>
+      <div className="mt-3 rounded-lg border border-emerald/20 bg-surface/75 p-3">
+        <p className="font-medium text-ink">
+          {purchase.offerSummary ?? 'Verified flight purchase'}
+        </p>
+        {purchase.amount ? (
+          <p className="tabular mt-1 text-xl font-semibold tracking-tight text-emerald">
+            {formatMoney(purchase.amount)}
+          </p>
+        ) : null}
+        <p className="mt-1 text-[12px] text-ink-muted">
+          Mandate checked · provider verified · payment recorded
+        </p>
+      </div>
+      <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
+        <a
+          href={`/api/purchases/${purchase.id}/receipt.html`}
+          download
+          className={buttonStyles({ variant: 'secondary' })}
+        >
+          <ReceiptText className="h-4 w-4" aria-hidden /> Receipt
+        </a>
+        {purchase.bookingState === 'BOOKED' ? (
+          <a
+            href={`/api/purchases/${purchase.id}/booking-confirmation.html`}
+            download
+            className={buttonStyles({ variant: 'secondary' })}
+          >
+            <Download className="h-4 w-4" aria-hidden /> Booking confirmation
+          </a>
+        ) : null}
+        {!revoked ? (
+          <Button variant="ghost" size="sm" onClick={onRevoke}>
+            Revoke mandate
+          </Button>
+        ) : null}
+      </div>
+      <p className="mt-3 text-[12px] text-ink-muted">
+        This conversation is complete. You can reopen this record at any time and revoke any
+        remaining authority.
+      </p>
     </section>
   );
 }
@@ -439,116 +791,124 @@ function flightSummary(draft: MandateChatDraft): string {
 }
 
 function DraftSummary({ draft }: { draft: MandateChatDraft }) {
-  const rows: Array<{ label: string; value: ReactNode }> = [
-    {
-      label: 'Purchase',
-      value: draft.category
-        ? `${draft.origin ?? '…'} → ${draft.destination ?? '…'} · economy`
-        : 'Flight not specified',
-    },
-    ...(draft.category
-      ? [
-          {
-            label: 'Travel dates',
-            value:
-              draft.departureDateFrom && draft.departureDateTo
-                ? `${draft.departureDateFrom} → ${draft.departureDateTo}`
+  return (
+    <KeyValue
+      dense
+      items={[
+        {
+          label: 'Flight',
+          value: `${draft.origin ?? '…'} → ${draft.destination ?? '…'} · economy`,
+        },
+        {
+          label: 'Travel dates',
+          value:
+            draft.departureDateFrom && draft.departureDateTo
+              ? `${draft.departureDateFrom} → ${draft.departureDateTo}`
+              : 'Not specified',
+        },
+        { label: 'Passengers', value: draft.passengerCount ?? 'Not specified' },
+        {
+          label: 'Hard maximum',
+          value:
+            draft.maxPerPurchaseMinor && draft.currency
+              ? formatMoney({ currency: draft.currency, minor: draft.maxPerPurchaseMinor })
+              : 'Not specified',
+        },
+        { label: 'Purchase count', value: draft.maxFulfillments ?? 'Not specified' },
+        {
+          label: 'Authorization expires',
+          value: draft.validUntil ? formatDateTime(draft.validUntil) : 'Not specified',
+        },
+        {
+          label: 'Outside rules',
+          value:
+            draft.escalation === 'require_human'
+              ? 'Stop and ask me once'
+              : draft.escalation === 'block'
+                ? 'Block'
                 : 'Not specified',
-          },
-          { label: 'Passengers', value: draft.passengerCount ?? 'Not specified' },
-        ]
-      : []),
-    {
-      label: 'Hard maximum',
-      value:
-        draft.maxPerPurchaseMinor && draft.currency
-          ? formatMoney({ currency: draft.currency, minor: draft.maxPerPurchaseMinor })
-          : 'Not specified',
-    },
-    { label: 'Purchase count', value: draft.maxFulfillments ?? 'Not specified' },
-    {
-      label: 'Authorization expires',
-      value: draft.validUntil ? formatDateTime(draft.validUntil) : 'Not specified',
-    },
-    {
-      label: 'Outside rules',
-      value:
-        draft.escalation === 'require_human'
-          ? 'Stop and ask me once'
-          : draft.escalation === 'block'
-            ? 'Block'
-            : 'Not specified',
-    },
-  ];
-  return <KeyValue dense items={rows} />;
+        },
+      ]}
+    />
+  );
 }
 
 function AuthorizeDialog({
   open,
-  result,
+  draft,
   me,
   loading,
   onClose,
   onAuthorize,
 }: {
   open: boolean;
-  result: MandateChatResponse | null;
+  draft: MandateChatDraft | null;
   me: MeResponse | undefined;
   loading: boolean;
   onClose: () => void;
   onAuthorize: () => void;
 }) {
-  if (!result) return null;
+  if (!draft) return null;
   const method = me?.paymentMethods[0];
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title="Authorize this purchase plan"
+      title="Review before authorizing"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            Keep editing
           </Button>
-          <Button loading={loading} onClick={onAuthorize}>
-            <LockKeyhole className="h-4 w-4" aria-hidden /> Authorize plan
+          <Button loading={loading} disabled={!method} onClick={onAuthorize}>
+            <LockKeyhole className="h-4 w-4" aria-hidden /> Authorize this plan
           </Button>
         </>
       }
     >
-      <Alert tone="info" title="This confirmation creates authority">
-        The conversation only prepared this draft. Authera will sign the exact rules below, bind
-        them to Aria, and enforce them independently of the model.
+      <Alert tone="info" title="This tap creates real authority">
+        The conversation prepared a draft. Authera—not the AI—signs and independently enforces the
+        exact limits below.
       </Alert>
-      <div className="mt-4 rounded-md border border-line bg-surface-muted/45 p-4">
-        <DraftSummary draft={result.draft} />
+      <div className="mt-4 rounded-lg border border-line bg-surface-muted/45 p-4">
+        <DraftSummary draft={draft} />
       </div>
-      <div className="mt-4 flex items-center gap-3 rounded-md border border-line p-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-cobalt-soft text-cobalt">
+      <div className="mt-4 flex items-center gap-3 rounded-lg border border-line p-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cobalt-soft text-cobalt">
           <LockKeyhole className="h-4 w-4" aria-hidden />
         </span>
-        <div>
+        <div className="min-w-0">
           <p className="text-[12px] text-ink-muted">Tokenized payment method</p>
-          <p className="font-medium text-ink">
+          <p className="truncate font-medium text-ink">
             {method ? `${method.brand} •••• ${method.last4}` : 'No payment method available'}
           </p>
         </div>
       </div>
-      <p className="mt-3 text-[11.5px] text-ink-muted">
-        Aria receives only identifiers. It never receives the raw card number and cannot change the
-        signed maximum, scope, validity, or purchase count.
-      </p>
     </Dialog>
   );
 }
 
 function ChatSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4" aria-label="Loading conversation">
-      <Skeleton className="h-14 w-2/3" />
-      <Skeleton className="h-28 w-3/4" />
-      <Skeleton className="ml-auto h-20 w-1/2" />
-      <Skeleton className="h-40 w-4/5" />
+    <div
+      className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden bg-surface sm:rounded-lg sm:border sm:border-line"
+      aria-label="Loading conversation"
+    >
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-line px-4">
+        <Skeleton className="h-10 w-10 rounded-full" />
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-2.5 w-24" />
+        </div>
+      </div>
+      <div className="flex-1 space-y-4 bg-ground px-4 py-5 sm:px-6">
+        <Skeleton className="h-24 w-4/5 rounded-2xl" />
+        <Skeleton className="ml-auto h-16 w-3/5 rounded-2xl" />
+        <Skeleton className="h-24 w-4/5 rounded-2xl" />
+      </div>
+      <div className="border-t border-line p-3">
+        <Skeleton className="mx-auto h-14 w-full max-w-3xl rounded-2xl" />
+      </div>
     </div>
   );
 }

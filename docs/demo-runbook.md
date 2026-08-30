@@ -27,7 +27,7 @@ Point at the detail page: status ACTIVE, agent key thumbprint, payment reference
 
 ## 3. Inject USD 130 and let the agent buy
 
-Demo control → Inject an offer: price **130.00**, CCS → COR, economy → **Inject**. Then **Run agent** (scripted). Last result shows `ALLOW · ALLOW_WITHIN_MANDATE` and `PURCHASED`. Keep the operational test in `/demo`; use Orders for the purchase record and Activity for gateway events. Chat remains a clean customer conversation and never exposes injection controls.
+Demo control → Inject an offer: price **130.00**, CCS → COR, economy → **Inject**. Then **Run agent** (scripted). Last result shows `ALLOW · ALLOW_WITHIN_MANDATE` and `PURCHASED`. Keep the operational test in `/demo`; use Orders for the purchase record and the Auditor view for gateway events. Chats shows the saved conversation as complete and reopenable. Chat never exposes injection controls.
 
 Show, in order:
 - Merchant view (link in the result): identity ✓ → mandate ✓ → checklist all green → cart bound → reservation CONSUMED → payment SUCCEEDED.

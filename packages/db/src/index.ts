@@ -16,3 +16,4 @@ export * from './repositories/approvals.js';
 export * from './repositories/payments.js';
 export * from './repositories/disputes.js';
 export * from './repositories/bookings.js';
+export * from './repositories/chats.js';
