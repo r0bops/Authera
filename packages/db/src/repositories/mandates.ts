@@ -333,6 +333,17 @@ export async function getMandateVersion(
   return { version: row, runtime, policy: MandatePolicyV1Schema.parse(row.policy) };
 }
 
+/** Every mandate whose runtime row is ACTIVE, for background discovery (price watch). */
+export async function listActiveMandates(db: DbExecutor): Promise<MandateAggregate[]> {
+  const rows = await db.select({ id: mandates.id }).from(mandates);
+  const result: MandateAggregate[] = [];
+  for (const row of rows) {
+    const aggregate = await getMandate(db, row.id);
+    if (aggregate && aggregate.runtime.status === 'ACTIVE') result.push(aggregate);
+  }
+  return result;
+}
+
 export async function listMandatesForUser(
   db: DbExecutor,
   userId: string,

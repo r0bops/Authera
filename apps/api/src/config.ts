@@ -45,6 +45,8 @@ const envSchema = z
     DUFFEL_ACCESS_TOKEN: optionalSecret,
     /** Optional: public Shopify storefront used as the live goods market (no credentials). */
     SHOPIFY_STOREFRONT_URL: z.url().optional(),
+    /** Background discovery cadence per active mandate; 0 disables the price watcher. */
+    PRICE_WATCH_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
     TRUSTED_SURFACE_PRIVATE_JWK: optionalSecret,
     MERCHANT_PRIVATE_JWK: optionalSecret,
     AGENT_PRIVATE_JWK: optionalSecret,
@@ -112,6 +114,8 @@ export interface AppConfig {
   markets: {
     duffel: { accessToken: string } | undefined;
     shopify: { storeUrl: string } | undefined;
+    /** Milliseconds between market searches per active mandate; 0 = off. */
+    priceWatchIntervalMs: number;
   };
   keys: {
     trustedSurfacePrivateJwk: string | undefined;
@@ -200,6 +204,7 @@ function toAppConfig(env: ParsedEnv): AppConfig {
     markets: {
       duffel: env.DUFFEL_ACCESS_TOKEN ? { accessToken: env.DUFFEL_ACCESS_TOKEN } : undefined,
       shopify: env.SHOPIFY_STOREFRONT_URL ? { storeUrl: env.SHOPIFY_STOREFRONT_URL } : undefined,
+      priceWatchIntervalMs: env.PRICE_WATCH_INTERVAL_MS,
     },
     keys: {
       trustedSurfacePrivateJwk: env.TRUSTED_SURFACE_PRIVATE_JWK,
