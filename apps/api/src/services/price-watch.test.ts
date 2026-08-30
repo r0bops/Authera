@@ -57,14 +57,17 @@ describe('PriceWatcher', () => {
     const { w, checkout } = watcher([mandate(), goods], now);
 
     await expect(w.tick()).resolves.toEqual({ searched: 2, skipped: 0, failed: 0 });
-    expect(checkout.searchFlights).toHaveBeenCalledWith({
-      origin: 'CCS',
-      destination: 'COR',
-      from: '2026-09-10',
-      to: '2026-09-20',
-      passengers: 1,
-    });
-    expect(checkout.searchProducts).toHaveBeenCalledWith({ q: 'wool runner' });
+    expect(checkout.searchFlights).toHaveBeenCalledWith(
+      {
+        origin: 'CCS',
+        destination: 'COR',
+        from: '2026-09-10',
+        to: '2026-09-20',
+        passengers: 1,
+      },
+      { strict: true },
+    );
+    expect(checkout.searchProducts).toHaveBeenCalledWith({ q: 'wool runner' }, { strict: true });
   });
 
   it('skips mandates searched within the refresh window and re-searches after it', async () => {
@@ -92,12 +95,51 @@ describe('PriceWatcher', () => {
 
   it('keeps going when one market search fails and retries it next tick', async () => {
     const now = { value: Date.parse('2026-08-30T10:00:00.000Z') };
-    const { w, checkout } = watcher(
-      [mandate(), mandate({ id: '00000000-0000-4000-8000-000000000005' })],
-      now,
-    );
+    const other = mandate({
+      id: '00000000-0000-4000-8000-000000000005',
+      policy: {
+        validUntil: '2099-01-01T00:00:00.000Z',
+        intent: {
+          type: 'flight',
+          origin: 'CCS',
+          destination: 'BOG',
+          cabin: 'economy',
+          departureDateFrom: '2026-09-10',
+          departureDateTo: '2026-09-20',
+          passengerCount: 1,
+        },
+      },
+    });
+    const { w, checkout } = watcher([mandate(), other], now);
     checkout.searchFlights.mockRejectedValueOnce(new Error('market down'));
     await expect(w.tick()).resolves.toEqual({ searched: 1, skipped: 0, failed: 1 });
+    // the failed intent backs off instead of being retried on the very next tick
+    await expect(w.tick()).resolves.toEqual({ searched: 0, skipped: 2, failed: 0 });
+    now.value += 21_000;
     await expect(w.tick()).resolves.toEqual({ searched: 1, skipped: 1, failed: 0 });
+  });
+
+  it('nudge() searches right away instead of waiting for the next tick', async () => {
+    vi.useFakeTimers();
+    try {
+      const now = { value: Date.parse('2026-08-30T10:00:00.000Z') };
+      const { w, checkout } = watcher([mandate()], now);
+      w.nudge();
+      expect(checkout.searchFlights).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(600);
+      expect(checkout.searchFlights).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('runs one market search for mandates that share an intent', async () => {
+    const now = { value: Date.parse('2026-08-30T10:00:00.000Z') };
+    const twin = mandate({ id: '00000000-0000-4000-8000-000000000006' });
+    const { w, checkout } = watcher([mandate(), twin], now);
+    await expect(w.tick()).resolves.toEqual({ searched: 1, skipped: 0, failed: 0 });
+    expect(checkout.searchFlights).toHaveBeenCalledTimes(1);
+    // both mandates count as refreshed, so neither is searched again until the refresh window passes
+    await expect(w.tick()).resolves.toEqual({ searched: 0, skipped: 1, failed: 0 });
   });
 });

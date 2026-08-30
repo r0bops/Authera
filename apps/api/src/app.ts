@@ -121,11 +121,13 @@ export function createApp(deps: AppDependencies): App {
   if (deps.services) {
     const { db, keys, clock, paymentProcessor, seed } = deps.services;
     const sessionDeps = { db, config: deps.config, clock };
+    let priceWatcher: PriceWatcher | undefined;
     const mandates = new MandateService({
       db,
       signer: new MandateSigner(keys.trustedSurface),
       clock,
       logger: deps.logger,
+      onCreated: () => priceWatcher?.nudge(),
     });
 
     // Public discovery (agent key directory + profiles).
@@ -159,7 +161,7 @@ export function createApp(deps: AppDependencies): App {
     });
     // "Aria watches prices": discovery only, on a schedule, for every ACTIVE mandate.
     if (deps.config.markets.priceWatchIntervalMs > 0 && markets.length + goodsMarkets.length > 0) {
-      new PriceWatcher({
+      priceWatcher = new PriceWatcher({
         checkout,
         listMandates: async () =>
           (await listActiveMandates(db)).map((m) => ({
@@ -170,7 +172,8 @@ export function createApp(deps: AppDependencies): App {
         clock,
         logger: deps.logger,
         refreshMs: deps.config.markets.priceWatchIntervalMs,
-      }).start();
+      });
+      priceWatcher.start();
     }
     const bookings = new BookingService({ db, duffel: duffelMarket, logger: deps.logger });
     const payments = new PaymentService({

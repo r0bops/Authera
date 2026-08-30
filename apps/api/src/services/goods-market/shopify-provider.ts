@@ -1,4 +1,5 @@
 import type { Currency, ProductSearchQuery } from '@authera/contracts';
+import { withOneRetry } from '../flight-market/duffel-provider.js';
 
 /** A product variant as returned by a public Shopify storefront, before it is stored. */
 export interface MarketProduct {
@@ -125,11 +126,11 @@ export class ShopifyStorefrontProvider implements GoodsMarketProvider {
   ): Promise<RevalidatedProduct> {
     const [handle, variantId] = providerOfferId.split(':');
     if (!handle || !variantId) return { available: false };
-    const response = await this.request(
-      `/products/${encodeURIComponent(handle)}.js`,
-      options.signal,
+    const response = await withOneRetry(() =>
+      this.request(`/products/${encodeURIComponent(handle)}.js`, options.signal),
     );
-    if (response.status === 404) return { available: false };
+    if (response.status >= 400 && response.status < 500 && response.status !== 429)
+      return { available: false };
     if (!response.ok) throw new Error(`Shopify product lookup failed with HTTP ${response.status}`);
     // The .js endpoint returns prices in minor units already.
     const body = (await response.json()) as {

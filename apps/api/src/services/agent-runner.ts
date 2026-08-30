@@ -265,18 +265,21 @@ export class AgentRunner {
     offerId: string;
     attempts: number;
   }): Promise<DemoDirectAttemptResult[]> {
-    const first = await this.direct({ mandateId: input.mandateId, offerId: input.offerId });
-    const checkoutId = first.checkoutId;
-    const rest = await Promise.all(
-      Array.from({ length: input.attempts - 1 }, () =>
-        this.direct({
-          mandateId: input.mandateId,
-          offerId: input.offerId,
-          ...(checkoutId ? { checkoutId } : {}),
-        }),
+    // One checkout, N signed attempts fired at the same instant: the reservation row decides.
+    const client = await this.client();
+    const created = await client.call<{ ok: boolean; data?: unknown }>({
+      method: 'POST',
+      path: '/ucp/v1/checkout-sessions',
+      body: { offerId: input.offerId },
+      tag: AGENT_TAGS.browse,
+    });
+    if (!created.body.ok) throw ApiProblem.conflict('CHECKOUT_FAILED', 'checkout creation failed');
+    const checkoutId = CheckoutSessionSchema.parse(created.body.data).id;
+    return Promise.all(
+      Array.from({ length: input.attempts }, () =>
+        this.direct({ mandateId: input.mandateId, offerId: input.offerId, checkoutId }),
       ),
     );
-    return [first, ...rest];
   }
 
   capturedRequests(): Array<Omit<CapturedRequest, 'request'>> {

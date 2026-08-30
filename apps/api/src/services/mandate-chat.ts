@@ -194,7 +194,7 @@ export function buildInstructions(context: MandateChatContext): string {
     '3. Keep every value already in `draft` unless the person explicitly changes it.',
     '4. Ask exactly ONE question per reply, and only about `state.nextField`. Never ask for something already filled.',
     '5. `state.missingFields` is computed by the system and is authoritative. Do not claim the plan is complete while it is non-empty.',
-    '6. Money is integer minor units (USD 150 = 15000) and always the all-in total including taxes and fees.',
+    '6. In `draft`, money is integer minor units (USD 150 = 15000), always the all-in total including taxes and fees. In the reply, write money only as the person would say it (USD 150.00); never mention cents, minor units or field names.',
     '7. `validUntil` is when the authorization expires, not a travel date. Resolve relative dates against `currentTime`.',
     '8. Resolve city names to the city’s main IATA code (Caracas = CCS, Córdoba = COR, Bogotá = BOG, Medellín = MDE, Madrid = MAD, Miami = MIA). Never ask which airport of a city to use unless the person mentions airports themselves.',
     '9. Reply in the language the person is using. Under 45 words. Plain sentences: no markdown, no bullet lists, no headings.',

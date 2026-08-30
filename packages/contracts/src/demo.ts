@@ -27,7 +27,7 @@ export const DemoInjectOfferRequestSchema = z.strictObject({
     .number()
     .int()
     .min(1)
-    .max(60 * 24 * 30)
+    .max(60 * 24 * 400)
     .default(60 * 24),
 });
 export type DemoInjectOfferRequest = z.infer<typeof DemoInjectOfferRequestSchema>;

@@ -128,13 +128,17 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
     providerOfferId: string,
     options: { signal?: AbortSignal } = {},
   ): Promise<RevalidatedOffer> {
-    const response = await this.request(
-      'GET',
-      `/air/offers/${encodeURIComponent(providerOfferId)}`,
-      undefined,
-      options.signal,
+    const response = await withOneRetry(() =>
+      this.request(
+        'GET',
+        `/air/offers/${encodeURIComponent(providerOfferId)}`,
+        undefined,
+        options.signal,
+      ),
     );
-    if (response.status === 404 || response.status === 410) return { available: false };
+    // Any client-side status means the provider no longer honours this offer id.
+    if (response.status >= 400 && response.status < 500 && response.status !== 429)
+      return { available: false };
     if (!response.ok) throw new DuffelApiError(response.status, 'Duffel offer lookup failed');
     const body = (await response.json()) as { data: DuffelOffer };
     const mapped = mapDuffelOffer(body.data, { passengerCount: 1, cabin: 'economy' });
@@ -281,20 +285,26 @@ export class DuffelFlightMarketProvider implements FlightMarketProvider {
     signal: AbortSignal | undefined,
   ): Promise<MarketOffer[]> {
     const passengerCount = query.passengers ?? 1;
-    const response = await this.request(
-      'POST',
-      '/air/offer_requests?return_offers=true',
-      {
-        data: {
-          slices: [
-            { origin: query.origin, destination: query.destination, departure_date: departureDate },
-          ],
-          passengers: Array.from({ length: passengerCount }, () => ({ type: 'adult' })),
-          cabin_class: 'economy',
-          max_connections: 1,
+    const response = await withOneRetry(() =>
+      this.request(
+        'POST',
+        '/air/offer_requests?return_offers=true',
+        {
+          data: {
+            slices: [
+              {
+                origin: query.origin,
+                destination: query.destination,
+                departure_date: departureDate,
+              },
+            ],
+            passengers: Array.from({ length: passengerCount }, () => ({ type: 'adult' })),
+            cabin_class: 'economy',
+            max_connections: 1,
+          },
         },
-      },
-      signal,
+        signal,
+      ),
     );
     if (!response.ok) throw new DuffelApiError(response.status, 'Duffel offer request failed');
     const body = (await response.json()) as { data: { offers: DuffelOffer[] } };
@@ -415,4 +425,19 @@ export function mapDuffelOffer(
 
 function localToDate(value: string): Date {
   return new Date(/[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
+}
+
+/** One retry after a short pause on a network error, 429 or 5xx — enough for a busy demo, never a loop. */
+export async function withOneRetry(send: () => Promise<Response>): Promise<Response> {
+  let pauseMs = 300;
+  try {
+    const first = await send();
+    if (first.status !== 429 && first.status < 500) return first;
+    if (first.status === 429) pauseMs = 1_000;
+  } catch (error) {
+    // an aborted request (caller timeout) must not be retried; a network blip may
+    if (error instanceof Error && error.name === 'AbortError') throw error;
+  }
+  await new Promise((resolve) => setTimeout(resolve, pauseMs));
+  return send();
 }

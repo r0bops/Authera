@@ -34,6 +34,8 @@ export interface MandateServiceDependencies {
   signer: MandateSigner;
   clock: Clock;
   logger: Logger;
+  /** Fired after a mandate is stored — lets the price watcher look at the market right away. */
+  onCreated?: () => void;
 }
 
 export class MandateService {
@@ -94,6 +96,7 @@ export class MandateService {
       actorId: user.id,
     });
     this.deps.logger.info({ mandateId: policy.mandateId, userId: user.id }, 'mandate created');
+    this.deps.onCreated?.();
     return this.toView(aggregate);
   }
 

@@ -110,7 +110,12 @@ export function DemoTerminal() {
     );
   }
 
-  async function inject(plan: MandateView, amountMinor: number, merchantSlug?: string) {
+  async function inject(
+    plan: MandateView,
+    amountMinor: number,
+    merchantSlug?: string,
+    expiresInMinutes = 1440,
+  ) {
     const merchants = me.data?.merchants ?? [];
     const merchant =
       merchants.find((m) => m.slug === merchantSlug) ??
@@ -125,7 +130,7 @@ export function DemoTerminal() {
         origin: plan.policy.intent.origin,
         destination: plan.policy.intent.destination,
         departureAt: `${plan.policy.intent.departureDateFrom}T09:00:00.000Z`,
-        expiresInMinutes: 1440,
+        expiresInMinutes,
       },
     });
     print('ok', `injected ${offer.summary}`);
@@ -249,10 +254,17 @@ export function DemoTerminal() {
       return refresh();
     }
     if (cmd === 'expire') {
-      const offer = await ensureEligible(plan);
       const state = await api<{ now: string }>('/api/demo/state');
       const minutes =
         Math.ceil((Date.parse(plan.policy.validUntil) - Date.parse(state.now)) / 60000) + 60;
+      // Real market offers expire long before the plan does; this one outlives the clock jump so
+      // the gateway's verdict is about the mandate, not the offer.
+      const offer = await inject(
+        plan,
+        Math.max(100, plan.policy.limits.maxPerPurchaseMinor - 2000),
+        undefined,
+        minutes + 1440,
+      );
       await api('/api/demo/time', { method: 'POST', body: { offsetMinutes: minutes } });
       print(
         'warn',
@@ -371,7 +383,13 @@ export function DemoTerminal() {
     try {
       await run(cmdline);
     } catch (error) {
-      print('err', error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      print(
+        'err',
+        /DEMO_CLOCK_DISABLED/.test(message)
+          ? 'the demo clock is off on this server — set DEMO_CLOCK_ENABLED=true and restart to run this case'
+          : message,
+      );
     } finally {
       setBusy(false);
       inputRef.current?.focus();

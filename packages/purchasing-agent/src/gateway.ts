@@ -151,11 +151,22 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
   private async prepareAll(response: unknown, signal?: AbortSignal): Promise<FlightSearchResult> {
     const offers = parseGatewayResponse(z.array(FlightOfferViewSchema).max(100), response);
     // A live offer can expire or re-price between search and checkout; that offer is dropped
-    // (fail closed per offer) rather than aborting the whole search.
-    const settled = await Promise.allSettled(
-      offers.map((offer) => this.prepareCheckout(offer, signal)),
-    );
-    const prepared = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+    // (fail closed per offer) rather than aborting the whole search. A few at a time, so a
+    // provider is never hit with the whole catalog at once.
+    const prepared: FlightSearchResult['offers'] = [];
+    let index = 0;
+    const worker = async () => {
+      while (index < offers.length) {
+        const offer = offers[index++]!;
+        try {
+          prepared.push(await this.prepareCheckout(offer, signal));
+        } catch {
+          // dropped: the gateway would reject it anyway
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, offers.length) }, worker));
+    prepared.sort((a, b) => a.totalMinor - b.totalMinor || a.offerId.localeCompare(b.offerId));
     return FlightSearchResultSchema.parse({ offers: prepared });
   }
 
