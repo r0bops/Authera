@@ -44,7 +44,7 @@ export function PurchasesPage() {
           <EmptyState
             title="No orders yet"
             action={
-              <Link to="/dashboard" className={buttonStyles()}>
+              <Link to="/" className={buttonStyles()}>
                 Start a trip
               </Link>
             }
@@ -174,10 +174,7 @@ function OrderCard({ purchase, chat }: { purchase: ExecutionSummary; chat?: Chat
           </a>
         ) : null}
         {chat && !succeeded ? (
-          <Link
-            to={`/dashboard/chats/${chat.id}`}
-            className={buttonStyles({ variant: 'ghost', size: 'sm' })}
-          >
+          <Link to={`/chats/${chat.id}`} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
             <MessageSquare className="h-4 w-4" aria-hidden /> Open chat
           </Link>
         ) : null}

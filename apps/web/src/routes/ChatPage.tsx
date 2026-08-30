@@ -106,7 +106,7 @@ export function ChatPage() {
         await sendChat.mutateAsync({ message });
       } else {
         const created = await createChat.mutateAsync({ message });
-        navigate(`/dashboard/chats/${created.id}`, { replace: true });
+        navigate(`/chats/${created.id}`, { replace: true });
       }
     } catch (error) {
       setInput(message);
@@ -247,10 +247,7 @@ export function ChatPage() {
                 Every later purchase attempt under this plan will fail. Your conversation
                 {completedPurchase ? ' and completed booking remain available.' : ' remains saved.'}
               </p>
-              <Link
-                to="/dashboard"
-                className={buttonStyles({ variant: 'secondary', className: 'mt-3' })}
-              >
+              <Link to="/" className={buttonStyles({ variant: 'secondary', className: 'mt-3' })}>
                 <Plus className="h-4 w-4" aria-hidden /> Start another trip
               </Link>
             </AgentBubble>
@@ -364,7 +361,7 @@ function ChatHeader({
   return (
     <header className="z-10 flex min-h-16 shrink-0 items-center gap-3 border-b border-line bg-surface/95 px-3 py-2 backdrop-blur sm:px-4">
       <Link
-        to="/dashboard/chats"
+        to="/chats"
         aria-label="Open saved chats"
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt sm:hidden"
       >
@@ -382,7 +379,7 @@ function ChatHeader({
       </div>
       {hasSession ? (
         <Link
-          to="/dashboard"
+          to="/"
           aria-label="Start a new trip"
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
         >
@@ -390,7 +387,7 @@ function ChatHeader({
         </Link>
       ) : null}
       <Link
-        to="/dashboard/chats"
+        to="/chats"
         aria-label="Open saved chats"
         className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt sm:flex"
       >
@@ -518,7 +515,7 @@ function LockedActions({
   return (
     <footer className="shrink-0 border-t border-line bg-surface px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-4">
       <div className="mx-auto flex w-full max-w-3xl items-center gap-2">
-        <Link to="/dashboard" className={buttonStyles({ className: 'flex-1' })}>
+        <Link to="/" className={buttonStyles({ className: 'flex-1' })}>
           <Plus className="h-4 w-4" aria-hidden /> Start another trip
         </Link>
         {canRevoke ? (

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, redirect } from 'react-router';
+import { createBrowserRouter, redirect } from 'react-router';
 import { AppShell } from './shell/AppShell.js';
 
 function preserveQueryRedirect(target: string) {
@@ -14,9 +14,9 @@ const dashboardChildren = [
     lazy: async () => ({ Component: (await import('../routes/ChatPage.js')).ChatPage }),
   },
   // Plans are created, inspected and stopped in the chat: the wizard, list and detail pages are gone.
-  { path: 'mandates', loader: preserveQueryRedirect('/dashboard/chats') },
-  { path: 'mandates/new', loader: preserveQueryRedirect('/dashboard') },
-  { path: 'mandates/:id', loader: preserveQueryRedirect('/dashboard/chats') },
+  { path: 'mandates', loader: preserveQueryRedirect('/chats') },
+  { path: 'mandates/new', loader: preserveQueryRedirect('/') },
+  { path: 'mandates/:id', loader: preserveQueryRedirect('/chats') },
   {
     path: 'activity',
     lazy: async () => ({ Component: (await import('../routes/ActivityPage.js')).ActivityPage }),
@@ -63,24 +63,16 @@ const dashboardChildren = [
   },
 ];
 
-function dashboardResourceRedirect(resource: string) {
-  return ({
-    params,
-    request,
-  }: {
-    params: Record<string, string | undefined>;
-    request: Request;
-  }) => {
-    const current = new URL(request.url);
-    const id = params.id ? `/${params.id}` : '';
-    return redirect(`/dashboard/${resource}${id}${current.search}`);
-  };
+/** `/dashboard/anything` → `/anything`: the client app lives at the root now. */
+function stripDashboardPrefix({ request }: { request: Request }) {
+  const current = new URL(request.url);
+  const path = current.pathname.replace(/^\/dashboard(?=\/|$)/, '') || '/';
+  return redirect(`${path}${current.search}`);
 }
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/dashboard" replace /> },
   {
-    path: '/dashboard',
+    path: '/',
     element: <AppShell perspective="client" />,
     children: dashboardChildren,
   },
@@ -127,19 +119,10 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Local compatibility while bookmarks and older demo recordings move to the new route tree.
-  { path: '/overview', loader: preserveQueryRedirect('/dashboard') },
-  { path: '/mandates', loader: preserveQueryRedirect('/dashboard/chats') },
-  { path: '/mandates/new', loader: preserveQueryRedirect('/dashboard') },
-  { path: '/mandates/:id', loader: preserveQueryRedirect('/dashboard/chats') },
-  { path: '/activity', loader: preserveQueryRedirect('/dashboard/activity') },
-  { path: '/purchases', loader: preserveQueryRedirect('/dashboard/purchases') },
-  { path: '/purchases/:id', loader: dashboardResourceRedirect('purchases') },
-  { path: '/settings', loader: preserveQueryRedirect('/dashboard/settings') },
-  { path: '/approvals/:id', loader: dashboardResourceRedirect('approvals') },
-  { path: '/disputes', loader: preserveQueryRedirect('/dashboard/disputes') },
-  { path: '/disputes/new', loader: preserveQueryRedirect('/dashboard/disputes/new') },
-  { path: '/disputes/:id', loader: dashboardResourceRedirect('disputes') },
+  // Local compatibility while bookmarks and older demo recordings move to the root route tree.
+  { path: '/dashboard', loader: stripDashboardPrefix },
+  { path: '/dashboard/*', loader: stripDashboardPrefix },
+  { path: '/overview', loader: preserveQueryRedirect('/') },
   { path: '/merchant', loader: preserveQueryRedirect('/verify') },
   { path: '/auditor', loader: preserveQueryRedirect('/audit') },
   { path: '/demo-control', loader: preserveQueryRedirect('/demo') },

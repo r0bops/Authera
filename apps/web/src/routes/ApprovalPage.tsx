@@ -108,7 +108,7 @@ export function ApprovalPage() {
                   {
                     label: 'Plan',
                     value: (
-                      <Link className="text-cobalt hover:underline" to="/dashboard/chats">
+                      <Link className="text-cobalt hover:underline" to="/chats">
                         Open the plan chat
                       </Link>
                     ),
@@ -186,10 +186,7 @@ export function ApprovalPage() {
                   >
                     Reject
                   </Button>
-                  <Link
-                    to="/dashboard"
-                    className="text-center text-[12.5px] text-cobalt hover:underline"
-                  >
+                  <Link to="/" className="text-center text-[12.5px] text-cobalt hover:underline">
                     Start a new plan in the chat
                   </Link>
                 </div>
@@ -218,7 +215,7 @@ export function ApprovalPage() {
                   {a.consumedByExecutionId ? (
                     <Link
                       className="ml-1 text-cobalt hover:underline"
-                      to={`/dashboard/purchases/${a.consumedByExecutionId}`}
+                      to={`/purchases/${a.consumedByExecutionId}`}
                     >
                       View receipt
                     </Link>

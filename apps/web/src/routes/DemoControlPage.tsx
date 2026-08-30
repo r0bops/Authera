@@ -656,7 +656,7 @@ function ResultSummary({ value }: { value: unknown }) {
               <span className="text-ink-faint">·</span>
               <Link
                 className="text-[12px] text-cobalt hover:underline"
-                to={`/dashboard/purchases/${purchase.executionId}`}
+                to={`/purchases/${purchase.executionId}`}
               >
                 receipt
               </Link>

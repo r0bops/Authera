@@ -21,17 +21,17 @@ import { selectDashboardPlans } from '../../lib/mandates.js';
 export type AppPerspective = 'client' | 'agent' | 'merchant' | 'auditor' | 'demo';
 
 const CLIENT_NAV = [
-  { to: '/dashboard/activity', label: 'Updates', icon: Activity, end: true, primary: false },
-  { to: '/dashboard/chats', label: 'Chats', icon: MessagesSquare, end: false, primary: false },
-  { to: '/dashboard', label: 'New', icon: Plus, end: true, primary: true },
+  { to: '/activity', label: 'Updates', icon: Activity, end: true, primary: false },
+  { to: '/chats', label: 'Chats', icon: MessagesSquare, end: false, primary: false },
+  { to: '/', label: 'New', icon: Plus, end: true, primary: true },
   {
-    to: '/dashboard/purchases',
+    to: '/purchases',
     label: 'Orders',
     icon: ReceiptText,
     end: false,
     primary: false,
   },
-  { to: '/dashboard/settings', label: 'Account', icon: UserRound, end: false, primary: false },
+  { to: '/settings', label: 'Account', icon: UserRound, end: false, primary: false },
 ];
 
 const PERSPECTIVE_CONFIG = {
@@ -131,10 +131,10 @@ export function AppShell({
     .toUpperCase();
   const clientAppSurface =
     perspective === 'client' &&
-    (location.pathname === '/dashboard' ||
-      location.pathname.startsWith('/dashboard/chats') ||
-      location.pathname === '/dashboard/activity' ||
-      location.pathname === '/dashboard/purchases');
+    (location.pathname === '/' ||
+      location.pathname.startsWith('/chats') ||
+      location.pathname === '/activity' ||
+      location.pathname === '/purchases');
 
   if (perspective === 'client') {
     return (
@@ -148,7 +148,7 @@ export function AppShell({
           <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
             <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-5 md:px-6">
               <NavLink
-                to="/dashboard"
+                to="/"
                 className="flex min-h-11 items-center gap-2 rounded-md font-semibold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
               >
                 <span className="h-2.5 w-2.5 rounded-sm bg-cobalt" aria-hidden />
@@ -165,7 +165,7 @@ export function AppShell({
                 {me.data?.demoMode ? <Badge tone="info">Demo</Badge> : null}
                 {me.isError ? <Badge tone="destructive">API unreachable</Badge> : null}
                 <NavLink
-                  to="/dashboard/settings"
+                  to="/settings"
                   aria-label={`Open ${humanName}'s profile`}
                   className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
                 >

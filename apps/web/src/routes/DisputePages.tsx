@@ -140,7 +140,7 @@ export function NewDisputePage() {
                     reason,
                     ...(description.trim() ? { description: description.trim() } : {}),
                   })
-                  .then((d) => navigate(`/dashboard/disputes/${d.id}`))
+                  .then((d) => navigate(`/disputes/${d.id}`))
               }
             >
               Submit dispute
@@ -317,7 +317,7 @@ export function DisputesListPage() {
                 <Td>
                   <Link
                     className="text-[12.5px] font-medium text-cobalt hover:underline"
-                    to={`/dashboard/disputes/${d.id}`}
+                    to={`/disputes/${d.id}`}
                   >
                     Open
                   </Link>

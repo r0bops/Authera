@@ -23,7 +23,7 @@ export function ChatsPage() {
             Return to a flight conversation or its record.
           </p>
         </div>
-        <Link to="/dashboard" className={buttonStyles({ size: 'sm' })}>
+        <Link to="/" className={buttonStyles({ size: 'sm' })}>
           <Plus className="h-4 w-4" aria-hidden /> New trip
         </Link>
       </header>
@@ -37,7 +37,7 @@ export function ChatsPage() {
           <EmptyState
             title="No saved chats yet"
             action={
-              <Link to="/dashboard" className={buttonStyles()}>
+              <Link to="/" className={buttonStyles()}>
                 Start a flight chat
               </Link>
             }
@@ -53,7 +53,7 @@ export function ChatsPage() {
               return (
                 <Link
                   key={chat.id}
-                  to={`/dashboard/chats/${chat.id}`}
+                  to={`/chats/${chat.id}`}
                   className="group flex min-h-20 items-center gap-3 rounded-xl border border-line bg-surface p-3 transition-colors motion-reduce:transition-none hover:border-cobalt/30 hover:bg-cobalt-soft/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt sm:p-4"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cobalt-soft text-cobalt">

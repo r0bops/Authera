@@ -100,7 +100,7 @@ export function ActivityPage() {
           <EmptyState
             title="No plans yet"
             action={
-              <Link to="/dashboard" className={buttonStyles()}>
+              <Link to="/" className={buttonStyles()}>
                 Start a trip
               </Link>
             }
@@ -375,7 +375,7 @@ function agentBrief(
       live: true,
       icon: Clock3,
       iconClass: 'bg-cobalt-soft text-cobalt',
-      action: { to: '/dashboard/purchases', label: 'See order' },
+      action: { to: '/purchases', label: 'See order' },
     };
   }
 
@@ -388,7 +388,7 @@ function agentBrief(
       live: true,
       icon: Clock3,
       iconClass: 'bg-amber-soft text-amber',
-      action: { to: '/dashboard/chats', label: 'Open chats' },
+      action: { to: '/chats', label: 'Open chats' },
     };
   }
 
@@ -413,7 +413,7 @@ function agentBrief(
       live: false,
       icon: CheckCircle2,
       iconClass: 'bg-emerald-soft text-emerald',
-      action: { to: '/dashboard/purchases', label: 'See orders' },
+      action: { to: '/purchases', label: 'See orders' },
     };
   }
 
@@ -425,7 +425,7 @@ function agentBrief(
       live: false,
       icon: CheckCircle2,
       iconClass: 'bg-surface-muted text-ink-muted',
-      action: { to: '/dashboard', label: 'Start a new trip' },
+      action: { to: '/', label: 'Start a new trip' },
     };
   }
 
@@ -437,6 +437,6 @@ function agentBrief(
     live: false,
     icon: Bot,
     iconClass: 'bg-cobalt-soft text-cobalt',
-    action: { to: '/dashboard', label: 'Start a trip' },
+    action: { to: '/', label: 'Start a trip' },
   };
 }

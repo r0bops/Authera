@@ -91,7 +91,7 @@ export function PurchaseDetailPage() {
               </a>
             ) : null}
             <Link
-              to={`/dashboard/disputes/new?executionId=${execution.id}`}
+              to={`/disputes/new?executionId=${execution.id}`}
               className={buttonStyles({ variant: 'secondary' })}
             >
               Report a problem
@@ -201,7 +201,7 @@ export function PurchaseDetailPage() {
                     {
                       label: 'Plan',
                       value: (
-                        <Link className="text-cobalt hover:underline" to="/dashboard/chats">
+                        <Link className="text-cobalt hover:underline" to="/chats">
                           Open the plan chat
                         </Link>
                       ),
