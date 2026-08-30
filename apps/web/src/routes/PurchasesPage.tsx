@@ -269,6 +269,16 @@ function OrderCard({
             <Download className="h-4 w-4" aria-hidden /> Card receipt
           </a>
         ) : null}
+        {succeeded ? (
+          <a
+            href={`/api/purchases/${purchase.id}/processor-receipt`}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonStyles({ variant: 'secondary', size: 'sm' })}
+          >
+            <ShieldAlert className="h-4 w-4" aria-hidden /> Stripe receipt
+          </a>
+        ) : null}
         {succeeded && purchase.bookingState === 'BOOKED' ? (
           <a
             href={`/api/purchases/${purchase.id}/booking-confirmation.html`}

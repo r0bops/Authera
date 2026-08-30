@@ -46,6 +46,8 @@ export interface PaymentProcessor {
   purchase(input: PurchaseInput): Promise<PaymentResult>;
   capture(input: AuthorizedPaymentInput): Promise<PaymentResult>;
   cancel(input: AuthorizedPaymentInput): Promise<PaymentResult>;
+  /** The processor's own receipt page for a completed payment (Stripe hosts one per charge). */
+  hostedReceiptUrl?(providerPaymentId: string): Promise<string | null>;
   parseWebhook(rawBody: Uint8Array, headers: Headers): Promise<PaymentEvent>;
 }
 

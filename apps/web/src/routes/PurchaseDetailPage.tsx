@@ -80,6 +80,17 @@ export function PurchaseDetailPage() {
                 Card receipt (Stripe)
               </a>
             ) : null}
+            {succeeded && execution.payment?.provider === 'stripe' ? (
+              <a
+                href={`/api/purchases/${execution.id}/processor-receipt`}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonStyles({ variant: 'secondary' })}
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Open Stripe’s own receipt
+              </a>
+            ) : null}
             {succeeded && booking?.state === 'BOOKED' ? (
               <a
                 href={`/api/purchases/${execution.id}/booking-confirmation.html`}

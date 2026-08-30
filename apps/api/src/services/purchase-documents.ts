@@ -124,7 +124,7 @@ export function stripeStyleReceiptHtml(
       <p class="foot">Questions? Open <a href="${escapeHtml(`/purchases/${execution.id}`)}">this purchase</a> in Authera to see the mandate, the agent's signed request and the gateway decision, or report a problem from there.</p>
     </div>
   </div>
-  <div class="fine">Rendered by Authera from the processor record (evidence ${escapeHtml(execution.evidenceId)}). Not a tax invoice.${offer?.priceModel ? ' Sandbox fare, region-calibrated by Authera.' : ''}</div>
+  <div class="fine">Rendered by Authera from the processor record (evidence ${escapeHtml(execution.evidenceId)}). Not a tax invoice.${isStripe ? ` <a href="${escapeHtml(`/api/purchases/${execution.id}/processor-receipt`)}" style="color:#635bff">Open Stripe's own receipt for this payment</a>.` : ''}${offer?.priceModel ? ' Sandbox fare, region-calibrated by Authera.' : ''}</div>
 </div></body></html>`;
 }
 

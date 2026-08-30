@@ -6,6 +6,7 @@ import { ok, type AppEnv } from '../../http/envelope.js';
 import { ApiProblem, formatZodIssues } from '../../http/problem.js';
 import { requireHuman } from '../../middleware/session.js';
 import { requireExecutionAccess } from '../../services/access-control.js';
+import type { PaymentProcessor } from '../../services/payments/processor.js';
 import type { CheckoutService } from '../../services/checkout-service.js';
 import {
   listExecutionSummaries,
@@ -25,6 +26,8 @@ export function consoleReadRoutes(deps: {
   clock: Clock;
   views: ExecutionViews;
   checkout: CheckoutService;
+  /** Lets the human open the processor's own receipt for a completed payment. */
+  processor?: PaymentProcessor;
 }) {
   const routes = new Hono<AppEnv>();
   routes.use('*', requireHuman());
@@ -78,6 +81,30 @@ export function consoleReadRoutes(deps: {
       throw ApiProblem.conflict('RECEIPT_NOT_AVAILABLE', 'Payment has not completed');
     }
     return htmlDownload(c, paymentReceiptHtml(receipt), `authera-payment-receipt-${id}.html`);
+  });
+
+  routes.get('/purchases/:id/processor-receipt', async (c) => {
+    const id = purchaseId(c.req.param('id'));
+    await requireExecutionAccess(deps.db, c.get('user')!, id);
+    const receipt = await purchaseReceipt(
+      { db: deps.db, clock: deps.clock, views: deps.views },
+      id,
+    );
+    const payment = receipt.execution.payment;
+    if (receipt.execution.state !== 'SUCCEEDED' || payment?.state !== 'SUCCEEDED') {
+      throw ApiProblem.conflict('RECEIPT_NOT_AVAILABLE', 'The payment has not completed');
+    }
+    const url =
+      payment.providerPaymentId && deps.processor?.hostedReceiptUrl
+        ? await deps.processor.hostedReceiptUrl(payment.providerPaymentId)
+        : null;
+    if (!url) {
+      throw ApiProblem.conflict(
+        'RECEIPT_NOT_AVAILABLE',
+        'The processor did not provide a hosted receipt for this payment (mock mode has none)',
+      );
+    }
+    return c.redirect(url, 302);
   });
 
   routes.get('/purchases/:id/stripe-receipt.html', async (c) => {

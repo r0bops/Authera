@@ -72,6 +72,24 @@ export class StripePaymentProcessor implements PaymentProcessor {
   private readonly timeoutMs: number;
   private readonly now: () => Date;
 
+  /** Stripe's hosted receipt for the PaymentIntent's charge — third-party proof the payment ran. */
+  async hostedReceiptUrl(providerPaymentId: string): Promise<string | null> {
+    const response = await this.fetchImpl(
+      `${this.baseUrl}/v1/payment_intents/${encodeURIComponent(providerPaymentId)}?expand[]=latest_charge`,
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${this.config.secretKey}` },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      },
+    );
+    if (!response.ok) return null;
+    const intent = (await response.json()) as {
+      latest_charge?: string | { receipt_url?: string | null } | null;
+    };
+    const charge = intent.latest_charge;
+    return charge && typeof charge === 'object' ? (charge.receipt_url ?? null) : null;
+  }
+
   constructor(private readonly config: StripeProcessorConfig) {
     if (!config.secretKey.startsWith('sk_test_') && !config.secretKey.startsWith('rk_test_')) {
       throw new Error('StripePaymentProcessor only accepts test-mode secret keys');

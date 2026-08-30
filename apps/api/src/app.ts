@@ -285,7 +285,10 @@ export function createApp(deps: AppDependencies): App {
         }),
       }),
     );
-    app.route('/api', consoleReadRoutes({ db, clock, views, checkout }));
+    app.route(
+      '/api',
+      consoleReadRoutes({ db, clock, views, checkout, processor: paymentProcessor }),
+    );
     const evidence = new EvidenceService({ db, clock });
     const ap2Evidence = new Ap2EvidenceService({ evidence, merchantKey: keys.merchant, clock });
     const approvals = new ApprovalService({
