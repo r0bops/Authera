@@ -26,15 +26,13 @@ COPY packages/test-support/package.json packages/test-support/package.json
 
 # ---------- build: full install, compile web + api ----------
 FROM manifests AS build
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
 
 # ---------- prod-deps: runtime dependencies of the API only ----------
 FROM manifests AS prod-deps
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod --filter @authera/api...
+RUN pnpm install --frozen-lockfile --prod --filter @authera/api...
 
 # ---------- runtime ----------
 FROM ${NODE_IMAGE} AS runtime
