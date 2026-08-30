@@ -77,6 +77,31 @@ describe('scripted mandate chat fallback', () => {
     expect(result.missingFields).toContain('validUntil');
   });
 
+  it('replaces a completed draft maximum expressed with a trailing dollar sign', () => {
+    const result = scriptedMandateChat(
+      request('I actually have a maximum of 250$', {
+        ...emptyDraft,
+        category: 'flight',
+        origin: 'BOG',
+        destination: 'PMV',
+        departureDateFrom: '2026-08-31',
+        departureDateTo: '2026-09-06',
+        dateFlexibilityDays: 0,
+        passengerCount: 1,
+        maxPerPurchaseMinor: 30_000,
+        currency: 'USD',
+        maxFulfillments: 1,
+        validUntil: '2026-09-07T23:59:59.000Z',
+        escalation: 'require_human',
+      }),
+      new Date('2026-08-30T12:00:00.000Z'),
+    );
+
+    expect(result.complete).toBe(true);
+    expect(result.draft.maxPerPurchaseMinor).toBe(25_000);
+    expect(result.reply).toContain('updated the all-in maximum to USD 250.00');
+  });
+
   it('keeps non-flight requests outside the mandate draft', () => {
     const result = scriptedMandateChat(
       request('Buy me a pair of running shoes under $120.'),

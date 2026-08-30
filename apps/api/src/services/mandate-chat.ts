@@ -153,9 +153,9 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
     draft.category = 'flight';
   }
 
-  const amount = latest.match(/(?:\$|usd\s*)\s*(\d+(?:[.,]\d{1,2})?)/i);
-  if (amount?.[1]) {
-    draft.maxPerPurchaseMinor = Math.round(Number(amount[1].replace(',', '.')) * 100);
+  const amountMinor = usdAmountMinor(latest);
+  if (amountMinor !== undefined) {
+    draft.maxPerPurchaseMinor = amountMinor;
     draft.currency = 'USD';
   }
 
@@ -200,7 +200,34 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
   const expiry = authorizationExpiry(latest, now, isWaitingForValidity(draft));
   if (expiry) draft.validUntil = expiry.toISOString();
 
-  return finalizeResponse('', MandateChatDraftSchema.parse(draft), 'scripted', now);
+  const reply =
+    amountMinor !== undefined &&
+    input.draft?.maxPerPurchaseMinor != null &&
+    input.draft.maxPerPurchaseMinor !== amountMinor
+      ? `I updated the all-in maximum to USD ${(amountMinor / 100).toFixed(2)}. Review the exact rules before authorizing it.`
+      : '';
+  return finalizeResponse(reply, MandateChatDraftSchema.parse(draft), 'scripted', now);
+}
+
+function usdAmountMinor(text: string): number | undefined {
+  const number = String.raw`([0-9][0-9,.]*(?:[.,][0-9]{1,2})?)`;
+  const patterns = [
+    new RegExp(String.raw`(?:\$|\bUSD\s*)\s*${number}`, 'i'),
+    new RegExp(String.raw`${number}\s*(?:\$|USD\b)`, 'i'),
+    new RegExp(
+      String.raw`\b(?:maximum|max|budget|limit|under|below|up to|no more than)(?:\s+(?:is|of|at))?\s*(?:USD\s*|\$\s*)?${number}`,
+      'i',
+    ),
+  ];
+  const raw = patterns.map((pattern) => text.match(pattern)?.[1]).find(Boolean);
+  if (!raw) return undefined;
+  let normalized = raw;
+  if (raw.includes('.') && raw.includes(',')) normalized = raw.replaceAll(',', '');
+  else if (raw.includes(',')) {
+    normalized = /,\d{1,2}$/.test(raw) ? raw.replace(',', '.') : raw.replaceAll(',', '');
+  }
+  const major = Number(normalized);
+  return Number.isFinite(major) && major > 0 ? Math.round(major * 100) : undefined;
 }
 
 function finalizeResponse(
