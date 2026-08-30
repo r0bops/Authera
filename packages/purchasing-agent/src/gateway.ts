@@ -40,8 +40,20 @@ export type SignedGatewayRequest = Readonly<{
   signal?: AbortSignal;
 }>;
 
+/** What the agent signs for one purchase: exactly the transaction, nothing the model can edit. */
+export interface ClosedCheckoutBinding {
+  executionId: string;
+  mandateId: string;
+  offerId: string;
+  checkoutId: string;
+  cartHash: string;
+  total: { currency: string; minor: number };
+}
+
 export interface SignedGatewayTransport {
   request(request: SignedGatewayRequest): Promise<unknown>;
+  /** Signs the closed Checkout Mandate with the agent key (the key never enters this package). */
+  signClosedCheckout?(binding: ClosedCheckoutBinding): Promise<string>;
 }
 
 export interface SignedAgentHttpClient {
@@ -52,6 +64,7 @@ export interface SignedAgentHttpClient {
     tag: string;
     signal?: AbortSignal;
   }): Promise<{ status: number; body: unknown }>;
+  signClosedCheckout?(binding: ClosedCheckoutBinding): Promise<string>;
 }
 
 export class SignedGatewayHttpError extends Error {
@@ -65,7 +78,13 @@ export class SignedGatewayHttpError extends Error {
 }
 
 export class AgentHttpClientTransport implements SignedGatewayTransport {
-  constructor(private readonly client: SignedAgentHttpClient) {}
+  /** Present only when the underlying client can sign with the agent key. */
+  readonly signClosedCheckout: ((binding: ClosedCheckoutBinding) => Promise<string>) | undefined;
+
+  constructor(private readonly client: SignedAgentHttpClient) {
+    const sign = client.signClosedCheckout?.bind(client);
+    this.signClosedCheckout = sign ? (binding) => sign(binding) : undefined;
+  }
 
   async request(request: SignedGatewayRequest): Promise<unknown> {
     const response = await this.client.call({
@@ -85,6 +104,12 @@ export class AgentHttpClientTransport implements SignedGatewayTransport {
 export type ExecutionIdFactory = () => string;
 
 export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
+  /** Checkout facts captured from the authoritative session, keyed by checkout id. */
+  private readonly bindings = new Map<
+    string,
+    { offerId: string; cartHash: string; total: { currency: string; minor: number } }
+  >();
+
   constructor(
     private readonly transport: SignedGatewayTransport,
     private readonly executionId: ExecutionIdFactory = () => crypto.randomUUID(),
@@ -138,11 +163,30 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
     input: RequestPurchaseToolInput,
     options: GatewayCallOptions = {},
   ): Promise<PurchaseAttemptResponse> {
+    const executionId = this.executionId();
+    const binding = this.bindings.get(input.checkoutId);
+    // The closed mandate is signed from what the server told us at checkout time, never from
+    // anything the model produced; a checkout this run did not prepare cannot be signed.
+    const closedCheckoutJws =
+      binding && binding.offerId === input.offerId && this.transport.signClosedCheckout
+        ? await this.transport.signClosedCheckout({
+            executionId,
+            mandateId: input.mandateId,
+            offerId: input.offerId,
+            checkoutId: input.checkoutId,
+            cartHash: binding.cartHash,
+            total: binding.total,
+          })
+        : undefined;
     const response = await this.transport.request({
       method: 'POST',
       path: '/api/purchase-attempts',
       tag: 'authera:payment',
-      body: { executionId: this.executionId(), ...input },
+      body: {
+        executionId,
+        ...input,
+        ...(closedCheckoutJws ? { closedCheckoutJws } : {}),
+      },
       signal: options.signal,
     });
     return parseGatewayResponse(PurchaseAttemptResponseSchema, response);
@@ -167,6 +211,11 @@ export class HttpPurchasingAgentGateway implements PurchasingAgentGateway {
     ) {
       throw new Error('Prepared checkout does not match the authoritative flight offer');
     }
+    this.bindings.set(checkout.id, {
+      offerId: offer.id,
+      cartHash: checkout.cartHash,
+      total: { currency: checkout.total.currency, minor: checkout.total.minor },
+    });
     return {
       offerId: offer.id,
       checkoutId: checkout.id,

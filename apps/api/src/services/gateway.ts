@@ -6,8 +6,9 @@ import {
   type PurchaseAttemptResponse,
   type ReasonCode,
 } from '@authera/contracts';
-import { evaluatePolicy, hashCanonical } from '@authera/domain';
+import { evaluatePolicy, hashCanonical, type Ed25519PublicJwk } from '@authera/domain';
 import type { Clock } from '../clock.js';
+import { verifyClosedCheckout } from './closed-checkout.js';
 import { ApiProblem, formatZodIssues } from '../http/problem.js';
 import type { Logger } from '../logger.js';
 import type { ExecutionRecord, GatewayStore } from './gateway-store.js';
@@ -19,6 +20,8 @@ export interface AgentContext {
   agentId: string;
   agentKeyId: string;
   keyThumbprint: string;
+  /** The pinned public key the HTTP signature was verified with. */
+  publicJwk: Ed25519PublicJwk;
   profileUri: string;
   nonce: string;
   requestDigest: string;
@@ -135,6 +138,46 @@ export class MandateGateway {
       return block('MERCHANT_NOT_ALLOWED', 'MERCHANT_ACTIVE', merchant?.status ?? 'missing');
     const agentRecord = await store.getAgent(agent.agentId);
     const computedHash = hashCanonical(checkout.cart);
+
+    // Closed Checkout Mandate: the agent's own signature over exactly this transaction, verified
+    // with the key its HTTP signature already proved, then bound to the server's records.
+    if (!request.closedCheckoutJws) {
+      return block('CLOSED_CHECKOUT_INVALID', 'CLOSED_CHECKOUT_PRESENT', 'missing');
+    }
+    checks.push({ code: 'CLOSED_CHECKOUT_PRESENT', passed: true });
+    const closed = await verifyClosedCheckout(
+      request.closedCheckoutJws,
+      { thumbprint: agent.keyThumbprint, publicJwk: agent.publicJwk },
+      {
+        executionId: request.executionId,
+        mandateId: request.mandateId,
+        offerId: request.offerId,
+        checkoutId: request.checkoutId,
+        cartHash: checkout.cartHash,
+        total: checkout.total,
+      },
+      now,
+    );
+    if (!closed.ok) {
+      const code = closed.reason.startsWith('binding')
+        ? 'CLOSED_CHECKOUT_BINDING'
+        : 'CLOSED_CHECKOUT_SIGNATURE';
+      if (code === 'CLOSED_CHECKOUT_BINDING')
+        checks.push({
+          code: 'CLOSED_CHECKOUT_SIGNATURE',
+          passed: true,
+          actual: agent.keyThumbprint,
+        });
+      return block('CLOSED_CHECKOUT_INVALID', code, closed.reason);
+    }
+    checks.push({ code: 'CLOSED_CHECKOUT_SIGNATURE', passed: true, actual: closed.kid });
+    checks.push({
+      code: 'CLOSED_CHECKOUT_BINDING',
+      passed: true,
+      expected: checkout.cartHash,
+      actual: closed.claims.cartHash,
+    });
+
     const approval = await store.findActiveApproval({
       mandateId: mandate.mandate.id,
       checkoutHash: checkout.cartHash,
@@ -218,6 +261,11 @@ export class MandateGateway {
         amount: checkout.total,
         policyHash: mandate.version.policyHash,
         checkoutHash: checkout.cartHash,
+        closedCheckout: {
+          jws: request.closedCheckoutJws,
+          kid: closed.kid,
+          cartHash: closed.claims.cartHash,
+        },
         failedChecks: checklist.filter((c) => !c.passed).map((c) => c.code),
         evaluatedAt: verdict.evaluatedAt,
       },

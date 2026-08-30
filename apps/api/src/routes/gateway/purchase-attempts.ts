@@ -20,6 +20,7 @@ export function purchaseAttemptRoutes(deps: { gateway: MandateGateway }) {
         agentId: request.agent.agentId,
         agentKeyId: request.agent.agentKeyId,
         keyThumbprint: request.agent.thumbprint,
+        publicJwk: request.agent.publicJwk,
         profileUri: request.agent.profileUri,
         nonce: request.nonce,
         requestDigest: request.requestDigest,

@@ -57,6 +57,7 @@ sequenceDiagram
   API->>API: Verify Content-Digest, components, created/expires, keyid → pinned key, tag
   API->>DB: Insert unique (agent key, nonce) — replay fails here
   API->>DB: Load mandate (verify JWS + hash), offer, checkout (recompute cart hash), merchant, agent, approval
+  API->>API: Verify the agent-signed closed Checkout Mandate (EdDSA JWS, bound to checkout hash + total)
   API->>API: evaluatePolicy(server-controlled input) → ALLOW / BLOCK / REQUIRE_HUMAN + checklist
   API->>DB: Persist checklist + POLICY_EVALUATED (hash-chained)
   alt ALLOW

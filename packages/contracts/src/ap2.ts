@@ -33,6 +33,8 @@ export const Ap2ClosedCheckoutEvidenceSchema = z.strictObject({
   mandate_id: z.uuid(),
   mandate_version: z.number().int().positive(),
   policy_hash: z.string().min(1),
+  /** Agent-signed closed mandate (EdDSA JWS) over this exact checkout, when present. */
+  agent_closed_checkout_jws: z.string().min(1).nullable(),
 });
 
 export const Ap2PaymentEvidenceSchema = z.strictObject({

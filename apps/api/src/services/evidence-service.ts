@@ -169,6 +169,7 @@ export class EvidenceService {
         signatureVerified: execution.state !== 'RECEIVED',
         requestDigest: role === 'human' ? null : execution.requestDigest,
         nonce: role === 'human' ? null : execution.nonce,
+        closedCheckout: closedCheckoutFrom(events, role),
       },
       offer: offer ? toOfferView(offer) : null,
       checkout: checkout
@@ -241,4 +242,23 @@ export class EvidenceService {
   mandateSignatureFacts(bundle: EvidenceBundle): boolean {
     return bundle.human !== null && bundle.mandate !== null;
   }
+}
+
+/** The agent-signed closed Checkout Mandate, as recorded by the gateway when it evaluated policy. */
+function closedCheckoutFrom(
+  events: Array<{ eventType: string; payload: unknown }>,
+  role: 'human' | 'merchant' | 'auditor',
+): { jws: string | null; kid: string; cartHash: string; verified: boolean } | null {
+  const evaluated = events.find((event) => event.eventType === 'POLICY_EVALUATED');
+  const payload = evaluated?.payload as
+    { closedCheckout?: { jws?: string; kid?: string; cartHash?: string } } | undefined;
+  const closed = payload?.closedCheckout;
+  if (!closed?.kid || !closed.cartHash) return null;
+  return {
+    // The human sees that it exists and was verified; digests and tokens stay with merchant/auditor.
+    jws: role === 'human' ? null : (closed.jws ?? null),
+    kid: closed.kid,
+    cartHash: closed.cartHash,
+    verified: true,
+  };
 }

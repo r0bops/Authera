@@ -177,13 +177,14 @@ test('10 · live revocation blocks the immediate retry', async ({ page, request 
   const fresh = await createMandate(request, { paymentMethodId });
   const offer = await injectOffer(request, 12_000);
   // The chat is the human's only surface for a plan: link it, then stop it from there.
-  const chat = await post<{ id: string }>(request, '/api/chats', {
+  const created = await post<{ id: string }>(request, '/api/chats', {
     message: 'Flight from Caracas to Córdoba next month, max $150.',
   });
-  await post(request, `/api/chats/${chat.id}/mandate`, { mandateId: fresh.id });
-  await page.goto(`/chats/${chat.id}`);
+  const chatId = created.body.data!.id;
+  await post(request, `/api/chats/${chatId}/mandate`, { mandateId: fresh.id });
+  await page.goto(`/chats/${chatId}`);
   await expect(page.getByText(/signed and active/i).first()).toBeVisible();
-  await post(request, `/api/chats/${chat.id}/revoke`, {});
+  await post(request, `/api/chats/${chatId}/revoke`, {});
   await page.reload();
   await expect(page.getByText(/revoked/i).first()).toBeVisible();
   const result = await directAttempt(request, { mandateId: fresh.id, offerId: offer.id });

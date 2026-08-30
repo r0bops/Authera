@@ -112,6 +112,7 @@ export class Ap2EvidenceService {
         mandate_id: bundle.mandate.policy.mandateId,
         mandate_version: bundle.mandate.policy.version,
         policy_hash: bundle.human?.authorization.policyHash ?? bundle.bundleHash,
+        agent_closed_checkout_jws: bundle.agent.closedCheckout?.jws ?? null,
       },
       authorization: {
         decision: bundle.execution.decision,

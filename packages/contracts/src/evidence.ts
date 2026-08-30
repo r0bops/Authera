@@ -139,6 +139,15 @@ export const EvidenceBundleSchema = z.object({
     signatureVerified: z.boolean(),
     requestDigest: z.string().nullable(),
     nonce: z.string().nullable(),
+    /** The agent-signed closed Checkout Mandate the gateway verified for this execution. */
+    closedCheckout: z
+      .object({
+        jws: z.string().nullable(),
+        kid: z.string(),
+        cartHash: z.string(),
+        verified: z.boolean(),
+      })
+      .nullable(),
   }),
   offer: FlightOfferViewSchema.nullable(),
   checkout: z

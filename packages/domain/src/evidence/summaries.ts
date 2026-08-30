@@ -49,6 +49,8 @@ const REASON_TEMPLATES: Record<ReasonCode, (ctx: ReasonContext) => string> = {
   USAGE_EXHAUSTED: () => 'Blocked: the mandate has no remaining purchases.',
   CHECKOUT_EXPIRED: () => 'Blocked: the checkout expired before the purchase completed.',
   CHECKOUT_HASH_MISMATCH: () => 'Blocked: the cart changed after it was authorized.',
+  CLOSED_CHECKOUT_INVALID: () =>
+    'Blocked: the agent did not sign exactly this checkout (missing, tampered or mismatched closed mandate).',
   APPROVAL_INVALID: () => 'Blocked: the human approval does not cover this exact checkout.',
   RESERVATION_CONFLICT: () => 'Blocked: another purchase used the mandate allowance first.',
   BOOKING_FAILED: () =>

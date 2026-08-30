@@ -34,6 +34,13 @@ export const PurchaseAttemptRequestSchema = z.strictObject({
   mandateId: z.uuid(),
   offerId: z.uuid(),
   checkoutId: z.uuid(),
+  /**
+   * The agent's closed Checkout Mandate: a compact JWS signed with the same key as the HTTP
+   * signature, binding mandate, offer, checkout, canonical cart hash and total. Required by the
+   * gateway; optional in the schema only so a missing one is a policy BLOCK with evidence rather
+   * than a 400.
+   */
+  closedCheckoutJws: z.string().min(1).optional(),
 });
 export type PurchaseAttemptRequest = z.infer<typeof PurchaseAttemptRequestSchema>;
 

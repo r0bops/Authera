@@ -7,6 +7,7 @@ import { fixedClock } from '../clock.js';
 import type { ApiProblem } from '../http/problem.js';
 import { createLogger } from '../logger.js';
 import { MemoryGatewayStore } from '../testing/memory-gateway-store.js';
+import { signClosedCheckout } from './closed-checkout.js';
 import { MandateGateway, type AgentContext, type ReservedExecution } from './gateway.js';
 import { MandateSigner } from './mandate-signer.js';
 
@@ -73,11 +74,17 @@ function checkoutFor(o: Offer): Checkout {
   };
 }
 
+/** The key pair behind a thumbprint used in these tests (real agent or the "other" agent). */
+function keyPairFor(thumbprint: string) {
+  return thumbprint === otherKeys.agent.thumbprint ? otherKeys.agent : keys.agent;
+}
+
 function agentContext(thumbprint = keys.agent.thumbprint): AgentContext {
   return {
     agentId: FIXTURE_IDS.agentId,
     agentKeyId: 'key-1',
     keyThumbprint: thumbprint,
+    publicJwk: keyPairFor(thumbprint).publicJwk,
     profileUri: 'http://localhost:3000/agents/x/profile',
     nonce: randomUUID(),
     requestDigest: `sha-256=:${randomUUID()}:`,
@@ -120,16 +127,41 @@ describe('MandateGateway', () => {
       agent: AgentContext;
       mandateId: string;
       executionId: string;
+      /** Override what the agent signs (tamper), or send no closed mandate at all. */
+      closed: 'omit' | Partial<{ cartHash: string; totalMinor: number; mandateId: string }>;
     }> = {},
   ): Promise<PurchaseAttemptResponse> {
     const o = store.offers.get(offerId)!;
     const checkout = overrides.checkout ?? checkoutFor(o);
     store.checkouts.set(checkout.id, checkout);
-    return gateway.attempt(overrides.agent ?? agentContext(), {
-      executionId: overrides.executionId ?? randomUUID(),
-      mandateId: overrides.mandateId ?? FIXTURE_IDS.mandateId,
+    const agent = overrides.agent ?? agentContext();
+    const executionId = overrides.executionId ?? randomUUID();
+    const mandateId = overrides.mandateId ?? FIXTURE_IDS.mandateId;
+    const tamper = overrides.closed === 'omit' ? {} : (overrides.closed ?? {});
+    const closedCheckoutJws =
+      overrides.closed === 'omit'
+        ? undefined
+        : await signClosedCheckout(
+            keyPairFor(agent.keyThumbprint),
+            {
+              executionId,
+              mandateId: tamper.mandateId ?? mandateId,
+              offerId,
+              checkoutId: checkout.id,
+              cartHash: tamper.cartHash ?? checkout.cartHash,
+              total: {
+                currency: checkout.total.currency,
+                minor: tamper.totalMinor ?? checkout.total.minor,
+              },
+            },
+            NOW,
+          );
+    return gateway.attempt(agent, {
+      executionId,
+      mandateId,
       offerId,
       checkoutId: checkout.id,
+      ...(closedCheckoutJws ? { closedCheckoutJws } : {}),
     });
   }
 
@@ -344,5 +376,36 @@ describe('MandateGateway', () => {
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(store.executions.size).toBe(0);
+  });
+
+  describe('closed Checkout Mandate (agent-signed)', () => {
+    it('blocks an attempt that carries no closed mandate, with evidence', async () => {
+      await seedMandate();
+      const result = await attempt(OFFER_130, { closed: 'omit' });
+      expect(result).toMatchObject({ decision: 'BLOCK', reasonCode: 'CLOSED_CHECKOUT_INVALID' });
+      expect(reservedCalls).toHaveLength(0);
+    });
+
+    it('blocks a closed mandate whose cart hash is not the checkout the agent named', async () => {
+      await seedMandate();
+      const result = await attempt(OFFER_130, { closed: { cartHash: 'sha256:tampered' } });
+      expect(result).toMatchObject({ decision: 'BLOCK', reasonCode: 'CLOSED_CHECKOUT_INVALID' });
+    });
+
+    it('blocks a closed mandate signed for a different total', async () => {
+      await seedMandate();
+      const result = await attempt(OFFER_130, { closed: { totalMinor: 1 } });
+      expect(result).toMatchObject({ decision: 'BLOCK', reasonCode: 'CLOSED_CHECKOUT_INVALID' });
+    });
+
+    it('records the verified closed mandate beside the policy verdict', async () => {
+      await seedMandate();
+      const result = await attempt(OFFER_130);
+      expect(result.decision).toBe('ALLOW');
+      const evaluated = store.events.find((e) => e.eventType === 'POLICY_EVALUATED');
+      expect(evaluated?.payload).toMatchObject({
+        closedCheckout: { kid: keys.agent.thumbprint },
+      });
+    });
   });
 });

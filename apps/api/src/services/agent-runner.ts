@@ -160,30 +160,57 @@ export class AgentRunner {
   }): Promise<DemoDirectAttemptResult> {
     const client = await this.client(input.impersonate ? this.impostor : undefined);
     const checkoutClient = input.impersonate ? await this.client() : client;
-    let checkoutId = input.checkoutId;
-    if (!checkoutId) {
-      const created = await checkoutClient.call<{
-        ok: boolean;
-        data?: unknown;
-        error?: { code: string; message: string };
-      }>({
-        method: 'POST',
-        path: '/ucp/v1/checkout-sessions',
-        body: { offerId: input.offerId },
-        tag: AGENT_TAGS.browse,
-      });
-      if (!created.body.ok)
-        throw ApiProblem.conflict(
-          created.body.error?.code ?? 'CHECKOUT_FAILED',
-          created.body.error?.message ?? 'checkout creation failed',
-        );
-      checkoutId = CheckoutSessionSchema.parse(created.body.data).id;
-    }
+    const sessionResponse = await checkoutClient.call<{
+      ok: boolean;
+      data?: unknown;
+      error?: { code: string; message: string };
+    }>(
+      input.checkoutId
+        ? {
+            method: 'GET',
+            path: `/ucp/v1/checkout-sessions/${input.checkoutId}`,
+            tag: AGENT_TAGS.browse,
+          }
+        : {
+            method: 'POST',
+            path: '/ucp/v1/checkout-sessions',
+            body: { offerId: input.offerId },
+            tag: AGENT_TAGS.browse,
+          },
+    );
+    if (!sessionResponse.body.ok)
+      throw ApiProblem.conflict(
+        sessionResponse.body.error?.code ?? 'CHECKOUT_FAILED',
+        sessionResponse.body.error?.message ?? 'checkout lookup failed',
+      );
+    const session = CheckoutSessionSchema.parse(sessionResponse.body.data);
+    const checkoutId = session.id;
     const executionId = input.executionId ?? randomUUID();
+    // The closed Checkout Mandate is signed with whichever key sends the request: the real agent,
+    // or the impostor (whose HTTP signature is rejected before the mandate is ever read).
+    const closedCheckoutJws = await client.signClosedCheckout(
+      {
+        executionId,
+        mandateId: input.mandateId,
+        offerId: input.offerId,
+        checkoutId,
+        cartHash: session.cartHash,
+        total: session.total,
+      },
+      input.impersonate
+        ? { ...this.impostor, thumbprint: this.deps.keys.agent.thumbprint }
+        : undefined,
+    );
     const request = client.build({
       method: 'POST',
       path: '/api/purchase-attempts',
-      body: { executionId, mandateId: input.mandateId, offerId: input.offerId, checkoutId },
+      body: {
+        executionId,
+        mandateId: input.mandateId,
+        offerId: input.offerId,
+        checkoutId,
+        closedCheckoutJws,
+      },
       tag: AGENT_TAGS.payment,
       // The impostor signs with its own key but advertises the real agent's key id.
       ...(input.impersonate

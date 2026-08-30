@@ -537,6 +537,46 @@ describe('signed gateway adapter and operational guardrails', () => {
     ).resolves.toEqual({ offers: [] });
   });
 
+  it('signs a closed checkout mandate from the prepared session, never from the model', async () => {
+    const signed: unknown[] = [];
+    const transport: SignedGatewayTransport = {
+      request: vi.fn(async (request: SignedGatewayRequest) => {
+        if (request.path === '/api/flights')
+          return { ok: true, data: [flightOfferView(ID.offer130, 13_000)] };
+        if (request.path === '/ucp/v1/checkout-sessions')
+          return { ok: true, data: checkoutSession(ID.offer130, ID.checkout130, 13_000) };
+        return { ok: true, data: allowedPurchase };
+      }),
+      signClosedCheckout: vi.fn(async (binding) => {
+        signed.push(binding);
+        return 'closed.jws.token';
+      }),
+    };
+    const gateway = new HttpPurchasingAgentGateway(transport, () => ID.execution);
+    await gateway.searchFlights(searchInput);
+
+    await gateway.requestPurchase({
+      mandateId: ID.mandate,
+      offerId: ID.offer130,
+      checkoutId: ID.checkout130,
+    });
+
+    expect(signed).toEqual([
+      {
+        executionId: ID.execution,
+        mandateId: ID.mandate,
+        offerId: ID.offer130,
+        checkoutId: ID.checkout130,
+        cartHash: checkoutSession(ID.offer130, ID.checkout130, 13_000).cartHash,
+        total: { currency: 'USD', minor: 13_000 },
+      },
+    ]);
+    const purchaseCall = (transport.request as ReturnType<typeof vi.fn>).mock.calls.at(
+      -1,
+    )?.[0] as SignedGatewayRequest;
+    expect(purchaseCall.body).toMatchObject({ closedCheckoutJws: 'closed.jws.token' });
+  });
+
   it('adds the execution ID locally and sends no price or payment data', async () => {
     const requests: SignedGatewayRequest[] = [];
     const transport: SignedGatewayTransport = {

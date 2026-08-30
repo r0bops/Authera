@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { signRequest, type KeyPair } from '@authera/domain';
 import type { Clock } from '../clock.js';
+import { signClosedCheckout, type ClosedCheckoutPayload } from './closed-checkout.js';
 
 export interface AgentClientOptions {
   keyPair: KeyPair;
@@ -70,6 +71,16 @@ export class AgentHttpClient {
     const response = await this.send(request.clone());
     const body = (await response.json()) as T;
     return { status: response.status, body, request };
+  }
+
+  /** The agent's closed Checkout Mandate for one exact transaction, signed with its key. */
+  signClosedCheckout(binding: ClosedCheckoutPayload, keyPair?: KeyPair): Promise<string> {
+    const pair = keyPair ?? this.options.keyPair;
+    return signClosedCheckout(
+      { privateJwk: pair.privateJwk, thumbprint: pair.thumbprint },
+      binding,
+      this.options.clock.now(),
+    );
   }
 
   /** Re-send a previously built request byte-for-byte (replay demo). */
