@@ -16,59 +16,95 @@ import { intentTitle } from '../lib/intent.js';
 type LineKind = 'cmd' | 'out' | 'ok' | 'warn' | 'err' | 'muted';
 type Line = { id: number; kind: LineKind; text: string };
 
-/** One judge scenario: a name, what it proves, and the steps it runs against the real API. */
-const SCENARIOS: Array<{ cmd: string; label: string; proves: string }> = [
-  { cmd: 'inject 130', label: 'Price drop', proves: 'a USD 130 offer appears on the plan route' },
+/**
+ * Judge scenarios, grouped the way the brief tells the story. Each runs real signed requests
+ * through the terminal below; `param` is the one number a judge may want to change.
+ */
+type Scenario = {
+  cmd: string;
+  label: string;
+  proves: string;
+  param?: { label: string; value: string; placeholder?: string };
+};
+const SCENARIO_GROUPS: Array<{ title: string; blurb: string; items: Scenario[] }> = [
   {
-    cmd: 'run',
-    label: 'Agent buys',
-    proves: 'the agent searches, chooses, explains, the gateway decides',
+    title: 'The key moments',
+    blurb: 'Marta’s mandate, in the order the brief tells it.',
+    items: [
+      {
+        cmd: 'inject',
+        label: 'Price drop',
+        proves: 'an offer appears on the plan route at this price',
+        param: { label: 'USD', value: '130' },
+      },
+      {
+        cmd: 'run',
+        label: 'Agent buys',
+        proves: 'the agent searches, chooses, explains — the gateway decides',
+      },
+      {
+        cmd: 'over',
+        label: 'Over the limit',
+        proves: 'blocked or paused for you — never silently approved',
+        param: { label: 'USD', value: '300' },
+      },
+      {
+        cmd: 'revoke',
+        label: 'Live revocation',
+        proves: 'revoke, then the very next attempt fails',
+      },
+      {
+        cmd: 'limit',
+        label: 'Change a limit',
+        proves: 're-signed as a new version; the next attempt is judged by it',
+        param: { label: 'USD', value: '100' },
+      },
+    ],
   },
   {
-    cmd: 'over 300',
-    label: 'Over the limit',
-    proves: 'USD 300 is blocked or paused — never silently approved',
+    title: 'The ugly cases',
+    blurb: 'Outside the mandate, expired, impersonated, tampered — each one explicit.',
+    items: [
+      { cmd: 'expire', label: 'Expired mandate', proves: 'clock past validity: the attempt fails' },
+      {
+        cmd: 'category',
+        label: 'Forbidden category',
+        proves: 'goods, or another trip, under a flight plan is blocked',
+      },
+      { cmd: 'forge', label: 'Impersonated agent', proves: 'rejected before any policy runs' },
+      {
+        cmd: 'replay',
+        label: 'Replay attack',
+        proves: 'a captured signed request cannot be re-sent',
+      },
+      { cmd: 'race', label: 'Race two attempts', proves: 'a one-use mandate allows exactly one' },
+      { cmd: 'tamper', label: 'Tampered cart', proves: 'a cart changed after approval is blocked' },
+      {
+        cmd: 'poison',
+        label: 'Prompt injection',
+        proves: 'offer text ordering the agent to overspend cannot move money',
+        param: { label: 'USD', value: '300' },
+      },
+    ],
   },
-  { cmd: 'revoke', label: 'Live revocation', proves: 'revoke, then the very next attempt fails' },
   {
-    cmd: 'category',
-    label: 'Forbidden category',
-    proves: 'a purchase outside what the plan allows (goods, or another trip) is blocked',
+    title: 'Human-in-the-loop and disputes',
+    blurb: 'Where the agent must stop, and what happens after the money moved.',
+    items: [
+      {
+        cmd: 'approve',
+        label: 'Human approval',
+        proves: 'an over-limit offer waits for you, then completes once',
+      },
+      {
+        cmd: 'ceiling',
+        label: 'Rich condition',
+        proves: 'up to the ceiling waits for you; above it is blocked outright',
+        param: { label: 'USD', value: '200' },
+      },
+      { cmd: 'dispute', label: 'Dispute', proves: 'the evidence decides who is right' },
+    ],
   },
-  {
-    cmd: 'limit 100',
-    label: 'Change a limit',
-    proves: 'the plan is re-signed as a new version and the next attempt is judged by it',
-  },
-  {
-    cmd: 'ceiling 200',
-    label: 'Rich condition',
-    proves: 'between the limit and the ceiling waits for you; above the ceiling is blocked',
-  },
-  {
-    cmd: 'expire',
-    label: 'Expired mandate',
-    proves: 'move the clock past validity; attempt fails',
-  },
-  {
-    cmd: 'forge',
-    label: 'Forged agent key',
-    proves: 'an impostor is rejected before any policy runs',
-  },
-  { cmd: 'replay', label: 'Replay attack', proves: 'a captured signed request cannot be re-sent' },
-  {
-    cmd: 'poison',
-    label: 'Prompt injection',
-    proves: 'an offer whose text orders the agent to overspend cannot move money',
-  },
-  { cmd: 'race', label: 'Race two attempts', proves: 'a one-use mandate allows exactly one' },
-  {
-    cmd: 'approve',
-    label: 'Human approval',
-    proves: 'an over-limit offer waits for you, then completes once',
-  },
-  { cmd: 'tamper', label: 'Tampered cart', proves: 'a cart changed after approval is blocked' },
-  { cmd: 'dispute', label: 'Dispute', proves: 'the evidence decides who is right' },
 ];
 
 const HELP = [
@@ -102,6 +138,16 @@ export function DemoTerminal() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [mandateId, setMandateId] = useState('');
+  const [params, setParams] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      SCENARIO_GROUPS.flatMap((g) =>
+        g.items.filter((i) => i.param).map((i) => [i.cmd, i.param!.value]),
+      ),
+    ),
+  );
+  const [last, setLast] = useState<Record<string, { kind: LineKind; text: string }>>({});
+  const [injectForm, setInjectForm] = useState({ usd: '130', airline: '', date: '' });
+  const lastVerdict = useRef<{ kind: LineKind; text: string } | null>(null);
   const seq = useRef(1);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -114,8 +160,10 @@ export function DemoTerminal() {
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [lines]);
 
-  const print = (kind: LineKind, text: string) =>
+  const print = (kind: LineKind, text: string) => {
+    if (kind === 'ok' || kind === 'warn' || kind === 'err') lastVerdict.current = { kind, text };
     setLines((prev) => [...prev, { id: seq.current++, kind, text }]);
+  };
 
   const usd = (minor: number) => formatMoney({ currency: 'USD', minor });
 
@@ -139,6 +187,7 @@ export function DemoTerminal() {
     amountMinor: number,
     merchantSlug?: string,
     expiresInMinutes = 1440,
+    extra: { airline?: string; flightNumber?: string; departureAt?: string } = {},
   ) {
     const merchants = me.data?.merchants ?? [];
     const merchant =
@@ -153,8 +202,10 @@ export function DemoTerminal() {
         amountMinor,
         origin: plan.policy.intent.origin,
         destination: plan.policy.intent.destination,
-        departureAt: `${plan.policy.intent.departureDateFrom}T09:00:00.000Z`,
+        departureAt: extra.departureAt ?? `${plan.policy.intent.departureDateFrom}T09:00:00.000Z`,
         expiresInMinutes,
+        ...(extra.airline ? { airline: extra.airline } : {}),
+        ...(extra.flightNumber ? { flightNumber: extra.flightNumber } : {}),
       },
     });
     print('ok', `injected ${offer.summary}`);
@@ -547,6 +598,8 @@ export function DemoTerminal() {
     if (busy) return;
     setBusy(true);
     setInput('');
+    lastVerdict.current = null;
+    const key = cmdline.trim().split(/\s+/)[0] ?? '';
     try {
       await run(cmdline);
     } catch (error) {
@@ -558,6 +611,7 @@ export function DemoTerminal() {
           : message,
       );
     } finally {
+      if (lastVerdict.current && key) setLast((prev) => ({ ...prev, [key]: lastVerdict.current! }));
       setBusy(false);
       inputRef.current?.focus();
     }
@@ -606,19 +660,159 @@ export function DemoTerminal() {
           </select>
         </label>
       </div>
-      <div className="flex flex-wrap gap-2 border-b border-line px-4 py-3">
-        {SCENARIOS.map((s) => (
-          <button
-            key={s.cmd}
-            type="button"
-            disabled={busy}
-            title={s.proves}
-            onClick={() => void submit(s.cmd)}
-            className="rounded-full border border-line bg-surface px-3 py-1.5 text-[12.5px] text-ink hover:border-cobalt hover:text-cobalt disabled:opacity-50"
-          >
-            {s.label} <span className="font-mono text-[11px] text-ink-faint">{s.cmd}</span>
-          </button>
+      <div className="space-y-4 border-b border-line px-4 py-4">
+        {SCENARIO_GROUPS.map((group) => (
+          <section key={group.title} aria-label={group.title}>
+            <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
+              <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-ink">
+                {group.title}
+              </h3>
+              <p className="text-[11.5px] text-ink-muted">{group.blurb}</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {group.items.map((item) => {
+                const verdict = last[item.cmd];
+                const value = params[item.cmd] ?? item.param?.value ?? '';
+                const cmdline = item.param ? `${item.cmd} ${value}`.trim() : item.cmd;
+                return (
+                  <div
+                    key={item.cmd}
+                    className="flex flex-col gap-2 rounded-lg border border-line bg-surface-muted/40 p-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[13px] font-semibold text-ink">{item.label}</span>
+                        <code className="font-mono text-[10.5px] text-ink-faint">{cmdline}</code>
+                      </div>
+                      <p className="mt-0.5 text-[11.5px] leading-snug text-ink-muted">
+                        {item.proves}
+                      </p>
+                    </div>
+                    <div className="mt-auto flex items-center gap-2">
+                      {item.param ? (
+                        <label className="flex items-center gap-1 text-[11.5px] text-ink-muted">
+                          {item.param.label}
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="decimal"
+                            value={value}
+                            placeholder={item.param.placeholder}
+                            aria-label={`${item.label} ${item.param.label}`}
+                            onChange={(e) =>
+                              setParams((prev) => ({ ...prev, [item.cmd]: e.target.value }))
+                            }
+                            className="h-8 w-20 rounded-md border border-line-strong bg-surface px-2 text-[12.5px] text-ink"
+                          />
+                        </label>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void submit(cmdline)}
+                        className="ml-auto h-8 rounded-md bg-cobalt px-3 text-[12.5px] font-medium text-white hover:bg-cobalt/90 disabled:opacity-50"
+                      >
+                        Run
+                      </button>
+                    </div>
+                    {verdict ? (
+                      <p
+                        className={`truncate text-[11px] ${verdict.kind === 'ok' ? 'text-emerald' : verdict.kind === 'warn' ? 'text-amber-600' : 'text-coral'}`}
+                        title={verdict.text}
+                      >
+                        {verdict.text}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         ))}
+        <section
+          aria-label="Inject an offer"
+          className="rounded-lg border border-dashed border-line p-3"
+        >
+          <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
+            <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-ink">
+              Inject an offer yourself
+            </h3>
+            <p className="text-[11.5px] text-ink-muted">
+              Any price, any text in the airline name, any departure — on the selected plan’s route.
+            </p>
+          </div>
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!selected || busy) return;
+              const dollars = Number(injectForm.usd);
+              if (!Number.isFinite(dollars) || dollars <= 0) return;
+              void (async () => {
+                setBusy(true);
+                lastVerdict.current = null;
+                try {
+                  print(
+                    'cmd',
+                    `inject ${injectForm.usd}${injectForm.airline ? ` "${injectForm.airline}"` : ''}${injectForm.date ? ` ${injectForm.date}` : ''}`,
+                  );
+                  await inject(selected, Math.round(dollars * 100), undefined, 1440, {
+                    ...(injectForm.airline.trim()
+                      ? { airline: injectForm.airline.trim().slice(0, 40) }
+                      : {}),
+                    ...(injectForm.date ? { departureAt: `${injectForm.date}T09:00:00.000Z` } : {}),
+                  });
+                  await refresh();
+                } catch (error) {
+                  print('err', error instanceof Error ? error.message : String(error));
+                } finally {
+                  if (lastVerdict.current)
+                    setLast((prev) => ({ ...prev, inject: lastVerdict.current! }));
+                  setBusy(false);
+                }
+              })();
+            }}
+          >
+            <label className="flex flex-col gap-1 text-[11.5px] text-ink-muted">
+              USD
+              <input
+                type="number"
+                min={1}
+                inputMode="decimal"
+                value={injectForm.usd}
+                onChange={(e) => setInjectForm((f) => ({ ...f, usd: e.target.value }))}
+                className="h-8 w-24 rounded-md border border-line-strong bg-surface px-2 text-[12.5px] text-ink"
+              />
+            </label>
+            <label className="flex min-w-[220px] flex-1 flex-col gap-1 text-[11.5px] text-ink-muted">
+              Airline name (merchant text the agent reads)
+              <input
+                type="text"
+                maxLength={40}
+                value={injectForm.airline}
+                placeholder="optional — e.g. Duffel Airways, or an injected instruction"
+                onChange={(e) => setInjectForm((f) => ({ ...f, airline: e.target.value }))}
+                className="h-8 rounded-md border border-line-strong bg-surface px-2 text-[12.5px] text-ink"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[11.5px] text-ink-muted">
+              Departure
+              <input
+                type="date"
+                value={injectForm.date}
+                onChange={(e) => setInjectForm((f) => ({ ...f, date: e.target.value }))}
+                className="h-8 rounded-md border border-line-strong bg-surface px-2 text-[12.5px] text-ink"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busy || !selected}
+              className="h-8 rounded-md border border-cobalt px-3 text-[12.5px] font-medium text-cobalt hover:bg-cobalt/10 disabled:opacity-50"
+            >
+              Inject
+            </button>
+          </form>
+        </section>
       </div>
       <div
         className="bg-[#0f1420] px-4 py-3 font-mono text-[12.5px] leading-[1.6]"
