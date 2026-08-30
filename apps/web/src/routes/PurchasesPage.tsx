@@ -1,8 +1,8 @@
-import type { ChatSessionSummary, ExecutionSummary } from '@authera/contracts';
-import { Download, MessageSquare, ReceiptText } from 'lucide-react';
+import type { ChatSessionSummary, DisputeView, ExecutionSummary } from '@authera/contracts';
+import { Download, FileSearch, MessageSquare, ReceiptText, ShieldAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { useChats, usePurchases } from '../api/hooks.js';
+import { useChats, useDisputes, usePurchases } from '../api/hooks.js';
 import { DecisionBadge } from '../components/status.js';
 import { EmptyState, ErrorState, Skeleton, buttonStyles } from '../components/ui/primitives.js';
 import { formatDateTime, formatMoney, formatPaymentState } from '../lib/format.js';
@@ -10,6 +10,7 @@ import { formatDateTime, formatMoney, formatPaymentState } from '../lib/format.j
 export function PurchasesPage() {
   const purchases = usePurchases();
   const chats = useChats();
+  const disputes = useDisputes();
   const current = purchases.data?.filter((purchase) => purchase.state === 'PAYMENT_PENDING') ?? [];
   const completed = purchases.data?.filter((purchase) => purchase.state === 'SUCCEEDED') ?? [];
   const unsuccessful = purchases.data?.filter((purchase) => purchase.state === 'FAILED') ?? [];
@@ -63,6 +64,7 @@ export function PurchasesPage() {
                 key={purchase.id}
                 purchase={purchase}
                 chat={chatFor(purchase, chats.data)}
+                dispute={disputes.data?.find((d) => d.executionId === purchase.id)}
               />
             ))}
           </OrderGroup>
@@ -75,6 +77,7 @@ export function PurchasesPage() {
                 key={purchase.id}
                 purchase={purchase}
                 chat={chatFor(purchase, chats.data)}
+                dispute={disputes.data?.find((d) => d.executionId === purchase.id)}
               />
             ))}
           </OrderGroup>
@@ -87,6 +90,7 @@ export function PurchasesPage() {
                 key={purchase.id}
                 purchase={purchase}
                 chat={chatFor(purchase, chats.data)}
+                dispute={disputes.data?.find((d) => d.executionId === purchase.id)}
               />
             ))}
           </OrderGroup>
@@ -119,7 +123,15 @@ function OrderGroup({
   );
 }
 
-function OrderCard({ purchase, chat }: { purchase: ExecutionSummary; chat?: ChatSessionSummary }) {
+function OrderCard({
+  purchase,
+  chat,
+  dispute,
+}: {
+  purchase: ExecutionSummary;
+  chat?: ChatSessionSummary;
+  dispute?: DisputeView | undefined;
+}) {
   const succeeded = purchase.state === 'SUCCEEDED';
   return (
     <article className="rounded-xl border border-line bg-surface p-4">
@@ -172,6 +184,33 @@ function OrderCard({ purchase, chat }: { purchase: ExecutionSummary; chat?: Chat
           >
             <Download className="h-4 w-4" aria-hidden /> Booking
           </a>
+        ) : null}
+        {succeeded ? (
+          <Link
+            to={`/purchases/${purchase.id}`}
+            className={buttonStyles({ variant: 'ghost', size: 'sm' })}
+          >
+            <FileSearch className="h-4 w-4" aria-hidden /> Details &amp; verification
+          </Link>
+        ) : null}
+        {succeeded && !dispute ? (
+          <Link
+            to={`/disputes/new?executionId=${purchase.id}`}
+            className={buttonStyles({ variant: 'ghost', size: 'sm' })}
+          >
+            <ShieldAlert className="h-4 w-4" aria-hidden /> Report a problem
+          </Link>
+        ) : null}
+        {dispute ? (
+          <Link
+            to={`/disputes/${dispute.id}`}
+            className={buttonStyles({ variant: 'ghost', size: 'sm' })}
+          >
+            <ShieldAlert className="h-4 w-4" aria-hidden /> Dispute:{' '}
+            {dispute.resolution
+              ? dispute.resolution.outcome.toLowerCase().replaceAll('_', ' ')
+              : dispute.state.toLowerCase()}
+          </Link>
         ) : null}
         {chat && !succeeded ? (
           <Link to={`/chats/${chat.id}`} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
