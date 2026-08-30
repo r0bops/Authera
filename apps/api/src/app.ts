@@ -163,9 +163,12 @@ export function createApp(deps: AppDependencies): App {
         // "Buy when it drops": the agent attempts the eligible offer through the gateway.
         ...(deps.config.markets.priceWatchAutoBuy
           ? {
-              autoBuy: async (mandateId: string) => {
+              // Inside the limit the agent chooses; a near miss is attempted as that exact offer
+              // so the gateway can hand the decision to the human.
+              autoBuy: async (mandateId: string, offerId: string, withinLimit: boolean) => {
                 if (!runner) return;
-                await runner.run({ mandateId });
+                if (withinLimit) await runner.run({ mandateId });
+                else await runner.direct({ mandateId, offerId });
               },
             }
           : {}),

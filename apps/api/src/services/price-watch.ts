@@ -1,4 +1,5 @@
 import { effectiveFlightDateWindow, type MandatePolicyV1 } from '@authera/contracts';
+import { approvalTolerance } from '@authera/domain';
 import type { Clock } from '../clock.js';
 import type { Logger } from '../logger.js';
 import type { CheckoutService } from './checkout-service.js';
@@ -32,7 +33,7 @@ export interface PriceWatchDependencies {
    * inside the plan's per-purchase limit. The agent still goes through the gateway; the watcher
    * never buys by itself.
    */
-  autoBuy?: (mandateId: string, offerId: string) => Promise<unknown>;
+  autoBuy?: (mandateId: string, offerId: string, withinLimit: boolean) => Promise<unknown>;
 }
 
 /**
@@ -186,16 +187,22 @@ export class PriceWatcher {
     for (const mandate of mandates) {
       if ((mandate.remainingCount ?? 0) <= 0) continue;
       const cap = mandate.policy.limits.maxPerPurchaseMinor;
-      const eligible = offers
-        .filter((o) => o.status === 'AVAILABLE' && o.total.minor <= cap)
+      // Inside the limit the agent buys; a near miss (progressive tolerance, or the plan's own
+      // approval ceiling) is attempted too, so the human gets the decision instead of silence.
+      const reach = Math.max(
+        approvalTolerance(cap).ceilingMinor,
+        mandate.policy.limits.approvalCeilingMinor ?? 0,
+      );
+      const available = offers
+        .filter((o) => o.status === 'AVAILABLE' && o.total.minor <= reach)
         .sort((a, b) => a.total.minor - b.total.minor);
-      const cheapest = eligible[0];
+      const cheapest = available[0];
       if (!cheapest) continue;
       const key = `${mandate.id}:${cheapest.id}`;
       if (this.attempted.has(key)) continue;
       this.attempted.add(key);
       try {
-        await autoBuy(mandate.id, cheapest.id);
+        await autoBuy(mandate.id, cheapest.id, cheapest.total.minor <= cap);
         this.deps.logger.info(
           { mandateId: mandate.id, offerId: cheapest.id, total: cheapest.total },
           'price watch handed an eligible offer to the agent',

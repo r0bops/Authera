@@ -40,7 +40,7 @@ function watcher(
   mandates: WatchedMandate[],
   nowMs: { value: number },
   refreshMs = 300_000,
-  autoBuy?: (mandateId: string, offerId: string) => Promise<unknown>,
+  autoBuy?: (mandateId: string, offerId: string, withinLimit: boolean) => Promise<unknown>,
 ) {
   const checkout = {
     searchFlights: vi.fn(async () => [
@@ -176,10 +176,23 @@ describe('PriceWatcher', () => {
     const { w } = watcher([mandate()], now, 300_000, autoBuy);
     await w.tick();
     expect(autoBuy).toHaveBeenCalledTimes(1);
-    expect(autoBuy).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000001', 'b');
+    expect(autoBuy).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000001', 'b', true);
     now.value += 400_000;
     await w.tick(); // same offer again: no second attempt
     expect(autoBuy).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands a near miss to the agent too (the human decides), but never a far miss', async () => {
+    const now = { value: Date.parse('2026-08-30T10:00:00.000Z') };
+    const autoBuy = vi.fn(async () => ({}));
+    const { w, checkout } = watcher([mandate()], now, 300_000, autoBuy);
+    // USD 150 plan: tolerance ~9.5 % → USD 160 is a near miss, USD 180 is not
+    checkout.searchFlights.mockResolvedValueOnce([
+      { id: 'far', status: 'AVAILABLE', total: { currency: 'USD', minor: 18000 } },
+      { id: 'near', status: 'AVAILABLE', total: { currency: 'USD', minor: 16000 } },
+    ]);
+    await w.tick();
+    expect(autoBuy).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000001', 'near', false);
   });
 
   it('keeps the catalog fresh but never hands offers to a plan with no purchases left', async () => {
