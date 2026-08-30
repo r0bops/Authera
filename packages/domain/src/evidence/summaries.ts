@@ -115,6 +115,7 @@ export function describeMandatePolicy(
           passengerCount: number;
           departureDateFrom: string;
           departureDateTo: string;
+          dateFlexibilityDays?: number;
         }
       | { type: 'goods'; query: string; maxQuantity: number };
     limits: {
@@ -151,8 +152,13 @@ export function describeMandatePolicy(
   }
   const passengers =
     intent.passengerCount === 1 ? 'one passenger' : `${intent.passengerCount} passengers`;
+  const flexibility = intent.dateFlexibilityDays ?? 0;
+  const dateRule =
+    flexibility === 0
+      ? 'on those exact dates'
+      : `with up to ${flexibility} day${flexibility === 1 ? '' : 's'} before or after`;
   return (
-    `Buy ${intent.cabin} flights from ${intent.origin} to ${intent.destination} for ${passengers}, departing between ${intent.departureDateFrom} and ${intent.departureDateTo}, from ${merchants}${payment}: ` +
+    `Buy ${intent.cabin} flights from ${intent.origin} to ${intent.destination} for ${passengers}, departing between ${intent.departureDateFrom} and ${intent.departureDateTo}, ${dateRule}, from ${merchants}${payment}: ` +
     tail
   );
 }

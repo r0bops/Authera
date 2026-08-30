@@ -75,6 +75,20 @@ describe('evaluatePolicy — allow paths', () => {
     expect(verdict.reasonCode).toBe('ALLOW_WITHIN_MANDATE');
   });
 
+  it('allows only the signed number of flexible travel days around the preferred window', () => {
+    const mandate = { intent: { dateFlexibilityDays: 2 } };
+    expect(
+      evaluatePolicy(
+        policyInputFixture({ mandate, offer: { departureAt: '2026-08-30T08:00:00.000Z' } }),
+      ),
+    ).toMatchObject({ decision: 'ALLOW', reasonCode: 'ALLOW_WITHIN_MANDATE' });
+    expect(
+      evaluatePolicy(
+        policyInputFixture({ mandate, offer: { departureAt: '2026-08-29T08:00:00.000Z' } }),
+      ),
+    ).toMatchObject({ decision: 'BLOCK', reasonCode: 'INTENT_MISMATCH' });
+  });
+
   it('allows an over-limit amount only through a valid checkout-scoped approval', () => {
     const input = withAmount(policyInputFixture(), 16_800);
     const approval = {

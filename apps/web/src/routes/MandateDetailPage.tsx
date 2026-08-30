@@ -177,6 +177,13 @@ export function MandateDetailPage() {
                         value: `${formatDate(m.policy.intent.departureDateFrom)} → ${formatDate(m.policy.intent.departureDateTo)}`,
                       },
                       {
+                        label: 'Date flexibility',
+                        value:
+                          (m.policy.intent.dateFlexibilityDays ?? 0) === 0
+                            ? 'Exact dates only'
+                            : `± ${m.policy.intent.dateFlexibilityDays} day${m.policy.intent.dateFlexibilityDays === 1 ? '' : 's'}`,
+                      },
+                      {
                         label: 'Cabin / passengers',
                         value: `${m.policy.intent.cabin} · ${m.policy.intent.passengerCount}`,
                       },

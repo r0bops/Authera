@@ -21,6 +21,8 @@ export const FlightIntentSchema = z
     cabin: z.literal('economy'),
     departureDateFrom: IsoDateSchema,
     departureDateTo: IsoDateSchema,
+    /** Calendar days before/after the preferred window that may be searched and purchased. */
+    dateFlexibilityDays: z.number().int().min(0).max(30).optional(),
     passengerCount: z.number().int().min(1).max(9),
   })
   .refine((intent) => intent.departureDateFrom <= intent.departureDateTo, {
@@ -32,6 +34,22 @@ export const FlightIntentSchema = z
     path: ['destination'],
   });
 export type FlightIntent = z.infer<typeof FlightIntentSchema>;
+
+/** Shift a YYYY-MM-DD calendar date without depending on the host timezone. */
+export function shiftIsoDate(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year!, month! - 1, day! + days));
+  return shifted.toISOString().slice(0, 10);
+}
+
+/** The date window both market discovery and deterministic policy enforcement must use. */
+export function effectiveFlightDateWindow(intent: FlightIntent): { from: string; to: string } {
+  const flexibilityDays = intent.dateFlexibilityDays ?? 0;
+  return {
+    from: shiftIsoDate(intent.departureDateFrom, -flexibilityDays),
+    to: shiftIsoDate(intent.departureDateTo, flexibilityDays),
+  };
+}
 
 /**
  * Marketplace purchase: "buy me <query>". The agent may only request an offer that was

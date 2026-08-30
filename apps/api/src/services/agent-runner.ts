@@ -4,7 +4,11 @@ import type {
   DemoDirectAttemptResult,
   PurchaseAttemptResponse,
 } from '@authera/contracts';
-import { CheckoutSessionSchema, PurchaseAttemptResponseSchema } from '@authera/contracts';
+import {
+  CheckoutSessionSchema,
+  PurchaseAttemptResponseSchema,
+  effectiveFlightDateWindow,
+} from '@authera/contracts';
 import { getAgentById, getMandate, SEED_IDS, type Database } from '@authera/db';
 import { ed25519FromSeed, seedFromSecret, type KeyMaterial, type KeyPair } from '@authera/domain';
 import {
@@ -89,14 +93,17 @@ export class AgentRunner {
             maxQuantity: policy.intent.maxQuantity,
             ...limits,
           }
-        : {
-            kind: 'flight',
-            origin: policy.intent.origin,
-            destination: policy.intent.destination,
-            departureDateFrom: policy.intent.departureDateFrom,
-            departureDateTo: policy.intent.departureDateTo,
-            ...limits,
-          };
+        : (() => {
+            const dates = effectiveFlightDateWindow(policy.intent);
+            return {
+              kind: 'flight',
+              origin: policy.intent.origin,
+              destination: policy.intent.destination,
+              departureDateFrom: dates.from,
+              departureDateTo: dates.to,
+              ...limits,
+            };
+          })();
     const mode = input.mode ?? this.deps.config.agent.mode;
     const client = await this.client();
     const gateway = new HttpPurchasingAgentGateway(new AgentHttpClientTransport(client), () =>

@@ -7,6 +7,7 @@ import {
   type PolicyInput,
   type PolicyVerdict,
   type ReasonCode,
+  effectiveFlightDateWindow,
   normalizeQuery,
 } from '@authera/contracts';
 import { equalMoney } from '../money/index.js';
@@ -195,11 +196,17 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
         return block('INTENT_MISMATCH');
       }
       const departureDate = (offer.departureAt ?? '').slice(0, 10);
-      dateOk = departureDate >= intent.departureDateFrom && departureDate <= intent.departureDateTo;
+      const effectiveDates = effectiveFlightDateWindow(intent);
+      dateOk = departureDate >= effectiveDates.from && departureDate <= effectiveDates.to;
       check(
         'INTENT_DATES',
         dateOk,
-        { from: intent.departureDateFrom, to: intent.departureDateTo },
+        {
+          ...effectiveDates,
+          preferredFrom: intent.departureDateFrom,
+          preferredTo: intent.departureDateTo,
+          flexibilityDays: intent.dateFlexibilityDays ?? 0,
+        },
         departureDate,
       );
     } else {

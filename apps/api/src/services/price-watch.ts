@@ -1,4 +1,4 @@
-import type { MandatePolicyV1 } from '@authera/contracts';
+import { effectiveFlightDateWindow, type MandatePolicyV1 } from '@authera/contracts';
 import type { Clock } from '../clock.js';
 import type { Logger } from '../logger.js';
 import type { CheckoutService } from './checkout-service.js';
@@ -91,11 +91,12 @@ export class PriceWatcher {
       const offers = await this.deps.checkout.searchProducts({ q: intent.query });
       return offers.length;
     }
+    const dates = effectiveFlightDateWindow(intent);
     const offers = await this.deps.checkout.searchFlights({
       origin: intent.origin,
       destination: intent.destination,
-      from: intent.departureDateFrom,
-      to: intent.departureDateTo,
+      from: dates.from,
+      to: dates.to,
       passengers: intent.passengerCount,
     });
     return offers.length;

@@ -1,4 +1,8 @@
-import type { FlightOfferView, MandateView } from '@authera/contracts';
+import {
+  effectiveFlightDateWindow,
+  type FlightOfferView,
+  type MandateView,
+} from '@authera/contracts';
 import { formatMoney } from '../lib/format.js';
 import { offerHeadline, offerInScope, offerWhen } from '../lib/intent.js';
 import { Badge, Table, Td, Th } from './ui/primitives.js';
@@ -14,13 +18,13 @@ export function offerMatches(
     return { eligible: false, why: intent.type === 'flight' ? 'not a flight' : 'not a product' };
   if (intent.type === 'flight') {
     const day = (offer.departureAt ?? '').slice(0, 10);
+    const dates = effectiveFlightDateWindow(intent);
     if (offer.origin !== intent.origin || offer.destination !== intent.destination)
       return { eligible: false, why: 'different route' };
     if (offer.cabin !== intent.cabin) return { eligible: false, why: `${offer.cabin} cabin` };
     if (offer.passengerCount !== intent.passengerCount)
       return { eligible: false, why: 'passenger count' };
-    if (day < intent.departureDateFrom || day > intent.departureDateTo)
-      return { eligible: false, why: 'outside travel dates' };
+    if (day < dates.from || day > dates.to) return { eligible: false, why: 'outside travel dates' };
   } else {
     if (!offerInScope(offer, intent)) return { eligible: false, why: 'different search' };
     if (offer.quantity > intent.maxQuantity) return { eligible: false, why: 'quantity' };

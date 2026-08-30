@@ -38,6 +38,7 @@ const FormSchema = z
       .regex(/^[A-Z]{3}$/, 'Three-letter airport code'),
     departureDateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick a date'),
     departureDateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick a date'),
+    dateFlexibilityDays: z.coerce.number().int().min(0).max(30),
     passengerCount: z.coerce.number().int().min(1).max(9),
     maxPerPurchase: z
       .string()
@@ -46,7 +47,6 @@ const FormSchema = z
     validUntil: z.string().min(1, 'Pick an expiry'),
     paymentMethodId: z.string().uuid('Choose a payment method'),
     allowedMerchantIds: z.array(z.string().uuid()),
-    escalate: z.boolean(),
   })
   .refine((v) => v.category !== 'flight' || v.departureDateFrom <= v.departureDateTo, {
     message: 'The window must end after it starts',
@@ -91,13 +91,13 @@ export function NewMandatePage() {
       departureDateTo: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 2, 0))
         .toISOString()
         .slice(0, 10),
+      dateFlexibilityDays: 3,
       passengerCount: 1,
       maxPerPurchase: '150.00',
       maxFulfillments: 1,
       validUntil: endOfMonthIso(today).slice(0, 16),
       paymentMethodId: '',
       allowedMerchantIds: [],
-      escalate: false,
     },
   });
   const values = useWatch({ control: form.control }) as FormInput;
@@ -134,14 +134,19 @@ export function NewMandatePage() {
     form.setValue('allowedMerchantIds', []);
   }, [form, values.category]);
   const maxMinor = inputToMinor(values.maxPerPurchase);
+  const flexibilityDays = Number(values.dateFlexibilityDays);
+  const flexibilityText =
+    flexibilityDays === 0
+      ? 'on those exact dates'
+      : `with ${flexibilityDays} day${flexibilityDays === 1 ? '' : 's'} of flexibility before or after`;
   const previewTail = Number.isFinite(maxMinor)
-    ? `if the total is ${formatMoney({ currency: 'USD', minor: maxMinor })} or less — ${values.maxFulfillments === 1 ? 'a single purchase' : `up to ${values.maxFulfillments} purchases`}, until ${values.validUntil.replace('T', ' ')}. ${values.escalate ? 'Anything outside these limits pauses and asks you first.' : 'Anything outside these limits is blocked.'}`
+    ? `if the total is ${formatMoney({ currency: 'USD', minor: maxMinor })} or less — ${values.maxFulfillments === 1 ? 'a single purchase' : `up to ${values.maxFulfillments} purchases`}, until ${values.validUntil.replace('T', ' ')}. Anything outside these limits is blocked.`
     : null;
   const preview = !previewTail
     ? 'Set a maximum price to see the preview.'
     : values.category === 'goods'
       ? `Buy “${values.query || '···'}” (${Number(values.maxQuantity) === 1 ? 'one unit' : `up to ${values.maxQuantity} units`}) from a connected store, ${previewTail}`
-      : `Buy ${values.passengerCount === 1 ? 'one' : values.passengerCount} economy flight${values.passengerCount === 1 ? '' : 's'} from ${airportLabel(values.origin)} to ${airportLabel(values.destination)}, leaving between ${values.departureDateFrom} and ${values.departureDateTo}, ${previewTail}`;
+      : `Buy ${values.passengerCount === 1 ? 'one' : values.passengerCount} economy flight${values.passengerCount === 1 ? '' : 's'} from ${airportLabel(values.origin)} to ${airportLabel(values.destination)}, leaving between ${values.departureDateFrom} and ${values.departureDateTo}, ${flexibilityText}, ${previewTail}`;
 
   const next = async () => {
     const fields: Array<keyof FormValues> =
@@ -149,7 +154,13 @@ export function NewMandatePage() {
         ? values.category === 'goods'
           ? ['query', 'maxQuantity']
           : ['origin', 'destination', 'departureDateFrom', 'departureDateTo', 'passengerCount']
-        : ['maxPerPurchase', 'maxFulfillments', 'validUntil', 'paymentMethodId'];
+        : [
+            'maxPerPurchase',
+            'maxFulfillments',
+            'validUntil',
+            'paymentMethodId',
+            ...(values.category === 'flight' ? (['dateFlexibilityDays'] as const) : []),
+          ];
     if (step === 1 && allowedMerchants.length === 0) {
       form.setError('allowedMerchantIds', { message: 'Allow at least one merchant' });
       return;
@@ -169,6 +180,7 @@ export function NewMandatePage() {
             cabin: 'economy',
             departureDateFrom: v.departureDateFrom,
             departureDateTo: v.departureDateTo,
+            dateFlexibilityDays: v.dateFlexibilityDays,
             passengerCount: v.passengerCount,
           };
     const request: CreateMandateRequest = {
@@ -185,7 +197,7 @@ export function NewMandatePage() {
         maxFulfillments: v.maxFulfillments,
       },
       validUntil: new Date(v.validUntil).toISOString(),
-      escalation: v.escalate ? 'require_human' : 'block',
+      escalation: 'block',
     };
     const created = await create.mutateAsync(request);
     void navigate(`/dashboard/mandates/${created.id}`);
@@ -415,50 +427,36 @@ export function NewMandatePage() {
                   )}
                   <FieldError message={form.formState.errors.allowedMerchantIds?.message} />
                 </div>
-                <fieldset className="sm:col-span-2">
-                  <legend className="mb-1.5 text-[12.5px] font-medium text-ink">
-                    If the agent finds {values.category === 'goods' ? 'a product' : 'a flight'}{' '}
-                    outside these limits
-                  </legend>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {(
-                      [
-                        {
-                          value: false,
-                          title: 'Block it',
-                          hint: 'Nothing happens. You see the blocked attempt in your activity.',
-                        },
-                        {
-                          value: true,
-                          title: 'Pause and ask me',
-                          hint: 'The purchase waits for your one-time approval of that exact offer.',
-                        },
-                      ] as const
-                    ).map((opt) => (
-                      <label
-                        key={String(opt.value)}
-                        className={cn(
-                          'flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2.5 text-[13px]',
-                          values.escalate === opt.value
-                            ? 'border-cobalt bg-cobalt-soft/40'
-                            : 'border-line hover:border-line-strong',
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="escalate"
-                          className="mt-0.5 h-5 w-5 shrink-0 accent-cobalt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt"
-                          checked={values.escalate === opt.value}
-                          onChange={() => form.setValue('escalate', opt.value)}
-                        />
-                        <span>
-                          <span className="block font-medium text-ink">{opt.title}</span>
-                          <span className="block text-[12px] text-ink-muted">{opt.hint}</span>
-                        </span>
-                      </label>
-                    ))}
+                {values.category === 'flight' ? (
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="dateFlexibility" hint="0–30 days">
+                      Search date tolerance
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="dateFlexibility"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        className="max-w-24"
+                        {...form.register('dateFlexibilityDays')}
+                      />
+                      <span className="text-[13px] text-ink-muted">
+                        day{flexibilityDays === 1 ? '' : 's'} before or after
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[12px] text-ink-muted">
+                      {flexibilityDays === 0
+                        ? 'Aria searches only the preferred travel dates above.'
+                        : `Aria may search and buy flights up to ${flexibilityDays} day${flexibilityDays === 1 ? '' : 's'} before or after your preferred window.`}
+                    </p>
+                    <FieldError message={form.formState.errors.dateFlexibilityDays?.message} />
                   </div>
-                </fieldset>
+                ) : (
+                  <p className="sm:col-span-2 text-[12px] text-ink-muted">
+                    Products outside these rules are blocked and recorded in your activity.
+                  </p>
+                )}
               </div>
             </Card>
           ) : null}
@@ -498,6 +496,13 @@ export function NewMandatePage() {
                           label: 'Leaving between',
                           value: `${values.departureDateFrom} → ${values.departureDateTo}`,
                         },
+                        {
+                          label: 'Date flexibility',
+                          value:
+                            flexibilityDays === 0
+                              ? 'Exact dates only'
+                              : `± ${flexibilityDays} day${flexibilityDays === 1 ? '' : 's'}`,
+                        },
                       ]),
                   {
                     label: 'Spend up to',
@@ -526,7 +531,7 @@ export function NewMandatePage() {
                   },
                   {
                     label: 'Outside the limits',
-                    value: values.escalate ? 'Pause and ask me' : 'Block it',
+                    value: 'Block it',
                   },
                 ]}
               />
