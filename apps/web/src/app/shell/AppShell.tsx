@@ -193,6 +193,14 @@ export function AppShell({
         >
           {children ?? <Outlet />}
         </main>
+        {me.data?.demoMode ? (
+          <NavLink
+            to="/demo"
+            className="fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 inline-flex h-10 items-center gap-1.5 rounded-full border border-coral/40 bg-coral-soft px-3.5 text-[12.5px] font-semibold text-coral shadow-md hover:border-coral focus-visible:outline-2 focus-visible:outline-cobalt"
+          >
+            🔥 Trial by fire
+          </NavLink>
+        ) : null}
         <nav
           className="fixed bottom-3 left-1/2 z-40 grid w-[calc(100%-1.5rem)] max-w-[520px] -translate-x-1/2 grid-cols-5 items-end rounded-2xl border border-line-strong bg-surface/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-ink/10 backdrop-blur sm:px-3"
           aria-label="Your account navigation"
