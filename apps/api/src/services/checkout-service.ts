@@ -165,9 +165,10 @@ export class CheckoutService {
       .map(toOfferView);
   }
 
+  /** The console catalog: only offers that are still AVAILABLE (superseded live rows stay as history). */
   async listCatalog(): Promise<FlightOfferView[]> {
     const now = this.deps.clock.now();
-    const offers = await listOffers(this.deps.db, {});
+    const offers = await listOffers(this.deps.db, { status: 'AVAILABLE' });
     return offers.filter((o) => Date.parse(o.expiresAt) > now.getTime()).map(toOfferView);
   }
 
