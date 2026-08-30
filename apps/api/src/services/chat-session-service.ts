@@ -34,10 +34,10 @@ export class ChatSessionService {
   ) {}
 
   async create(user: UserRow, message: string): Promise<ChatSessionView> {
-    const result = await this.deps.chat.interpret({
-      messages: [{ role: 'user', content: message }],
-      draft: null,
-    });
+    const result = await this.deps.chat.interpret(
+      { messages: [{ role: 'user', content: message }], draft: null },
+      { personName: firstNameOf(user) },
+    );
     const id = randomUUID();
     await createChatSession(this.deps.db, {
       id,
@@ -72,7 +72,7 @@ export class ChatSessionService {
     if (session.mandateId && draft) {
       const result = await this.deps.chat.interpret(
         { messages: transcript.slice(-16), draft },
-        { signedPlan: true, lifecycle },
+        { signedPlan: true, lifecycle, personName: firstNameOf(user) },
       );
       await appendChatTurn(this.deps.db, {
         sessionId: session.id,
@@ -84,10 +84,10 @@ export class ChatSessionService {
       });
       return this.get(user, id);
     }
-    const result = await this.deps.chat.interpret({
-      messages: transcript.slice(-16),
-      draft,
-    });
+    const result = await this.deps.chat.interpret(
+      { messages: transcript.slice(-16), draft },
+      { personName: firstNameOf(user) },
+    );
     await appendChatTurn(this.deps.db, {
       sessionId: session.id,
       userId: user.id,
@@ -182,4 +182,8 @@ function titleFor(draft: MandateChatDraft): string {
   return draft.origin && draft.destination
     ? `${draft.origin} → ${draft.destination}`
     : 'New flight';
+}
+
+function firstNameOf(user: UserRow): string | undefined {
+  return user.displayName.trim().split(/\s+/)[0] || undefined;
 }

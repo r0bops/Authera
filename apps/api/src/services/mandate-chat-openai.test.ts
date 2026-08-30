@@ -152,7 +152,7 @@ describe('OpenAI mandate chat', () => {
     const modelInput = JSON.parse(openAi.run.mock.calls[0]?.[1] as string) as {
       conversationContext: { signedPlan: boolean; lifecycle: string };
     };
-    expect(modelInput.conversationContext).toEqual({ signedPlan: true, lifecycle: 'ACTIVE' });
+    expect(modelInput.conversationContext).toMatchObject({ signedPlan: true, lifecycle: 'ACTIVE' });
   });
 
   it('tells the model what is still missing and enforces the next question in code', async () => {

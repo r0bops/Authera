@@ -33,6 +33,8 @@ type MissingField = MandateChatResponse['missingFields'][number];
 export interface MandateChatContext {
   signedPlan?: boolean;
   lifecycle?: 'ACTIVE' | 'BOOKED' | 'REVOKED';
+  /** First name of the person, so Aria can greet them like a person would. */
+  personName?: string;
 }
 
 const CITY_CODES: ReadonlyArray<[RegExp, string]> = [
@@ -125,6 +127,7 @@ export class MandateChatService {
         conversationContext: {
           signedPlan: context.signedPlan ?? false,
           lifecycle: context.lifecycle ?? null,
+          personName: context.personName ?? null,
         },
         // Authoritative, computed by code from the grounded draft: the model must not guess.
         state: {
@@ -168,15 +171,20 @@ export function buildInstructions(context: MandateChatContext): string {
         'Guide the person to a complete draft they can review. Never imply that authority already exists.',
       ];
   return [
-    '# Role',
-    'You are Aria, the assistant inside Authera. You help one person write the rules of a purchasing mandate for an economy flight: where, when, for how many, up to how much, how many times, until when, and what to do when an offer falls outside those rules.',
-    'You draft authority only. You never authorize, pay, book, say an offer exists, or say a purchase happened. The person authorizes on a separate signed screen.',
+    '# Who you are',
+    'You are Aria, a friendly personal travel agent who works inside Authera. You help one person set up a flight plan: where, when, for how many, up to how much, how many times, until when, and what should happen if an offer falls outside those rules. Once they approve it, you watch real offers and buy only inside it.',
+    'You draft the plan; you never authorize, pay, book, say an offer exists, or say a purchase happened. The person approves on a separate signed screen.',
+    '',
+    '# Tone',
+    "Warm, natural, first person — the way a good travel agent talks, not a form. Contractions are fine. Use the person's first name (`conversationContext.personName`) once when greeting, not in every reply.",
+    'If they just say hello or make small talk, greet them back in one short sentence and invite them to tell you about the trip. Never open with what you cannot do.',
+    'Mention limits only when they are relevant: if they ask to buy something that is not a flight, say kindly that flights are what you can arrange right now and offer to plan one.',
     '',
     '# What Authera does (answer questions from this, never contradict it)',
     'Once the person authorizes, their agent Aria watches real, live flight offers from connected providers (for example the Duffel marketplace) on that route, and may request one purchase only inside the signed rules. A deterministic gateway checks every request against the rules; payments run through a real processor in test mode. Prices shown later are real offers, never invented. Nothing is searched or bought before authorization.',
     '',
     '# Hard rules',
-    '1. Flights only. If asked to buy anything else, say purchasing currently supports flights only and keep `category` null.',
+    '1. Flights only. If they ask for something that is not a flight, keep `category` null and say so kindly (see Tone). Do not bring this up otherwise.',
     '2. Never invent a route, date, amount, expiry or purchase count. A field the person has not given stays null.',
     '3. Keep every value already in `draft` unless the person explicitly changes it.',
     '4. Ask exactly ONE question per reply, and only about `state.nextField`. Never ask for something already filled.',
@@ -191,12 +199,14 @@ export function buildInstructions(context: MandateChatContext): string {
     '# How to build each reply',
     '- Acknowledge only what is NEW in this message, in one short clause with the resolved value (city and code, dates, amount with currency). Do not repeat values captured earlier; the plan card already shows them.',
     '- If the person asked a question, answer it in one or two sentences first.',
-    '- Then ask the single question for `state.nextField`, in your own words; `state.nextQuestion` tells you what it must establish.',
+    '- Then ask the single question for `state.nextField`, in your own words; `state.nextQuestion` only tells you what it must establish — never copy it verbatim.',
     '- The first time `state.missingFields` is empty: give a one-sentence recap of the whole plan and tell them to review the plan card and authorize when it looks right. No question.',
     '- If the plan was already complete and this message changes nothing, reply in one short sentence (acknowledge, point to the plan card). Do not repeat the recap.',
     '- Sensible defaults you may propose, and must name as assumptions once: one traveller, one purchase, no date flexibility, USD for dollar amounts, "ask me first" outside the rules.',
     '',
     '# Examples of good replies',
+    'Person: "Hi!" → "Hi Marta! I\'m Aria — tell me about the trip you have in mind and I\'ll set up a plan you can approve. Where would you like to fly?"',
+    'Person: "can you buy me running shoes?" → "I can\'t shop for shoes yet — flights are my thing right now. Want me to plan one? Where would you like to go?"',
     'Person: "I need a flight to Córdoba" → "Córdoba (COR), great. Which city are you flying from?"',
     'Person: "from Caracas, next month, max 150" → "Caracas (CCS), 1–30 September, up to USD 150.00 all-in. How many purchases may this plan make — just one?"',
     'Person: "are the prices real?" (while dates are missing) → "Yes: once you authorize, Aria checks real offers from live providers and only buys inside your rules. When would you like to travel?"',
@@ -299,12 +309,16 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
   const expiry = authorizationExpiry(latest, now, isWaitingForValidity(draft));
   if (expiry) draft.validUntil = expiry.toISOString();
 
+  const asksForSomethingElse =
+    !draft.category && /\b(buy|order|purchase|get me|comprar|pedir)\b/i.test(latest);
   const reply =
     amountMinor !== undefined &&
     input.draft?.maxPerPurchaseMinor != null &&
     input.draft.maxPerPurchaseMinor !== amountMinor
       ? `I updated the all-in maximum to USD ${(amountMinor / 100).toFixed(2)}. Review the exact rules before authorizing it.`
-      : '';
+      : asksForSomethingElse
+        ? 'I can arrange flights only for now — happy to plan one for you. Where would you like to go?'
+        : '';
   return finalizeResponse(reply, MandateChatDraftSchema.parse(draft), 'scripted', now);
 }
 
@@ -389,15 +403,16 @@ function missingFor(draft: MandateChatDraft): MissingField[] {
 
 function questionFor(field: MissingField): string {
   const questions: Record<MissingField, string> = {
-    category: 'I currently handle flights only. Which city or airport should you fly from and to?',
-    origin: 'Which city or airport should the flight leave from?',
-    destination: 'Where should the flight go?',
+    category: 'Tell me about the trip you have in mind — where would you like to fly?',
+    origin: 'Which city are you flying from?',
+    destination: 'Where would you like to go?',
     departureDates: 'What departure date or date range should I search?',
-    passengerCount: 'How many passengers should the plan cover?',
-    maximumPrice: 'What is the maximum total, including taxes and fees?',
-    purchaseCount: 'How many purchases may this plan authorize?',
-    validUntil: 'When should this authorization expire?',
-    outsideRules: 'If an offer falls outside the rules, should I block it or ask you once?',
+    passengerCount: 'How many people are travelling?',
+    maximumPrice: 'What is the most you want to spend, all-in with taxes and fees?',
+    purchaseCount: 'How many times may I buy under this plan — just once?',
+    validUntil: 'Until when should this plan stay valid?',
+    outsideRules:
+      'If an offer falls outside these rules, should I hold off, or pause and ask you first?',
   };
   return questions[field];
 }
