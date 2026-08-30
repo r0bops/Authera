@@ -22,7 +22,15 @@ import { toOfferView } from './checkout-service.js';
  * checkout hash; it is single-use and consumed by the gateway inside the reservation transaction.
  */
 export class ApprovalService {
-  constructor(private readonly deps: { db: Database; clock: Clock; logger: Logger }) {}
+  constructor(
+    private readonly deps: {
+      db: Database;
+      clock: Clock;
+      logger: Logger;
+      /** Fired after an APPROVED decision is stored, with the approval as the human now sees it. */
+      onApproved?: (approval: ApprovalView) => void;
+    },
+  ) {}
 
   async list(user: UserRow): Promise<ApprovalView[]> {
     const rows = await listApprovalsForUser(this.deps.db, user.id);
@@ -73,7 +81,9 @@ export class ApprovalService {
       { approvalId: id, decision: input.decision, userId: user.id },
       'approval decided',
     );
-    return this.toView(decided);
+    const view = await this.toView(decided);
+    if (input.decision === 'APPROVED') this.deps.onApproved?.(view);
+    return view;
   }
 
   private async owned(user: UserRow, id: string): Promise<ApprovalRow> {

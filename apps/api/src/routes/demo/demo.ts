@@ -39,6 +39,8 @@ export interface DemoDependencies {
   runner: AgentRunner;
   processor: PaymentProcessor;
   seed: SeedInput;
+  /** A judge injected an offer: the watcher should look (and, inside a plan, buy) right away. */
+  onOfferInjected?: () => void;
 }
 
 async function parse<T>(
@@ -130,6 +132,7 @@ export function demoRoutes(deps: DemoDependencies) {
       expiresAt: new Date(now.getTime() + input.expiresInMinutes * 60_000),
       source: 'demo',
     });
+    deps.onOfferInjected?.();
     return ok(c, toOfferView(offer), 201);
   });
 

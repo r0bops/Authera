@@ -43,6 +43,8 @@ const envSchema = z
     STRIPE_WEBHOOK_SECRET: optionalSecret,
     /** Optional: enables the live Duffel flight market (test-mode token is fine). */
     DUFFEL_ACCESS_TOKEN: optionalSecret,
+    /** When a watched route gains an offer inside a plan, let the agent attempt it at once. */
+    PRICE_WATCH_AUTO_BUY: booleanString.default('true'),
     /** Background discovery cadence per active mandate; 0 disables the price watcher. */
     PRICE_WATCH_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
     TRUSTED_SURFACE_PRIVATE_JWK: optionalSecret,
@@ -113,6 +115,8 @@ export interface AppConfig {
     duffel: { accessToken: string } | undefined;
     /** Milliseconds between market searches per active mandate; 0 = off. */
     priceWatchIntervalMs: number;
+    /** The watcher hands an eligible new offer to the agent (one attempt per offer). */
+    priceWatchAutoBuy: boolean;
   };
   keys: {
     trustedSurfacePrivateJwk: string | undefined;
@@ -201,6 +205,7 @@ function toAppConfig(env: ParsedEnv): AppConfig {
     markets: {
       duffel: env.DUFFEL_ACCESS_TOKEN ? { accessToken: env.DUFFEL_ACCESS_TOKEN } : undefined,
       priceWatchIntervalMs: env.PRICE_WATCH_INTERVAL_MS,
+      priceWatchAutoBuy: env.PRICE_WATCH_AUTO_BUY === 'true',
     },
     keys: {
       trustedSurfacePrivateJwk: env.TRUSTED_SURFACE_PRIVATE_JWK,

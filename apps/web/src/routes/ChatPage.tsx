@@ -1,6 +1,7 @@
 import { airportLabel } from '../lib/airports.js';
 import { mandateChatSuggestions } from '@authera/contracts';
 import type {
+  ApprovalView,
   ChatPendingRevision,
   ChatSessionMessageView,
   CreateMandateRequest,
@@ -26,8 +27,10 @@ import {
 import { type FormEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
+  useApprovals,
   useChatRevision,
   useChatSession,
+  useDecideApproval,
   useCreateChat,
   useCreateMandate,
   useLinkChatMandate,
@@ -61,6 +64,10 @@ export function ChatPage() {
   const linkMandate = useLinkChatMandate(chatId);
   const revokeMandate = useRevokeChatMandate(chatId);
   const revision = useChatRevision(chatId);
+  const approvals = useApprovals();
+  const pendingApprovals = (approvals.data ?? []).filter(
+    (a) => a.mandateId === session?.mandateId && a.state === 'PENDING',
+  );
   const [input, setInput] = useState('');
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
@@ -223,6 +230,14 @@ export function ChatPage() {
               />
             </AgentBubble>
           ) : null}
+
+          {hasSignedPlan && session?.state === 'ACTIVE'
+            ? pendingApprovals.map((approval) => (
+                <AgentBubble key={approval.id}>
+                  <ApprovalCard approval={approval} agentName={agentName} />
+                </AgentBubble>
+              ))
+            : null}
 
           {hasSignedPlan && session?.state === 'ACTIVE' && session.pendingRevision ? (
             <AgentBubble>
@@ -751,6 +766,48 @@ function ActivePlanCard({
   );
 }
 
+/** The agent stopped: an offer is over the limit but close. The human decides here, in the chat. */
+function ApprovalCard({ approval, agentName }: { approval: ApprovalView; agentName: string }) {
+  const decide = useDecideApproval(approval.id);
+  const over = formatMoney(approval.difference);
+  return (
+    <section aria-label="Approve this purchase?">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="font-semibold text-ink">
+          {agentName} found one at {formatMoney(approval.requested)} — your limit is{' '}
+          {formatMoney(approval.limit)}
+        </h2>
+        <Badge tone="attention">Waiting for you</Badge>
+      </div>
+      <p className="mt-1 text-ink-muted">
+        {approval.offer?.summary ?? approval.mandateSummary}. That is {over} over, so nothing was
+        bought. Approve this exact fare once, or keep watching under the signed rules.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          loading={decide.isPending}
+          onClick={() => void decide.mutateAsync({ decision: 'APPROVED' })}
+        >
+          <ShieldCheck className="h-4 w-4" aria-hidden /> Approve {formatMoney(approval.requested)}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={decide.isPending}
+          onClick={() => void decide.mutateAsync({ decision: 'REJECTED' })}
+        >
+          Keep watching
+        </Button>
+      </div>
+      <p className="mt-2 text-[12px] text-ink-muted">
+        Approval covers this cart only; your limits stay {formatMoney(approval.limit)}. Expires{' '}
+        {formatDateTime(approval.expiresAt)}.
+      </p>
+    </section>
+  );
+}
+
 /**
  * A change captured in the chat is only a proposal: the signed rules stay in force until the
  * person confirms here, and confirming re-signs the plan as a new version.
@@ -895,7 +952,7 @@ function flightSummary(draft: MandateChatDraft): string {
   const until = draft.validUntil ? `, valid until ${formatDate(draft.validUntil)}` : '';
   const outside =
     draft.escalation === 'block'
-      ? 'Anything outside these rules is blocked.'
+      ? 'Anything outside these rules is blocked — except a near miss on price (within about 10 %), which I bring to you first.'
       : 'Anything outside these rules pauses and asks you first.';
   return `${people}, ${route}, ${dates}, up to ${maximum} all-in — ${uses}${until}. ${outside}`;
 }

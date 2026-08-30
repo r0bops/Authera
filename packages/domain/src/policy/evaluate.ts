@@ -11,6 +11,7 @@ import {
   normalizeQuery,
 } from '@authera/contracts';
 import { equalMoney } from '../money/index.js';
+import { approvalTolerance } from './tolerance.js';
 
 /**
  * The deterministic Mandate Gateway policy evaluator (CLAUDE_IMPLEMENTATION_SPEC.md §8).
@@ -284,8 +285,8 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
     if (checkoutScopedApproval) {
       return approvalValid ? finish('ALLOW', 'ALLOW_CHECKOUT_APPROVAL') : block('APPROVAL_INVALID');
     }
+    const amountException = exceptions.some((code) => code.startsWith('AMOUNT'));
     if (mandate.escalation === 'require_human') {
-      const amountException = exceptions.some((code) => code.startsWith('AMOUNT'));
       // 11. Rich condition: a human may approve an overage only up to the ceiling the mandate
       //     itself sets. Above it, the answer is no — deterministically, before anyone is asked.
       const ceiling = mandate.limits.approvalCeilingMinor;
@@ -301,9 +302,24 @@ export function evaluatePolicy(rawInput: unknown): PolicyVerdict {
         amountException ? 'REQUIRE_HUMAN_AMOUNT' : 'REQUIRE_HUMAN_CONDITION',
       );
     }
-    return block(
-      exceptions.some((code) => code.startsWith('AMOUNT')) ? 'AMOUNT_EXCEEDED' : 'INTENT_MISMATCH',
-    );
+    // 12. Block plans still hand a NEAR MISS to the human: an amount within the progressive
+    //     tolerance (10 % on small budgets sliding to 7 % on large ones) is a decision, not a
+    //     silent block. Only amount near-misses qualify; any other exception blocks.
+    const onlyAmount = exceptions.every((code) => code.startsWith('AMOUNT'));
+    if (amountException && onlyAmount) {
+      const tolerance = approvalTolerance(mandate.limits.maxPerPurchaseMinor);
+      const totalCeiling = Math.floor(mandate.limits.maxTotalMinor * (1 + tolerance.percent / 100));
+      const nearMiss = amount <= tolerance.ceilingMinor && projectedTotal <= totalCeiling;
+      check(
+        'APPROVAL_TOLERANCE',
+        nearMiss,
+        { percent: tolerance.percent, ceilingMinor: tolerance.ceilingMinor },
+        amount,
+      );
+      if (nearMiss) return finish('REQUIRE_HUMAN', 'REQUIRE_HUMAN_AMOUNT');
+      return block('AMOUNT_EXCEEDED');
+    }
+    return block(amountException ? 'AMOUNT_EXCEEDED' : 'INTENT_MISMATCH');
   } catch (error) {
     check(
       'EVALUATOR_ERROR',

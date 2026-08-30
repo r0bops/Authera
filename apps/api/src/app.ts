@@ -117,6 +117,7 @@ export function createApp(deps: AppDependencies): App {
     const { db, keys, clock, paymentProcessor, seed } = deps.services;
     const sessionDeps = { db, config: deps.config, clock };
     let priceWatcher: PriceWatcher | undefined;
+    let runner: AgentRunner | undefined;
     const mandates = new MandateService({
       db,
       signer: new MandateSigner(keys.trustedSurface),
@@ -153,10 +154,21 @@ export function createApp(deps: AppDependencies): App {
             id: m.mandate.id,
             status: m.runtime.status,
             policy: m.policy,
+            remainingCount:
+              m.policy.limits.maxFulfillments - m.runtime.consumedCount - m.runtime.reservedCount,
           })),
         clock,
         logger: deps.logger,
         refreshMs: deps.config.markets.priceWatchIntervalMs,
+        // "Buy when it drops": the agent attempts the eligible offer through the gateway.
+        ...(deps.config.markets.priceWatchAutoBuy
+          ? {
+              autoBuy: async (mandateId: string) => {
+                if (!runner) return;
+                await runner.run({ mandateId });
+              },
+            }
+          : {}),
       });
       priceWatcher.start();
     }
@@ -232,13 +244,33 @@ export function createApp(deps: AppDependencies): App {
     app.route('/api', consoleReadRoutes({ db, clock, views, checkout }));
     const evidence = new EvidenceService({ db, clock });
     const ap2Evidence = new Ap2EvidenceService({ evidence, merchantKey: keys.merchant, clock });
-    const approvals = new ApprovalService({ db, clock, logger: deps.logger });
+    const approvals = new ApprovalService({
+      db,
+      clock,
+      logger: deps.logger,
+      // The human said yes: the agent retries that exact cart once, consuming the approval.
+      onApproved: (approval) => {
+        if (!runner || !approval.offer) return;
+        void runner
+          .direct({
+            mandateId: approval.mandateId,
+            offerId: approval.offer.id,
+            checkoutId: approval.checkoutId,
+          })
+          .catch((error: unknown) =>
+            deps.logger.warn(
+              { err: error, approvalId: approval.id },
+              'retry after approval failed',
+            ),
+          );
+      },
+    });
     const disputes = new DisputeService({ db, clock, logger: deps.logger, evidence });
     app.route('/api', humanEvidenceRoutes({ db, approvals, disputes, evidence, ap2Evidence }));
 
     // Demo controls (DEMO_MODE only). The runner talks to this very app over signed HTTP.
     if (deps.config.demo.enabled) {
-      const runner = new AgentRunner({
+      runner = new AgentRunner({
         db,
         keys,
         clock,
@@ -248,7 +280,15 @@ export function createApp(deps: AppDependencies): App {
       });
       app.route(
         '/api/demo',
-        demoRoutes({ db, config: deps.config, clock, runner, processor: paymentProcessor, seed }),
+        demoRoutes({
+          db,
+          config: deps.config,
+          clock,
+          runner,
+          processor: paymentProcessor,
+          seed,
+          onOfferInjected: () => priceWatcher?.refreshNow(),
+        }),
       );
     }
 

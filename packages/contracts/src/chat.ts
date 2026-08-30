@@ -121,7 +121,7 @@ export function mandateChatSuggestions(
     case 'validUntil':
       return ['Valid until the end of the month', 'Valid for the next 14 days'];
     case 'outsideRules':
-      return ['Ask me first', 'Block anything outside the rules'];
+      return ['Ask me first', 'Block anything outside the rules (near misses still ask me)'];
     default:
       return ['Looks good, I will review the plan', 'Change the maximum to $200'];
   }

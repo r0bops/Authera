@@ -75,6 +75,7 @@ const CHECK_LABELS: Record<string, string> = {
   USAGE_RESERVATION: 'Usage reserved atomically',
   USAGE_COUNT: 'Purchases left on the mandate',
   APPROVAL_CEILING: 'Within what a human may approve',
+  APPROVAL_TOLERANCE: 'Near miss within the progressive tolerance',
   APPROVAL_SCOPE: 'Approval matches this exact cart',
   DATE_WINDOW: 'Dates within the window',
   EVALUATOR_ERROR: 'Evaluator ran without error',

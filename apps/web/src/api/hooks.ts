@@ -297,6 +297,14 @@ import type {
   EvidenceBundle,
 } from '@authera/contracts';
 
+export function useApprovals() {
+  return useQuery({
+    queryKey: ['approvals'] as const,
+    queryFn: () => api<ApprovalView[]>('/api/approvals'),
+    refetchInterval: 4_000,
+  });
+}
+
 export function useApproval(id: string | undefined) {
   const interval = usePollInterval();
   return useQuery({

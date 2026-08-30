@@ -152,9 +152,13 @@ export function DemoTerminal() {
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const active = (mandates.data ?? []).filter((m) => m.status === 'ACTIVE');
+  const usable = (mandates.data ?? []).filter(
+    (m) => m.status === 'ACTIVE' && m.usage.remainingCount > 0,
+  );
   const selected: MandateView | undefined =
-    active.find((m) => m.id === mandateId) ?? active[0] ?? mandates.data?.[0];
+    (mandates.data ?? []).find((m) => m.id === mandateId) ?? usable[0] ?? mandates.data?.[0];
+  const planLabel = (m: MandateView) =>
+    m.status === 'ACTIVE' && m.usage.remainingCount === 0 ? 'completed' : m.status.toLowerCase();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'nearest' });
@@ -654,7 +658,7 @@ export function DemoTerminal() {
             {(mandates.data ?? []).map((m) => (
               <option key={m.id} value={m.id}>
                 {intentTitle(m.policy.intent)} · {usd(m.policy.limits.maxPerPurchaseMinor)} ·{' '}
-                {m.status.toLowerCase()}
+                {planLabel(m)}
               </option>
             ))}
           </select>

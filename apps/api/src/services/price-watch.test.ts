@@ -24,14 +24,29 @@ function mandate(overrides: Partial<WatchedMandate> = {}): WatchedMandate {
         departureDateTo: '2026-09-20',
         passengerCount: 1,
       },
+      limits: {
+        currency: 'USD',
+        maxPerPurchaseMinor: 15000,
+        maxTotalMinor: 15000,
+        maxFulfillments: 1,
+      },
     },
+    remainingCount: 1,
     ...overrides,
   };
 }
 
-function watcher(mandates: WatchedMandate[], nowMs: { value: number }, refreshMs = 300_000) {
+function watcher(
+  mandates: WatchedMandate[],
+  nowMs: { value: number },
+  refreshMs = 300_000,
+  autoBuy?: (mandateId: string, offerId: string) => Promise<unknown>,
+) {
   const checkout = {
-    searchFlights: vi.fn(async () => [{ id: 'a' }, { id: 'b' }]),
+    searchFlights: vi.fn(async () => [
+      { id: 'a', status: 'AVAILABLE', total: { currency: 'USD', minor: 18000 } },
+      { id: 'b', status: 'AVAILABLE', total: { currency: 'USD', minor: 13000 } },
+    ]),
   };
   const w = new PriceWatcher({
     checkout: checkout as never,
@@ -39,6 +54,7 @@ function watcher(mandates: WatchedMandate[], nowMs: { value: number }, refreshMs
     clock: { now: () => new Date(nowMs.value) } as never,
     logger,
     refreshMs,
+    ...(autoBuy ? { autoBuy } : {}),
   });
   return { w, checkout };
 }
@@ -51,6 +67,12 @@ describe('PriceWatcher', () => {
       policy: {
         validUntil: '2099-01-01T00:00:00.000Z',
         intent: { type: 'goods', query: 'wool runner', maxQuantity: 1 },
+        limits: {
+          currency: 'USD',
+          maxPerPurchaseMinor: 15000,
+          maxTotalMinor: 15000,
+          maxFulfillments: 1,
+        },
       },
     });
     const { w, checkout } = watcher([mandate(), goods], now);
@@ -107,6 +129,12 @@ describe('PriceWatcher', () => {
           departureDateTo: '2026-09-20',
           passengerCount: 1,
         },
+        limits: {
+          currency: 'USD',
+          maxPerPurchaseMinor: 15000,
+          maxTotalMinor: 15000,
+          maxFulfillments: 1,
+        },
       },
     });
     const { w, checkout } = watcher([mandate(), other], now);
@@ -140,5 +168,26 @@ describe('PriceWatcher', () => {
     expect(checkout.searchFlights).toHaveBeenCalledTimes(1);
     // both mandates count as refreshed, so neither is searched again until the refresh window passes
     await expect(w.tick()).resolves.toEqual({ searched: 0, skipped: 1, failed: 0 });
+  });
+
+  it('hands the cheapest eligible offer to the agent once, never an over-limit one', async () => {
+    const now = { value: Date.parse('2026-08-30T10:00:00.000Z') };
+    const autoBuy = vi.fn(async () => ({}));
+    const { w } = watcher([mandate()], now, 300_000, autoBuy);
+    await w.tick();
+    expect(autoBuy).toHaveBeenCalledTimes(1);
+    expect(autoBuy).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000001', 'b');
+    now.value += 400_000;
+    await w.tick(); // same offer again: no second attempt
+    expect(autoBuy).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the catalog fresh but never hands offers to a plan with no purchases left', async () => {
+    const now = { value: Date.parse('2026-08-30T10:00:00.000Z') };
+    const autoBuy = vi.fn(async () => ({}));
+    const { w, checkout } = watcher([mandate({ remainingCount: 0 })], now, 300_000, autoBuy);
+    await w.tick();
+    expect(checkout.searchFlights).toHaveBeenCalledTimes(1);
+    expect(autoBuy).not.toHaveBeenCalled();
   });
 });

@@ -7,7 +7,9 @@ import type { CheckoutService } from './checkout-service.js';
 export interface WatchedMandate {
   id: string;
   status: string;
-  policy: Pick<MandatePolicyV1, 'intent' | 'validUntil'>;
+  policy: Pick<MandatePolicyV1, 'intent' | 'validUntil' | 'limits'>;
+  /** Purchases the plan can still make; 0 means the watcher only keeps the catalog fresh. */
+  remainingCount?: number;
 }
 
 export interface PriceWatchDependencies {
@@ -25,6 +27,12 @@ export interface PriceWatchDependencies {
   tickBudgetMs?: number;
   /** How long to wait before retrying an intent whose market failed (default 20 s). */
   retryMs?: number;
+  /**
+   * "Buy when it drops": called once per (mandate, offer) when a search finds an AVAILABLE offer
+   * inside the plan's per-purchase limit. The agent still goes through the gateway; the watcher
+   * never buys by itself.
+   */
+  autoBuy?: (mandateId: string, offerId: string) => Promise<unknown>;
 }
 
 /**
@@ -35,6 +43,8 @@ export interface PriceWatchDependencies {
 export class PriceWatcher {
   /** intent key → when its market was last searched successfully (or a backoff marker). */
   private readonly lastRun = new Map<string, number>();
+  /** `${mandateId}:${offerId}` pairs already handed to the agent — one attempt per offer. */
+  private readonly attempted = new Set<string>();
   private timer: NodeJS.Timeout | undefined;
   private nudgeTimer: NodeJS.Timeout | undefined;
   private running = false;
@@ -55,6 +65,12 @@ export class PriceWatcher {
     if (this.nudgeTimer) clearTimeout(this.nudgeTimer);
     this.timer = undefined;
     this.nudgeTimer = undefined;
+  }
+
+  /** The catalog changed under every route (a judge injected an offer): look again everywhere. */
+  refreshNow(): void {
+    this.lastRun.clear();
+    this.nudge();
   }
 
   /** A plan was just created: look at its market now instead of waiting for the next tick. */
@@ -86,19 +102,28 @@ export class PriceWatcher {
       // intent key -> mandate ids (one search serves all of them)
       const groups = new Map<
         string,
-        { key: string; intent: MandatePolicyV1['intent']; ids: string[]; last: number }
+        {
+          key: string;
+          intent: MandatePolicyV1['intent'];
+          ids: string[];
+          mandates: WatchedMandate[];
+          last: number;
+        }
       >();
       for (const mandate of mandates) {
         if (mandate.status !== 'ACTIVE' || Date.parse(mandate.policy.validUntil) <= now) continue;
         if (mandate.policy.intent.type !== 'flight') continue; // no live market for other kinds
         const key = intentKey(mandate.policy.intent);
         const group = groups.get(key);
-        if (group) group.ids.push(mandate.id);
-        else
+        if (group) {
+          group.ids.push(mandate.id);
+          group.mandates.push(mandate);
+        } else
           groups.set(key, {
             key,
             intent: mandate.policy.intent,
             ids: [mandate.id],
+            mandates: [mandate],
             last: this.lastRun.get(key) ?? -1,
           });
       }
@@ -115,9 +140,11 @@ export class PriceWatcher {
         while (index < due.length && Date.now() - started < budgetMs) {
           const group = due[index++]!;
           try {
-            const found = await this.search(group.intent);
+            const offers = await this.search(group.intent);
+            const found = offers.length;
             this.lastRun.set(group.key, this.deps.clock.now().getTime());
             counts.searched += 1;
+            await this.handOffToAgent(group.mandates, offers);
             this.deps.logger.info(
               { intent: group.key, mandates: group.ids.length, offers: found },
               'price watch searched the market',
@@ -149,8 +176,43 @@ export class PriceWatcher {
     return counts;
   }
 
-  private async search(intent: MandatePolicyV1['intent']): Promise<number> {
-    if (intent.type !== 'flight') return 0;
+  /** The moment the brief describes: a flight appears inside the plan → the agent tries to buy. */
+  private async handOffToAgent(
+    mandates: WatchedMandate[],
+    offers: Awaited<ReturnType<CheckoutService['searchFlights']>>,
+  ): Promise<void> {
+    const autoBuy = this.deps.autoBuy;
+    if (!autoBuy) return;
+    for (const mandate of mandates) {
+      if ((mandate.remainingCount ?? 0) <= 0) continue;
+      const cap = mandate.policy.limits.maxPerPurchaseMinor;
+      const eligible = offers
+        .filter((o) => o.status === 'AVAILABLE' && o.total.minor <= cap)
+        .sort((a, b) => a.total.minor - b.total.minor);
+      const cheapest = eligible[0];
+      if (!cheapest) continue;
+      const key = `${mandate.id}:${cheapest.id}`;
+      if (this.attempted.has(key)) continue;
+      this.attempted.add(key);
+      try {
+        await autoBuy(mandate.id, cheapest.id);
+        this.deps.logger.info(
+          { mandateId: mandate.id, offerId: cheapest.id, total: cheapest.total },
+          'price watch handed an eligible offer to the agent',
+        );
+      } catch (error) {
+        this.deps.logger.warn(
+          { err: error, mandateId: mandate.id, offerId: cheapest.id },
+          'agent attempt after price watch failed',
+        );
+      }
+    }
+  }
+
+  private async search(
+    intent: MandatePolicyV1['intent'],
+  ): Promise<Awaited<ReturnType<CheckoutService['searchFlights']>>> {
+    if (intent.type !== 'flight') return [];
     const dates = effectiveFlightDateWindow(intent);
     const offers = await this.deps.checkout.searchFlights(
       {
@@ -162,7 +224,7 @@ export class PriceWatcher {
       },
       { strict: true },
     );
-    return offers.length;
+    return offers;
   }
 }
 

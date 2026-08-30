@@ -7,6 +7,7 @@ import {
 } from '@authera/contracts';
 import { FIXTURE_IDS, FIXTURE_NOW, policyInputFixture } from '@authera/test-support';
 import { evaluatePolicy } from './evaluate.js';
+import { approvalTolerance } from './tolerance.js';
 
 const OTHER_KEY = 'thumb-other-agent';
 
@@ -58,13 +59,13 @@ describe('evaluatePolicy — allow paths', () => {
     expect(PolicyVerdictSchema.parse(verdict)).toEqual(verdict);
   });
 
-  it('allows exactly USD 150.00 and blocks USD 150.01', () => {
+  it('allows exactly USD 150.00; USD 150.01 is never allowed alone — it is a near miss for the human', () => {
     expect(evaluatePolicy(withAmount(policyInputFixture(), 15_000)).reasonCode).toBe(
       'ALLOW_WITHIN_MANDATE',
     );
     const over = evaluatePolicy(withAmount(policyInputFixture(), 15_001));
-    expect(over.decision).toBe('BLOCK');
-    expect(over.reasonCode).toBe('AMOUNT_EXCEEDED');
+    expect(over.decision).toBe('REQUIRE_HUMAN');
+    expect(over.reasonCode).toBe('REQUIRE_HUMAN_AMOUNT');
     expect(failedCheck(over)).toBe('AMOUNT_PER_PURCHASE');
   });
 
@@ -168,6 +169,28 @@ describe('evaluatePolicy — escalation', () => {
     const above = evaluatePolicy(withAmount(policyInputFixture({ mandate: askUpTo200 }), 30_000));
     expect(above).toMatchObject({ decision: 'BLOCK', reasonCode: 'AMOUNT_EXCEEDED' });
     expect(above.checks.find((c) => c.code === 'APPROVAL_CEILING')?.passed).toBe(false);
+  });
+
+  it('hands a near miss on a block plan to the human: 10 % at USD 100 sliding to 7 % at USD 1,000', () => {
+    // USD 150 plan → ~9.5 % → ceiling USD 164.20: USD 160 asks, USD 168 blocks
+    const near = evaluatePolicy(withAmount(policyInputFixture(), 16_000));
+    expect(near).toMatchObject({ decision: 'REQUIRE_HUMAN', reasonCode: 'REQUIRE_HUMAN_AMOUNT' });
+    const tol = near.checks.find((c) => c.code === 'APPROVAL_TOLERANCE');
+    expect(tol?.passed).toBe(true);
+    expect(tol?.expected).toMatchObject({ ceilingMinor: 16_420 });
+    const far = evaluatePolicy(withAmount(policyInputFixture(), 16_800));
+    expect(far).toMatchObject({ decision: 'BLOCK', reasonCode: 'AMOUNT_EXCEEDED' });
+    expect(far.checks.find((c) => c.code === 'APPROVAL_TOLERANCE')?.passed).toBe(false);
+  });
+
+  it('tolerance is progressive: 10 % at or under USD 100, 7 % at or over USD 1,000', () => {
+    expect(approvalTolerance(5_000)).toEqual({ percent: 10, ceilingMinor: 5_500 });
+    expect(approvalTolerance(10_000)).toEqual({ percent: 10, ceilingMinor: 11_000 });
+    expect(approvalTolerance(100_000)).toEqual({ percent: 7, ceilingMinor: 107_000 });
+    expect(approvalTolerance(1_000_000).percent).toBe(7);
+    const mid = approvalTolerance(30_000).percent; // USD 300
+    expect(mid).toBeGreaterThan(7);
+    expect(mid).toBeLessThan(10);
   });
 
   it('never escalates a usage-count exhaustion', () => {
