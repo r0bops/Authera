@@ -49,7 +49,7 @@ sequenceDiagram
   participant Stripe as Stripe test mode
   participant Duffel as Duffel test mode
 
-  Agent->>API: POST /api/purchase-attempts (signed; executionId, mandateId, offerId, checkoutId)
+  Agent->>API: POST /api/purchase-attempts (signed — executionId, mandateId, offerId, checkoutId)
   API->>API: Verify Content-Digest, components, created/expires, keyid → pinned key, tag
   API->>DB: Insert unique (agent key, nonce) — replay fails here
   API->>DB: Load mandate (verify JWS + hash), offer, checkout (recompute cart hash), merchant, agent, approval
@@ -63,15 +63,15 @@ sequenceDiagram
       Stripe-->>API: AUTHORIZED / FAILED / PENDING
       alt Stripe authorized and live Duffel flight
         API->>DB: create PENDING booking + BOOKING_REQUESTED
-        API->>Duffel: reload offer; POST /air/orders (instant, test balance)
+        API->>Duffel: reload offer, then POST /air/orders (instant, test balance)
         Duffel-->>API: confirmed order / definite rejection / ambiguous outcome
         alt booking confirmed
           API->>DB: BOOKED + provider order/reference
           API->>Stripe: capture PaymentIntent
-          API->>DB: consume reservation; payment SUCCEEDED
+          API->>DB: consume reservation, payment SUCCEEDED
         else definite booking rejection
           API->>Stripe: cancel authorization
-          API->>DB: release reservation; BOOKING_FAILED
+          API->>DB: release reservation, BOOKING_FAILED
         else ambiguous
           API->>DB: keep booking/payment/reservation PENDING for reconciliation
         end
@@ -108,7 +108,7 @@ sequenceDiagram
   Marta->>API: POST /api/mandates/:id/revoke
   API->>DB: UPDATE mandate_runtime SET status='REVOKED' WHERE status='ACTIVE' (same row the gateway reserves on)
   Marta->>API: POST /api/approvals/:id/decision
-  API->>DB: approval APPROVED with checkout hash; consumed once by the next matching attempt
+  API->>DB: approval APPROVED with checkout hash — consumed once by the next matching attempt
   Marta->>API: POST /api/disputes
   API->>API: Build evidence bundle → deterministic resolver → AUTHORIZED / CUSTOMER_SUPPORTED / UNRESOLVED
 ```
