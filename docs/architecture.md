@@ -3,22 +3,44 @@
 ## System overview
 
 ```mermaid
-flowchart LR
-  H[Marta's browser<br/>chat-first React trusted surface] -->|cookie session + CSRF + Idempotency-Key| API[Hono application<br/>Node.js 24]
-  A[Purchasing agent<br/>scripted or OpenAI] -->|RFC 9421 signed request<br/>identifiers only| API
-  API --> SIG[Signature middleware<br/>digest · components · nonce · key]
-  API --> TS[Trusted surface<br/>EdDSA mandate signer]
-  API --> MG[Mandate Gateway]
-  MG --> PE[Pure policy engine<br/>packages/domain]
-  MG --> DB[(PostgreSQL 18<br/>mandates · executions · reservations<br/>payments · bookings · audit chain)]
-  MG --> PAY[Payment service]
-  PAY --> BOOK[Booking service]
-  BOOK --> DUFFEL[Duffel Flights<br/>test-mode orders]
-  PAY --> PP{PaymentProcessor}
-  PP --> MOCK[Mock processor<br/>demo controls]
-  PP --> STRIPE[Stripe<br/>test-mode PaymentIntents]
-  STRIPE -->|Stripe-Signature webhook| API
-  API --> EV[Evidence builder<br/>bundles · disputes · chain verify]
+```mermaid
+flowchart TB
+  Human[Persona usuaria<br/>Marta]
+  Agent[Agente de compras<br/>scripted u OpenAI]
+
+  subgraph Authera["Sistema Authera"]
+    Web["Consola web<br/>React + Vite<br/>apps/web"]
+    API["API y gateway de mandatos<br/>Hono + Node.js<br/>apps/api"]
+    DB[("PostgreSQL<br/>packages/db")]
+
+    Domain["Dominio compartido<br/>políticas, criptografía,<br/>máquinas de estado"]
+    Contracts["Contratos compartidos<br/>Zod y DTOs"]
+  end
+
+  OpenAI["OpenAI<br/>interpretación de chat<br/>opcional"]
+  Duffel["Duffel<br/>búsqueda y reserva de vuelos<br/>opcional"]
+  Shopify["Shopify Storefront<br/>catálogo de productos<br/>opcional"]
+  Stripe["Stripe test mode<br/>pagos y webhooks<br/>opcional"]
+  Mock["Procesador mock<br/>modo demo"]
+
+  Human -->|usa| Web
+  Web -->|sesión, CSRF y API JSON| API
+
+  Agent -->|solicitudes HTTP firmadas<br/>RFC 9421| API
+
+  API -->|lee y persiste mandatos, ofertas,<br/>ejecuciones, pagos y auditoría| DB
+  API -->|evalúa políticas y verifica firmas| Domain
+  Web -. comparte esquemas .-> Contracts
+  API -. comparte esquemas .-> Contracts
+  Agent -. comparte esquemas .-> Contracts
+
+  API -->|interpreta mensajes ambiguos| OpenAI
+  API -->|busca y revalida vuelos;<br/>crea reservas sandbox| Duffel
+  API -->|busca y revalida productos| Shopify
+  API -->|autoriza, captura y recibe webhooks| Stripe
+  Stripe -->|webhook firmado| API
+  API -->|pagos deterministas de demo| Mock
+```
 ```
 
 Authority lives in exactly two places: the **pure policy engine** (deterministic, clock injected, fails closed) and the **PostgreSQL reservation predicate** (one conditional `UPDATE` on `mandate_runtime` that revocation contends with). Nothing else — not the agent, not the browser, not the LLM — can produce `ALLOW`.
