@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { PurchaseReceipt } from '@authera/contracts';
-import { bookingConfirmationHtml, escapeHtml, paymentReceiptHtml } from './purchase-documents.js';
+import {
+  bookingConfirmationHtml,
+  escapeHtml,
+  paymentReceiptHtml,
+  stripeStyleReceiptHtml,
+} from './purchase-documents.js';
 
 function completedReceipt(): PurchaseReceipt {
   return {
@@ -105,6 +110,14 @@ describe('purchase documents', () => {
     expect(html).toContain('Duffel &lt;Marketplace&gt;');
     expect(html).not.toContain('Duffel <Marketplace>');
     expect(html).toContain('not a merchant tax invoice');
+  });
+
+  it('renders the processor-style receipt with the real reference and the mandate on record', () => {
+    const html = stripeStyleReceiptHtml(completedReceipt());
+    expect(html).toContain('Receipt from Authera');
+    expect(html).toContain('Amount paid');
+    expect(html).toContain('evidence');
+    expect(html).not.toContain('tax invoice.</p></div></div></body></html><script');
   });
 
   it('renders a test-mode booking confirmation and never calls it a boarding pass', () => {

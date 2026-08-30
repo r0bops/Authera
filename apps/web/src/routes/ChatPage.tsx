@@ -907,6 +907,13 @@ function CompletedTripCard({
         >
           <ReceiptText className="h-4 w-4" aria-hidden /> Receipt
         </a>
+        <a
+          href={`/api/purchases/${purchase.id}/stripe-receipt.html`}
+          download
+          className={buttonStyles({ variant: 'secondary' })}
+        >
+          <ReceiptText className="h-4 w-4" aria-hidden /> Card receipt
+        </a>
         {purchase.bookingState === 'BOOKED' ? (
           <a
             href={`/api/purchases/${purchase.id}/booking-confirmation.html`}

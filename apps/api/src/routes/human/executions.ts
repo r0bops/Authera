@@ -12,7 +12,11 @@ import {
   purchaseReceipt,
   type ExecutionViews,
 } from '../../services/execution-views.js';
-import { bookingConfirmationHtml, paymentReceiptHtml } from '../../services/purchase-documents.js';
+import {
+  bookingConfirmationHtml,
+  paymentReceiptHtml,
+  stripeStyleReceiptHtml,
+} from '../../services/purchase-documents.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -74,6 +78,22 @@ export function consoleReadRoutes(deps: {
       throw ApiProblem.conflict('RECEIPT_NOT_AVAILABLE', 'Payment has not completed');
     }
     return htmlDownload(c, paymentReceiptHtml(receipt), `authera-payment-receipt-${id}.html`);
+  });
+
+  routes.get('/purchases/:id/stripe-receipt.html', async (c) => {
+    const id = purchaseId(c.req.param('id'));
+    await requireExecutionAccess(deps.db, c.get('user')!, id);
+    const receipt = await purchaseReceipt(
+      { db: deps.db, clock: deps.clock, views: deps.views },
+      id,
+    );
+    if (
+      receipt.execution.state !== 'SUCCEEDED' ||
+      receipt.execution.payment?.state !== 'SUCCEEDED'
+    ) {
+      throw ApiProblem.conflict('RECEIPT_NOT_AVAILABLE', 'The payment has not completed');
+    }
+    return c.html(stripeStyleReceiptHtml(receipt));
   });
 
   routes.get('/purchases/:id/booking-confirmation.html', async (c) => {

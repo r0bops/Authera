@@ -80,6 +80,16 @@ export function PurchaseDetailPage() {
                 Payment receipt
               </a>
             ) : null}
+            {succeeded ? (
+              <a
+                href={`/api/purchases/${execution.id}/stripe-receipt.html`}
+                download
+                className={buttonStyles({ variant: 'secondary' })}
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Card receipt (Stripe)
+              </a>
+            ) : null}
             {succeeded && booking?.state === 'BOOKED' ? (
               <a
                 href={`/api/purchases/${execution.id}/booking-confirmation.html`}
