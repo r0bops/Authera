@@ -6,6 +6,7 @@ import {
   type ChatSessionView,
   type MandateChatDraft,
   type MandateChatMessage,
+  type MandateView,
 } from '@authera/contracts';
 import {
   appendAssistantChatMessage,
@@ -16,11 +17,18 @@ import {
   linkChatSessionToMandate,
   listChatMessages,
   listChatSessionsForUser,
+  replaceChatSessionDraft,
   type ChatSessionRow,
   type Database,
   type UserRow,
 } from '@authera/db';
 import { ApiProblem } from '../http/problem.js';
+import {
+  describeRevision,
+  draftFromPolicy,
+  pendingRevisionFor,
+  pinSignedDraft,
+} from './chat-revision.js';
 import type { MandateChatService } from './mandate-chat.js';
 import type { MandateService } from './mandate-service.js';
 
@@ -74,13 +82,22 @@ export class ChatSessionService {
         { messages: transcript.slice(-16), draft },
         { signedPlan: true, lifecycle, personName: firstNameOf(user) },
       );
+      // The model may capture a requested change, but code decides what a signed plan may touch,
+      // and nothing is in force until the person confirms the re-signed version on the plan card.
+      const proposed = pinSignedDraft(draft, result.draft);
+      const mandate = await this.deps.mandates.get(user, session.mandateId);
+      const pending = pendingRevisionFor(proposed, mandate.policy);
+      let reply = result.reply;
+      if (pending && !/confirm/i.test(reply)) {
+        reply = `${reply} Nothing changes until you confirm the update on the plan card.`;
+      }
       await appendChatTurn(this.deps.db, {
         sessionId: session.id,
         userId: user.id,
         title: titleFor(draft),
-        draft,
+        draft: pending ? proposed : draft,
         userMessage: message,
-        assistantMessage: result.reply,
+        assistantMessage: reply,
       });
       return this.get(user, id);
     }
@@ -108,6 +125,7 @@ export class ChatSessionService {
     const row = await this.row(user, id);
     const messages = await listChatMessages(this.deps.db, row.id);
     const summary = await this.summary(row, messages);
+    const draft = row.draft ? MandateChatDraftSchema.parse(row.draft) : null;
     return ChatSessionViewSchema.parse({
       ...summary,
       messages: messages.map((message) => ({
@@ -116,8 +134,61 @@ export class ChatSessionService {
         content: message.content,
         createdAt: message.createdAt.toISOString(),
       })),
-      draft: row.draft ? MandateChatDraftSchema.parse(row.draft) : null,
+      draft,
+      pendingRevision: await this.pendingRevision(user, row, draft, summary.state),
     });
+  }
+
+  /** The person confirms (re-sign as a new version) or discards a change captured in the chat. */
+  async revision(
+    user: UserRow,
+    id: string,
+    action: 'confirm' | 'discard',
+  ): Promise<ChatSessionView> {
+    const session = await this.row(user, id);
+    if (!session.mandateId) {
+      throw new ApiProblem(409, 'CHAT_HAS_NO_MANDATE', 'This chat has no signed plan to update');
+    }
+    const mandate = await this.deps.mandates.get(user, session.mandateId);
+    const draft = session.draft ? MandateChatDraftSchema.parse(session.draft) : null;
+    const pending = pendingRevisionFor(draft, mandate.policy);
+    if (!pending) {
+      throw new ApiProblem(409, 'CHAT_NO_PENDING_REVISION', 'There is no change waiting');
+    }
+    if (action === 'discard') {
+      const current = draftFromPolicy(mandate.policy);
+      if (current) {
+        await replaceChatSessionDraft(this.deps.db, {
+          sessionId: session.id,
+          userId: user.id,
+          draft: current,
+          assistantMessage: `Kept as signed: ${describeSigned(mandate.policy)}. Nothing changed.`,
+        });
+      }
+      return this.get(user, id);
+    }
+    const revised = await this.deps.mandates.revise(user, mandate.id, pending.request);
+    const current = draftFromPolicy(revised.policy);
+    if (current) {
+      await replaceChatSessionDraft(this.deps.db, {
+        sessionId: session.id,
+        userId: user.id,
+        draft: current,
+        assistantMessage: `Plan updated and re-signed as version ${revised.version}: ${describeRevision(pending.changes)}. The previous version can no longer authorize anything; everything else stays the same.`,
+      });
+    }
+    return this.get(user, id);
+  }
+
+  private async pendingRevision(
+    user: UserRow,
+    row: ChatSessionRow,
+    draft: MandateChatDraft | null,
+    state: 'ACTIVE' | 'BOOKED' | 'REVOKED',
+  ) {
+    if (!row.mandateId || state !== 'ACTIVE' || !draft) return null;
+    const mandate = await this.deps.mandates.get(user, row.mandateId);
+    return pendingRevisionFor(draft, mandate.policy);
   }
 
   async linkMandate(user: UserRow, id: string, mandateId: string): Promise<ChatSessionView> {
@@ -176,6 +247,11 @@ export class ChatSessionService {
       updatedAt: row.updatedAt.toISOString(),
     };
   }
+}
+
+function describeSigned(policy: MandateView['policy']): string {
+  const max = `${policy.limits.currency} ${(policy.limits.maxPerPurchaseMinor / 100).toFixed(2)}`;
+  return `up to ${max} per purchase, ${policy.limits.maxFulfillments} purchase(s), valid until ${policy.validUntil.slice(0, 10)}`;
 }
 
 function titleFor(draft: MandateChatDraft): string {

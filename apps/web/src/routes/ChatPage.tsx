@@ -1,6 +1,7 @@
 import { airportLabel } from '../lib/airports.js';
 import { mandateChatSuggestions } from '@authera/contracts';
 import type {
+  ChatPendingRevision,
   ChatSessionMessageView,
   CreateMandateRequest,
   ExecutionSummary,
@@ -25,6 +26,7 @@ import {
 import { type FormEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
+  useChatRevision,
   useChatSession,
   useCreateChat,
   useCreateMandate,
@@ -58,6 +60,7 @@ export function ChatPage() {
   const createMandate = useCreateMandate();
   const linkMandate = useLinkChatMandate(chatId);
   const revokeMandate = useRevokeChatMandate(chatId);
+  const revision = useChatRevision(chatId);
   const [input, setInput] = useState('');
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
@@ -217,6 +220,17 @@ export function ChatPage() {
                 draft={draft}
                 agentName={agentName}
                 onRevoke={() => setRevokeOpen(true)}
+              />
+            </AgentBubble>
+          ) : null}
+
+          {hasSignedPlan && session?.state === 'ACTIVE' && session.pendingRevision ? (
+            <AgentBubble>
+              <PlanChangeCard
+                pending={session.pendingRevision}
+                busy={revision.isPending}
+                onConfirm={() => void revision.mutateAsync({ action: 'confirm' })}
+                onDiscard={() => void revision.mutateAsync({ action: 'discard' })}
               />
             </AgentBubble>
           ) : null}
@@ -600,7 +614,7 @@ function isCompleteDraft(draft: MandateChatDraft): boolean {
 
 function composerPrompt(draft: MandateChatDraft | null, hasSignedPlan: boolean): string {
   // Short enough for one line on a phone: placeholders never wrap or clip.
-  if (hasSignedPlan) return 'Ask about the plan, or say “stop”';
+  if (hasSignedPlan) return 'Ask about the plan, change a limit, or say “stop”';
   if (!draft?.origin) return 'Where are you flying from?';
   if (!draft.destination) return 'Where do you want to go?';
   if (!draft.departureDateFrom || !draft.departureDateTo) return 'When would you like to travel?';
@@ -736,6 +750,63 @@ function ActivePlanCard({
     </section>
   );
 }
+
+/**
+ * A change captured in the chat is only a proposal: the signed rules stay in force until the
+ * person confirms here, and confirming re-signs the plan as a new version.
+ */
+function PlanChangeCard({
+  pending,
+  busy,
+  onConfirm,
+  onDiscard,
+}: {
+  pending: ChatPendingRevision;
+  busy: boolean;
+  onConfirm: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <section aria-label="Update the signed plan">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="font-semibold text-ink">Update the plan?</h2>
+        <Badge tone="attention">Not in force yet</Badge>
+      </div>
+      <ul className="mt-2 space-y-1 text-ink">
+        {pending.changes.map((change) => (
+          <li key={change.field} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-ink-muted">{REVISION_LABELS[change.field]}</span>
+            <span className="line-through decoration-ink-muted/60">{change.from}</span>
+            <span aria-hidden>→</span>
+            <span className="font-medium">{change.to}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[12.5px] text-ink-muted">
+        Confirming re-signs the plan as a new version; the current rules apply until then, and the
+        old version can never authorize anything again.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" loading={busy} onClick={onConfirm}>
+          <LockKeyhole className="h-4 w-4" aria-hidden /> Confirm update
+        </Button>
+        <Button size="sm" variant="secondary" disabled={busy} onClick={onDiscard}>
+          Keep current rules
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+const REVISION_LABELS: Record<ChatPendingRevision['changes'][number]['field'], string> = {
+  maximumPrice: 'Maximum price',
+  purchaseCount: 'Purchases',
+  validUntil: 'Valid until',
+  outsideRules: 'Outside the rules',
+  departureDates: 'Departure dates',
+  dateFlexibility: 'Date flexibility',
+  passengerCount: 'Passengers',
+};
 
 function CompletedTripCard({
   purchase,

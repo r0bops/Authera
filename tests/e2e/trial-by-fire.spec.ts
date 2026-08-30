@@ -64,9 +64,25 @@ test('2 · create the USD 150 Córdoba mandate through the conversation', async 
   await expect(page.getByRole('log').getByText(/have you found a flight yet\?/i)).toBeVisible();
   await expect(page.getByLabel(/message aria/i)).toBeEnabled({ timeout: 30_000 });
   await expectNoHorizontalScroll(page);
-  const mandates = await get<Array<{ id: string; status: string }>>(request, '/api/mandates');
-  mandateId = mandates.data?.find((mandate) => mandate.status === 'ACTIVE')?.id ?? '';
+  // "Change a limit and see what happens": the change is only a proposal until confirmed, then
+  // the plan is re-signed as version 2 — the version every later attempt is judged by.
+  await page.getByLabel(/message aria/i).fill('Change my maximum to $160.');
+  await page.getByRole('button', { name: /send message/i }).click();
+  await expect(page.getByRole('heading', { name: /update the plan\?/i })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText(/USD 160\.00/).first()).toBeVisible();
+  await page.getByRole('button', { name: /confirm update/i }).click();
+  await expect(page.getByText(/re-signed as version 2/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /update the plan\?/i })).toHaveCount(0);
+  const mandates = await get<Array<{ id: string; status: string; version: number }>>(
+    request,
+    '/api/mandates',
+  );
+  const active = mandates.data?.find((mandate) => mandate.status === 'ACTIVE');
+  mandateId = active?.id ?? '';
   expect(mandateId).toBeTruthy();
+  expect(active?.version).toBe(2);
 });
 
 test('3 · inject a USD 130 offer', async ({ request }) => {

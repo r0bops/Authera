@@ -31,6 +31,11 @@ const SCENARIOS: Array<{ cmd: string; label: string; proves: string }> = [
   },
   { cmd: 'revoke', label: 'Live revocation', proves: 'revoke, then the very next attempt fails' },
   {
+    cmd: 'limit 100',
+    label: 'Change a limit',
+    proves: 'the plan is re-signed as a new version and the next attempt is judged by it',
+  },
+  {
     cmd: 'expire',
     label: 'Expired mandate',
     proves: 'move the clock past validity; attempt fails',
@@ -56,6 +61,7 @@ const HELP = [
   'run                       let the agent search, choose and request a purchase',
   'over <usd>                inject above the limit and attempt it directly',
   'revoke                    revoke the plan, then retry a purchase',
+  'limit <usd> · until <date> · uses <n>   revise the plan (new signed version), then retry',
   'expire                    push the demo clock past validity, attempt, restore',
   'forge · replay · race     signature, nonce and concurrency defences',
   'approve · tamper          approval bound to one exact cart',
@@ -241,6 +247,48 @@ export function DemoTerminal() {
       const dollars = Number(args[0] ?? '300');
       const offer = await inject(plan, Math.round(dollars * 100));
       await direct(plan, offer.id);
+      return refresh();
+    }
+    if (cmd === 'limit' || cmd === 'until' || cmd === 'uses') {
+      const offer = await ensureEligible(plan);
+      const limits = plan.policy.limits;
+      let body: Record<string, unknown>;
+      if (cmd === 'limit') {
+        const dollars = Number(args[0]);
+        if (!Number.isFinite(dollars) || dollars <= 0) throw new Error('limit <usd>');
+        const maxPerPurchaseMinor = Math.round(dollars * 100);
+        body = {
+          limits: {
+            ...limits,
+            maxPerPurchaseMinor,
+            maxTotalMinor: maxPerPurchaseMinor * limits.maxFulfillments,
+          },
+        };
+      } else if (cmd === 'until') {
+        const day = args[0] ?? '';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error('until <YYYY-MM-DD>');
+        body = { validUntil: `${day}T23:59:59.000Z` };
+      } else {
+        const count = Number(args[0]);
+        if (!Number.isInteger(count) || count < 1) throw new Error('uses <n>');
+        body = {
+          limits: {
+            ...limits,
+            maxFulfillments: count,
+            maxTotalMinor: limits.maxPerPurchaseMinor * count,
+          },
+        };
+      }
+      const revised = await api<MandateView>(`/api/mandates/${plan.id}/revise`, {
+        method: 'POST',
+        body,
+      });
+      print(
+        'ok',
+        `plan re-signed as v${revised.version} — up to ${usd(revised.policy.limits.maxPerPurchaseMinor)} · ${revised.policy.limits.maxFulfillments} use(s) · until ${revised.policy.validUntil.slice(0, 10)}`,
+      );
+      print('muted', `retrying the ${usd(offer.total.minor)} offer under the new version…`);
+      await direct(revised, offer.id);
       return refresh();
     }
     if (cmd === 'revoke') {

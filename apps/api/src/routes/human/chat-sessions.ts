@@ -1,5 +1,9 @@
 import { Hono } from 'hono';
-import { LinkChatMandateRequestSchema, SendChatMessageRequestSchema } from '@authera/contracts';
+import {
+  ChatRevisionActionRequestSchema,
+  LinkChatMandateRequestSchema,
+  SendChatMessageRequestSchema,
+} from '@authera/contracts';
 import type { Database } from '@authera/db';
 import { ok, type AppEnv } from '../../http/envelope.js';
 import { ApiProblem, formatZodIssues } from '../../http/problem.js';
@@ -47,6 +51,12 @@ export function humanChatSessionRoutes(deps: { db: Database; sessions: ChatSessi
     const parsed = LinkChatMandateRequestSchema.safeParse(await body(c));
     if (!parsed.success) throw ApiProblem.validation(formatZodIssues(parsed.error.issues));
     return ok(c, await deps.sessions.linkMandate(c.get('user')!, chatId(c), parsed.data.mandateId));
+  });
+
+  routes.post('/:id/revision', idempotent('chats.revision', deps.db), async (c) => {
+    const parsed = ChatRevisionActionRequestSchema.safeParse(await body(c));
+    if (!parsed.success) throw ApiProblem.validation(formatZodIssues(parsed.error.issues));
+    return ok(c, await deps.sessions.revision(c.get('user')!, chatId(c), parsed.data.action));
   });
 
   routes.post('/:id/revoke', idempotent('chats.revoke', deps.db), async (c) =>

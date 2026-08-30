@@ -98,7 +98,11 @@ export function mandateChatSuggestions(
   options: { signedPlan?: boolean } = {},
 ): string[] {
   if (options.signedPlan)
-    return ['What are you doing right now?', 'What happens if the price goes up?'];
+    return [
+      'What are you doing right now?',
+      'Change my maximum to $250',
+      'What happens if the price goes up?',
+    ];
   const next = draft ? mandateChatMissingFields(draft)[0] : 'category';
   switch (next) {
     case 'category':

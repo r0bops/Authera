@@ -55,7 +55,7 @@ The API runs migrations and seeds only the people and connections (Marta, Aria, 
 
 One deployment exposes separate route trees for each perspective while sharing the same event stream:
 
-- **Marta — `/dashboard`**: a clean, flight-focused conversation with a persistent bottom dock for Chats, New, and Account. Aria opens naturally and asks one question at a time; buttons appear only for consequential confirmation or change actions, and there is no mandate form inside chat. Conversations persist across reloads and navigation. Signed confirmation, revocation, approvals, receipts, and disputes remain trusted surfaces outside free-form chat.
+- **Marta — `/dashboard`**: a clean, flight-focused conversation with a persistent bottom dock for Chats, New, and Account. Aria opens naturally and asks one question at a time; buttons appear only for consequential confirmation or change actions, and there is no mandate form inside chat. Conversations persist across reloads and navigation. On an active plan, “actually, my maximum is $250” becomes an *Update the plan?* card: nothing changes until Marta confirms, and confirming re-signs the plan as a new version (route and currency are pinned — a different trip is a new plan). Signed confirmation, revocation, approvals, receipts, and disputes remain trusted surfaces outside free-form chat.
 - **Agent — `/agent`**: price watch, offers considered, signed requests, gateway decisions.
 - **Merchant — `/verify`**: identity → mandate → constraint checklist → checkout binding → reservation/payment for any execution.
 - **Auditor — `/audit`**: filterable hash-chained ledger with live chain verification and evidence export.
@@ -71,7 +71,7 @@ The route separation is a local product boundary, not a replacement for role-spe
 | Discovery | `GET /.well-known/ucp`, `GET /.well-known/http-message-signatures-directory`, `GET /agents/:id/profile` |
 | Signed agent (browse) | `GET /api/flights` (cross-merchant, cross-market catalog), `GET /api/products?q=` (live storefront search), `POST /ucp/v1/checkout-sessions`, `GET /ucp/v1/checkout-sessions/:id` |
 | Signed agent (payment) | `POST /api/purchase-attempts` — body is `{ executionId, mandateId, offerId, checkoutId }` and nothing else |
-| Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/chats[...]` (durable conversations), `POST /api/chat/interpret` (draft only), `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]` (including printable payment receipt and Duffel booking confirmation), `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
+| Human (cookie + CSRF + Idempotency-Key) | `/api/me`, `/api/chats[...]` (durable conversations; `POST /api/chats/:id/revision` confirms or discards a change captured on a signed plan), `POST /api/chat/interpret` (draft only), `/api/mandates[...]`, `/api/approvals[...]`, `/api/purchases[...]` (including printable payment receipt and Duffel booking confirmation), `/api/disputes[...]`, `/api/executions`, `/api/verification/:id`, `/api/evidence/:id[/export]`, `/api/audit/events`, `/api/audit/verify` |
 | Demo (DEMO_MODE) | `/api/demo/*` |
 | Webhooks | `POST /webhooks/stripe` (raw-body `Stripe-Signature` check), `POST /webhooks/mock/:executionId` (demo) |
 

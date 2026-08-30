@@ -165,9 +165,10 @@ export class MandateChatService {
 export function buildInstructions(context: MandateChatContext): string {
   const mode = context.signedPlan
     ? [
-        '# Mode: signed plan (immutable)',
-        'The plan in `draft` is already signed and ACTIVE. Answer questions about it from the draft only.',
-        'Never change any field. If the person wants different rules, tell them to stop this plan and start a new trip.',
+        '# Mode: signed plan (active)',
+        'The plan in `draft` is signed and ACTIVE. Answer questions about it from the draft only.',
+        'If the person asks to change the maximum price, the number of purchases, the validity, the travel dates, date flexibility, the passengers, or what happens outside the rules: put the new value in `draft` (keep everything else exactly as it is), and say you will update the plan as soon as they confirm on the plan card — nothing changes until they confirm, and the current rules stay in force meanwhile.',
+        'The route (origin, destination) and the currency cannot change on a signed plan: for a different trip, tell them to stop this plan and start a new one.',
         'If they want to stop it, point them to the confirmation shown in the chat and say nothing changes until they confirm.',
         'Do not ask drafting questions in this mode.',
       ]
@@ -378,9 +379,13 @@ function scriptedSignedPlanChat(
   const message = input.messages.at(-1)?.content ?? '';
   let reply =
     'This plan is still active and watching verified flight providers. No signed rule has changed, and a verified booking will appear here when one completes.';
-  if (/\b(change|edit|raise|lower|increase|decrease|instead|different)\b/i.test(message)) {
+  if (
+    /\b(change|edit|raise|lower|increase|decrease|instead|different|maximum|max|until)\b/i.test(
+      message,
+    )
+  ) {
     reply =
-      'The signed rules cannot change silently. Stop this plan first, then start a new trip and I will build the replacement with you.';
+      'I have noted that change. The signed rules stay exactly as they are until you confirm the update on the plan card; then the plan is re-signed as a new version.';
   } else if (/\b(stop|revoke|cancel)\b/i.test(message)) {
     reply =
       'I can stop the plan, but only through the trusted confirmation shown in this chat. Nothing is revoked until you confirm it.';

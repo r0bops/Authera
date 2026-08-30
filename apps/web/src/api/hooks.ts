@@ -232,6 +232,14 @@ export function useLinkChatMandate(id: string | undefined) {
   );
 }
 
+export function useChatRevision(id: string | undefined) {
+  return useChatMutation(
+    (input: { action: 'confirm' | 'discard' }) =>
+      api<ChatSessionView>(`/api/chats/${id}/revision`, { method: 'POST', body: input }),
+    id,
+  );
+}
+
 export function useRevokeChatMandate(id: string | undefined) {
   return useChatMutation(
     () => api<ChatSessionView>(`/api/chats/${id}/revoke`, { method: 'POST', body: {} }),

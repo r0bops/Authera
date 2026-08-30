@@ -190,6 +190,37 @@ export async function appendAssistantChatMessage(
   });
 }
 
+/** Replace the working draft of a session (a proposed change accepted or discarded) and say so. */
+export async function replaceChatSessionDraft(
+  db: Database,
+  input: { sessionId: string; userId: string; draft: MandateChatDraft; assistantMessage: string },
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [session] = await tx
+      .select({ id: chatSessions.id, messageCount: chatSessions.messageCount })
+      .from(chatSessions)
+      .where(and(eq(chatSessions.id, input.sessionId), eq(chatSessions.userId, input.userId)))
+      .for('update');
+    if (!session) return false;
+    await tx.insert(chatMessages).values({
+      id: randomUUID(),
+      sessionId: input.sessionId,
+      role: 'assistant',
+      content: input.assistantMessage,
+      position: session.messageCount + 1,
+    });
+    await tx
+      .update(chatSessions)
+      .set({
+        draft: input.draft as unknown as Record<string, unknown>,
+        messageCount: session.messageCount + 1,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(chatSessions.id, input.sessionId));
+    return true;
+  });
+}
+
 export async function chatSessionLifecycle(
   db: DbExecutor,
   mandateId: string | null,

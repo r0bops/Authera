@@ -38,7 +38,7 @@ describe('quick replies', () => {
       'Next week',
       'Any date in the next 60 days',
     ]);
-    expect(mandateChatSuggestions(result.draft, { signedPlan: true })).toHaveLength(2);
+    expect(mandateChatSuggestions(result.draft, { signedPlan: true })).toHaveLength(3);
   });
 });
 
