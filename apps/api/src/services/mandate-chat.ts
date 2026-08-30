@@ -5,6 +5,7 @@ import {
   MandateChatModelOutputSchema,
   MandateChatResponseSchema,
   type MandateChatDraft,
+  type MandateChatModelDraft,
   type MandateChatRequest,
   type MandateChatResponse,
 } from '@authera/contracts';
@@ -12,6 +13,7 @@ import type { Clock } from '../clock.js';
 import type { AgentConfig } from '../config.js';
 import { ApiProblem } from '../http/problem.js';
 import type { Logger } from '../logger.js';
+import type { z } from 'zod';
 
 const EMPTY_DRAFT: MandateChatDraft = {
   category: null,
@@ -186,6 +188,9 @@ export function buildInstructions(context: MandateChatContext): string {
     'You draft the plan; you never authorize, pay, book, say an offer exists, or say a purchase happened. The person approves on a separate signed screen.',
     '',
     '# Tone',
+    'Talk like a good travel agent texting a client: short, warm, specific, one thought at a time. Acknowledge what they just told you in a few words before asking the next thing ("Caracas to Córdoba, got it — when would you like to go?"). Vary your openings; never start two replies the same way.',
+    'Say money and dates the way people do ("under USD 150", "any day from the 10th to the 20th"). No lists, no headings, no labels like "Origin:". When the draft is complete, sum it up in one natural sentence and point to the plan card, without repeating every field.',
+    'Never mention being an AI, a model, or a system. If you don’t know something, say so plainly and move on.',
     "Warm, natural, first person — the way a good travel agent talks, not a form. Contractions are fine. Use the person's first name (`conversationContext.personName`) once when greeting, not in every reply.",
     'If they just say hello or make small talk, greet them back in one short sentence and invite them to tell you about the trip. Never open with what you cannot do.',
     'Mention limits only when they are relevant: if they ask to buy something that is not a flight, say kindly that flights are what you can arrange right now and offer to plan one.',
@@ -253,18 +258,27 @@ function describeDraft(draft: MandateChatDraft): string {
   return parts.length > 0 ? parts.join('; ') : 'nothing yet';
 }
 
+/**
+ * The model's draft is advisory: every field is validated against the strict draft shape, and
+ * anything that does not fit ("" for a time, 0 for a limit, an unknown currency) falls back to
+ * what deterministic grounding already established.
+ */
 function mergeGroundedDraft(
   grounded: MandateChatDraft,
-  interpreted: MandateChatDraft,
+  interpreted: MandateChatModelDraft,
 ): MandateChatDraft {
-  return MandateChatDraftSchema.parse(
-    Object.fromEntries(
-      Object.keys(grounded).map((key) => {
-        const field = key as keyof MandateChatDraft;
-        return [field, interpreted[field] ?? grounded[field]];
-      }),
-    ),
-  );
+  const merged: Record<string, unknown> = {};
+  const fieldSchemas = MandateChatDraftSchema.shape as Record<string, z.ZodTypeAny>;
+  for (const key of Object.keys(grounded) as Array<keyof MandateChatDraft>) {
+    const candidate = coerceModelValue(key, interpreted[key]);
+    const schema = fieldSchemas[key];
+    const accepted =
+      candidate !== null && candidate !== undefined && candidate !== '' && schema
+        ? schema.safeParse(candidate)
+        : null;
+    merged[key] = accepted?.success ? accepted.data : grounded[key];
+  }
+  return MandateChatDraftSchema.parse(merged);
 }
 
 export function scriptedMandateChat(input: MandateChatRequest, now: Date): MandateChatResponse {
@@ -332,7 +346,9 @@ export function scriptedMandateChat(input: MandateChatRequest, now: Date): Manda
     }
   }
 
-  const expiry = authorizationExpiry(latest, now, isWaitingForValidity(draft));
+  const explicit = explicitExpiryDate(latest, now);
+  if (explicit) draft.validUntil = explicit.toISOString();
+  const expiry = explicit ? null : authorizationExpiry(latest, now, isWaitingForValidity(draft));
   if (expiry) draft.validUntil = expiry.toISOString();
 
   const asksForSomethingElse =
@@ -621,4 +637,92 @@ export function travelConstraints(text: string): {
   if (hours)
     out.maxDurationMinutes = Math.round((Number(hours[1]) + Number(hours[2] ?? 0) / 10) * 60);
   return out;
+}
+
+/** Nudge near-miss model values into shape before validation ("2026-09-30T23:59:59" → ISO, "9:00" → "09:00"). */
+function coerceModelValue(key: keyof MandateChatDraft, value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (key === 'validUntil' && typeof value === 'string') {
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? new Date(ms).toISOString() : value;
+  }
+  if ((key === 'departureDateFrom' || key === 'departureDateTo') && typeof value === 'string') {
+    return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : value;
+  }
+  if ((key === 'departureTimeFrom' || key === 'departureTimeTo') && typeof value === 'string') {
+    const m = value.match(/^(\d{1,2}):(\d{2})/);
+    return m ? `${m[1]!.padStart(2, '0')}:${m[2]}` : value;
+  }
+  if (typeof value === 'number') return Number.isFinite(value) ? Math.round(value) : null;
+  if (
+    typeof value === 'string' &&
+    (key === 'origin' || key === 'destination' || key === 'currency')
+  )
+    return value.trim().toUpperCase();
+  if (typeof value === 'string' && (key === 'category' || key === 'escalation'))
+    return value.trim().toLowerCase();
+  return value;
+}
+
+const MONTHS: Record<string, number> = {
+  january: 0,
+  jan: 0,
+  enero: 0,
+  ene: 0,
+  february: 1,
+  feb: 1,
+  febrero: 1,
+  march: 2,
+  mar: 2,
+  marzo: 2,
+  april: 3,
+  apr: 3,
+  abril: 3,
+  abr: 3,
+  may: 4,
+  mayo: 4,
+  june: 5,
+  jun: 5,
+  junio: 5,
+  july: 6,
+  jul: 6,
+  julio: 6,
+  august: 7,
+  aug: 7,
+  agosto: 7,
+  ago: 7,
+  september: 8,
+  sep: 8,
+  sept: 8,
+  septiembre: 8,
+  setiembre: 8,
+  october: 9,
+  oct: 9,
+  octubre: 9,
+  november: 10,
+  nov: 10,
+  noviembre: 10,
+  december: 11,
+  dec: 11,
+  diciembre: 11,
+  dic: 11,
+};
+
+/** "valid until 30 September", "hasta el 15 de octubre", "until Sept 30, 2026" → end of that day (UTC). */
+export function explicitExpiryDate(text: string, now: Date): Date | null {
+  const m = text.match(
+    /\b(?:valid|válido|valido|vigente|good)?\s*(?:until|till|through|hasta)\s+(?:the\s+|el\s+)?(?:(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+|de\s+)?([a-záéíóú]+)|([a-záéíóú]+)\s+(\d{1,2})(?:st|nd|rd|th)?)(?:,?\s+(\d{4}))?/i,
+  );
+  if (!m) return null;
+  const day = Number(m[1] ?? m[4]);
+  const monthName = (m[2] ?? m[3] ?? '').toLowerCase();
+  const month = MONTHS[monthName];
+  if (month === undefined || !Number.isInteger(day) || day < 1 || day > 31) return null;
+  let year = m[5] ? Number(m[5]) : now.getUTCFullYear();
+  let candidate = new Date(Date.UTC(year, month, day, 23, 59, 59));
+  if (!m[5] && candidate.getTime() < now.getTime()) {
+    year += 1;
+    candidate = new Date(Date.UTC(year, month, day, 23, 59, 59));
+  }
+  return Number.isNaN(candidate.getTime()) ? null : candidate;
 }

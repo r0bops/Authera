@@ -1,7 +1,12 @@
 import { mandateChatSuggestions } from '@authera/contracts';
 import { describe, expect, it } from 'vitest';
 import type { MandateChatDraft, MandateChatRequest } from '@authera/contracts';
-import { departureTimeWindow, scriptedMandateChat, travelConstraints } from './mandate-chat.js';
+import {
+  departureTimeWindow,
+  explicitExpiryDate,
+  scriptedMandateChat,
+  travelConstraints,
+} from './mandate-chat.js';
 
 const emptyDraft: MandateChatDraft = {
   category: null,
@@ -57,6 +62,20 @@ describe('departure-time window grounding', () => {
     expect(departureTimeWindow('before 10:30')).toEqual({ from: '00:00', to: '10:30' });
     expect(departureTimeWindow('valid for the next 3 days')).toBeNull();
     expect(departureTimeWindow('tomorrow morning is fine for the answer')).toBeNull();
+  });
+});
+
+describe('explicit expiry dates', () => {
+  it('reads "valid until 30 September" and "hasta el 15 de octubre" as the end of that day', () => {
+    const now = new Date('2026-08-30T10:00:00.000Z');
+    expect(
+      explicitExpiryDate('valid until 30 September, block anything above', now)?.toISOString(),
+    ).toBe('2026-09-30T23:59:59.000Z');
+    expect(explicitExpiryDate('vigente hasta el 15 de octubre', now)?.toISOString()).toBe(
+      '2026-10-15T23:59:59.000Z',
+    );
+    expect(explicitExpiryDate('until Jan 5', now)?.toISOString()).toBe('2027-01-05T23:59:59.000Z');
+    expect(explicitExpiryDate('valid for the next 3 days', now)).toBeNull();
   });
 });
 

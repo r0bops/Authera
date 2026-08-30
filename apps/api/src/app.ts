@@ -48,6 +48,7 @@ import type { PaymentProcessor } from './services/payments/processor.js';
 import { MandateSigner } from './services/mandate-signer.js';
 import { BookingService } from './services/booking-service.js';
 import { MandateChatService } from './services/mandate-chat.js';
+import { ChatNarrator } from './services/chat-narrator.js';
 import { humanChatSessionRoutes } from './routes/human/chat-sessions.js';
 import { ChatSessionService } from './services/chat-session-service.js';
 
@@ -167,8 +168,8 @@ export function createApp(deps: AppDependencies): App {
               // so the gateway can hand the decision to the human.
               autoBuy: async (mandateId: string, offerId: string, withinLimit: boolean) => {
                 if (!runner) return;
-                if (withinLimit) await runner.run({ mandateId });
-                else await runner.direct({ mandateId, offerId });
+                if (withinLimit) await runner.run({ mandateId, trigger: 'watch' });
+                else await runner.direct({ mandateId, offerId, trigger: 'watch' });
               },
             }
           : {}),
@@ -273,12 +274,15 @@ export function createApp(deps: AppDependencies): App {
 
     // Demo controls (DEMO_MODE only). The runner talks to this very app over signed HTTP.
     if (deps.config.demo.enabled) {
+      const narrator = new ChatNarrator({ db, logger: deps.logger });
       runner = new AgentRunner({
         db,
         keys,
         clock,
         config: deps.config,
         logger: deps.logger,
+        // Aria talks back: the conversation a plan came from hears what happened under it.
+        onOutcome: (event) => void narrator.tell(event),
         fetch: (request) => Promise.resolve(app.fetch(request)),
       });
       app.route(

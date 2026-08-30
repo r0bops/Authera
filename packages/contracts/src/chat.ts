@@ -49,9 +49,37 @@ export const MandateChatRequestSchema = z.strictObject({
 });
 export type MandateChatRequest = z.infer<typeof MandateChatRequestSchema>;
 
+/**
+ * What the MODEL may return for the draft: the same keys, but lenient — a model that writes ""
+ * for a time it does not know, or 0 for a limit that was not given, must not sink the whole
+ * reply. Code sanitizes this into `MandateChatDraftSchema`; the strict shape is what we store.
+ */
+export const MandateChatModelDraftSchema = z.strictObject({
+  category: z.string().nullable().describe('"flight" once the person wants a flight; else null'),
+  origin: z.string().nullable().describe('IATA airport code, e.g. CCS'),
+  destination: z.string().nullable().describe('IATA airport code, e.g. COR'),
+  departureDateFrom: z.string().nullable().describe('YYYY-MM-DD'),
+  departureDateTo: z.string().nullable().describe('YYYY-MM-DD'),
+  dateFlexibilityDays: z.number().nullable().describe('integer days, usually 0'),
+  departureTimeFrom: z.string().nullable().describe('HH:mm 24-hour local time, only if stated'),
+  departureTimeTo: z.string().nullable().describe('HH:mm 24-hour local time, only if stated'),
+  maxDurationMinutes: z.number().nullable().describe('integer minutes, only if stated'),
+  maxStops: z.number().nullable().describe('0 = direct only; only if stated'),
+  passengerCount: z.number().nullable().describe('integer 1-9'),
+  maxPerPurchaseMinor: z.number().nullable().describe('integer minor units: USD 150 = 15000'),
+  currency: z.string().nullable().describe('ISO 4217 code, e.g. USD'),
+  maxFulfillments: z.number().nullable().describe('integer purchases allowed, usually 1'),
+  validUntil: z
+    .string()
+    .nullable()
+    .describe('ISO 8601 datetime when the authorization expires, e.g. 2026-09-30T23:59:59Z'),
+  escalation: z.string().nullable().describe('"block" or "require_human"; null until stated'),
+});
+export type MandateChatModelDraft = z.infer<typeof MandateChatModelDraftSchema>;
+
 export const MandateChatModelOutputSchema = z.strictObject({
   reply: z.string().trim().min(1).max(500),
-  draft: MandateChatDraftSchema,
+  draft: MandateChatModelDraftSchema,
   missingFields: z.array(
     z.enum([
       'category',
@@ -138,6 +166,8 @@ export function mandateChatSuggestions(
 }
 
 export const MandateChatResponseSchema = MandateChatModelOutputSchema.extend({
+  /** Stored/returned drafts are always the strict shape; only the model's raw draft is lenient. */
+  draft: MandateChatDraftSchema,
   interpreter: z.enum(['openai', 'scripted']),
 });
 export type MandateChatResponse = z.infer<typeof MandateChatResponseSchema>;

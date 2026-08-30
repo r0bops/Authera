@@ -23,6 +23,7 @@ import { ApiProblem } from '../http/problem.js';
 import type { Logger } from '../logger.js';
 import { AGENT_TAGS } from '../middleware/agent-signature.js';
 import { AgentHttpClient } from './agent-client.js';
+import type { AgentOutcomeEvent } from './chat-narrator.js';
 
 export interface CapturedRequest {
   executionId: string;
@@ -39,6 +40,8 @@ export interface AgentRunnerDependencies {
   clock: Clock;
   config: AppConfig;
   logger: Logger;
+  /** Told after every attempt that produced a gateway verdict (or an agent run without one). */
+  onOutcome?: (event: AgentOutcomeEvent) => void;
   /** In-process transport: the same Hono app, so every demo call passes the signature middleware. */
   fetch: (request: Request) => Promise<Response>;
 }
@@ -76,6 +79,7 @@ export class AgentRunner {
   async run(input: {
     mandateId: string;
     mode?: 'scripted' | 'openai';
+    trigger?: 'watch' | 'demo';
   }): Promise<DemoAttemptResult> {
     const mandate = await getMandate(this.deps.db, input.mandateId);
     if (!mandate) throw ApiProblem.notFound('mandate');
@@ -130,6 +134,15 @@ export class AgentRunner {
       },
       'agent run finished',
     );
+    this.deps.onOutcome?.({
+      mandateId: input.mandateId,
+      trigger: input.trigger ?? 'demo',
+      outcome: execution.result.outcome,
+      consideredCount: execution.result.consideredOfferIds.length,
+      ...(execution.result.selectedOfferId ? { offerId: execution.result.selectedOfferId } : {}),
+      ...(execution.result.purchase ? { purchase: execution.result.purchase } : {}),
+      limit: { minor: policy.limits.maxPerPurchaseMinor, currency: policy.limits.currency },
+    });
     return {
       mode: execution.result.executedMode,
       fallbackUsed: execution.result.fallbackUsed,
@@ -157,6 +170,7 @@ export class AgentRunner {
     checkoutId?: string;
     impersonate?: boolean;
     executionId?: string;
+    trigger?: 'watch' | 'demo';
   }): Promise<DemoDirectAttemptResult> {
     const client = await this.client(input.impersonate ? this.impostor : undefined);
     const checkoutClient = input.impersonate ? await this.client() : client;
@@ -230,6 +244,23 @@ export class AgentRunner {
     const response = await this.deps.fetch(request);
     const body = (await response.json()) as { ok: boolean; data?: unknown };
     const purchase = body.ok ? PurchaseAttemptResponseSchema.safeParse(body.data) : undefined;
+    if (purchase?.success && !input.impersonate) {
+      const mandate = await getMandate(this.deps.db, input.mandateId);
+      this.deps.onOutcome?.({
+        mandateId: input.mandateId,
+        trigger: input.trigger ?? 'demo',
+        offerId: input.offerId,
+        purchase: purchase.data,
+        ...(mandate
+          ? {
+              limit: {
+                minor: mandate.policy.limits.maxPerPurchaseMinor,
+                currency: mandate.policy.limits.currency,
+              },
+            }
+          : {}),
+      });
+    }
     return {
       status: response.status,
       response: body,

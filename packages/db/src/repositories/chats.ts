@@ -221,6 +221,20 @@ export async function replaceChatSessionDraft(
   });
 }
 
+/** The conversation a signed plan came from (the most recent one linked to it), if any. */
+export async function findChatSessionByMandate(
+  db: DbExecutor,
+  mandateId: string,
+): Promise<{ id: string; userId: string } | null> {
+  const [row] = await db
+    .select({ id: chatSessions.id, userId: chatSessions.userId })
+    .from(chatSessions)
+    .where(eq(chatSessions.mandateId, mandateId))
+    .orderBy(desc(chatSessions.updatedAt))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function chatSessionLifecycle(
   db: DbExecutor,
   mandateId: string | null,

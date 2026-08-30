@@ -197,7 +197,7 @@ export class ChatSessionService {
       userId: user.id,
       mandateId,
       assistantMessage:
-        'The plan is signed and active. I will watch for verified flights inside those exact rules.',
+        "Signed and active — I'm on it. I'll keep checking live fares and tell you here the moment one fits your rules, or if I need your call.",
     });
     if (!linked) throw ApiProblem.notFound('chat or mandate');
     return this.get(user, id);
